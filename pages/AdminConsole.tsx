@@ -1,0 +1,931 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DB } from '../services/db';
+import { AuthService } from '../services/auth';
+import { useAuth } from '../context/AuthContext';
+import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, User, UserRole, UserPermissions, DEFAULT_PERMISSIONS } from '../types';
+import { DetailModal } from '../components/DetailModal';
+import { 
+  Trash2, RefreshCw, Users, 
+  Lock, CheckCircle, AlertTriangle, Table, Code, 
+  LogOut, LayoutDashboard, Search, Terminal, Activity,
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert, FileText, Plus, Save, X, Edit
+} from 'lucide-react';
+
+type Section = 'dashboard' | 'database' | 'recycle' | 'users' | 'settings' | 'templates';
+type RecycleType = 'policies' | 'slips' | 'clauses';
+type DbViewType = 'policies' | 'slips' | 'clauses';
+
+const AdminConsole: React.FC = () => {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const [activeSection, setActiveSection] = useState<Section>('database');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // Recycle Bin State
+  const [recycleType, setRecycleType] = useState<RecycleType>('policies');
+  const [deletedPolicies, setDeletedPolicies] = useState<Policy[]>([]);
+  const [deletedSlips, setDeletedSlips] = useState<ReinsuranceSlip[]>([]);
+  const [deletedClauses, setDeletedClauses] = useState<Clause[]>([]);
+
+  // Database Browser State
+  const [dbViewType, setDbViewType] = useState<DbViewType>('policies');
+  const [rawPolicies, setRawPolicies] = useState<Policy[]>([]);
+  const [rawSlips, setRawSlips] = useState<ReinsuranceSlip[]>([]);
+  const [rawClauses, setRawClauses] = useState<Clause[]>([]);
+
+  // Templates State
+  const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+  const [currentTemplate, setCurrentTemplate] = useState<PolicyTemplate>({
+      id: '',
+      name: '',
+      description: '',
+      content: ''
+  });
+
+  // User Management State
+  const [users, setUsers] = useState<User[]>([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Partial<User>>({
+      name: '',
+      email: '',
+      password: '',
+      role: 'Viewer',
+      avatarUrl: 'NU'
+  });
+  
+  // Selection & Modal State
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // Stats for Dashboard
+  const stats = {
+    totalPolicies: rawPolicies.length,
+    totalSlips: rawSlips.length,
+    totalClauses: rawClauses.length,
+    deletedItems: deletedPolicies.length + deletedSlips.length + deletedClauses.length
+  };
+
+  const loadAllData = async () => {
+    setLoading(true);
+    const [p, s, c, t, u] = await Promise.all([
+        DB.getAllPolicies(), 
+        DB.getAllSlips(), 
+        DB.getAllClauses(), 
+        DB.getTemplates(),
+        DB.getUsers()
+    ]);
+    setRawPolicies(p);
+    setRawSlips(s);
+    setRawClauses(c);
+    setTemplates(t);
+    setUsers(u);
+
+    const [dp, ds, dc] = await Promise.all([DB.getDeletedPolicies(), DB.getDeletedSlips(), DB.getDeletedClauses()]);
+    setDeletedPolicies(dp);
+    setDeletedSlips(ds);
+    setDeletedClauses(dc);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadAllData();
+  }, [activeSection, dbViewType, recycleType]);
+
+  const handleRowClick = (item: any) => {
+    setSelectedItem(item);
+  };
+
+  const handleRestore = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (recycleType === 'policies') await DB.restorePolicy(id);
+    if (recycleType === 'slips') await DB.restoreSlip(id);
+    if (recycleType === 'clauses') await DB.restoreClause(id);
+    loadAllData();
+  };
+
+  const handleHardDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (confirm("Are you sure? This action is irreversible.")) {
+        if (recycleType === 'policies') await DB.hardDeletePolicy(id);
+        if (recycleType === 'slips') await DB.hardDeleteSlip(id);
+        if (recycleType === 'clauses') await DB.hardDeleteClause(id);
+        loadAllData();
+    }
+  };
+
+  // Template Handlers
+  const handleEditTemplate = (tpl?: PolicyTemplate) => {
+      if (tpl) {
+          setCurrentTemplate(tpl);
+      } else {
+          setCurrentTemplate({ id: crypto.randomUUID(), name: '', description: '', content: '' });
+      }
+      setIsEditingTemplate(true);
+  };
+
+  const handleSaveTemplate = async () => {
+      if (!currentTemplate.name || !currentTemplate.content) {
+          alert("Name and Content are required");
+          return;
+      }
+      await DB.saveTemplate(currentTemplate);
+      setIsEditingTemplate(false);
+      loadAllData();
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+      if(confirm("Delete this template?")) {
+          await DB.deleteTemplate(id);
+          loadAllData();
+      }
+  }
+
+  // User Handlers
+  const handleEditUser = (u?: User) => {
+      if (u) {
+          // If editing existing user, ensure permissions object exists (legacy data handling)
+          setCurrentUser({
+              ...u,
+              permissions: u.permissions || DEFAULT_PERMISSIONS[u.role]
+          });
+      } else {
+          // New User Default
+          setCurrentUser({
+              id: '', // Empty ID indicates NEW user
+              name: '',
+              email: '',
+              password: '',
+              role: 'Underwriter',
+              avatarUrl: 'NU',
+              permissions: { ...DEFAULT_PERMISSIONS['Underwriter'] }
+          });
+      }
+      setShowUserModal(true);
+  };
+
+  const handleSaveUser = async () => {
+      if (!currentUser.name || !currentUser.email || !currentUser.role) {
+          alert("Name, Email and Role are required");
+          return;
+      }
+      // Simple validation for password on new users
+      if (!currentUser.id && !currentUser.password) {
+          alert("Password is required for new users");
+          return;
+      }
+
+      // If ID is missing, it's a new user -> generate ID
+      const userToSave: User = {
+          ...currentUser,
+          id: currentUser.id || crypto.randomUUID(),
+          // Ensure permissions are set
+          permissions: currentUser.permissions || DEFAULT_PERMISSIONS[currentUser.role as UserRole]
+      } as User;
+
+      await DB.saveUser(userToSave);
+      setShowUserModal(false);
+      loadAllData();
+  };
+
+  const handleDeleteUser = async (id: string) => {
+      if (id === user?.id) {
+          alert("You cannot delete your own account.");
+          return;
+      }
+      if (confirm("Delete this user? They will no longer be able to log in.")) {
+          await DB.deleteUser(id);
+          loadAllData();
+      }
+  };
+
+  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newRole = e.target.value as UserRole;
+      setCurrentUser(prev => ({
+          ...prev,
+          role: newRole,
+          // Reset permissions to defaults for this role when role changes
+          permissions: { ...DEFAULT_PERMISSIONS[newRole] }
+      }));
+  };
+
+  const togglePermission = (key: keyof UserPermissions) => {
+      if (!currentUser.permissions) return;
+      setCurrentUser(prev => ({
+          ...prev,
+          permissions: {
+              ...prev.permissions!,
+              [key]: !prev.permissions![key]
+          }
+      }));
+  };
+  
+  const handleExit = async () => {
+    navigate('/');
+  }
+
+  // --- SUB-COMPONENT RENDERERS ---
+
+  const renderDashboardHome = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+        <h2 className="text-2xl font-bold text-gray-800">System Overview</h2>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-sm font-medium mb-2">Total Policies</div>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalPolicies}</div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-sm font-medium mb-2">Reinsurance Slips</div>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalSlips}</div>
+            </div>
+             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-sm font-medium mb-2">Clause Library</div>
+                <div className="text-3xl font-bold text-gray-900">{stats.totalClauses}</div>
+            </div>
+            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+                <div className="text-gray-500 text-sm font-medium mb-2">Deleted Items</div>
+                <div className="text-3xl font-bold text-red-600">{stats.deletedItems}</div>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Activity size={20}/> System Health</h3>
+                <div className="space-y-4">
+                     <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                         <span className="text-gray-600">Identity Provider (IdP)</span>
+                         <span className="font-bold text-green-600 flex items-center gap-1"><ShieldCheck size={14}/> Connected</span>
+                     </div>
+                     <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                         <span className="text-gray-600">Database Connection</span>
+                         <span className="font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Healthy</span>
+                     </div>
+                     <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                         <span className="text-gray-600">Storage Usage</span>
+                         <span className="font-bold text-gray-800">45 MB / 500 MB</span>
+                     </div>
+                </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+                 <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Terminal size={20}/> Quick Actions</h3>
+                 <div className="space-y-2">
+                    <button onClick={() => setActiveSection('database')} className="w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 font-medium transition-colors flex justify-between group">
+                        Browse Database <Table size={16} className="opacity-50 group-hover:opacity-100"/>
+                    </button>
+                    <button onClick={() => setActiveSection('users')} className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-700 font-medium transition-colors flex justify-between group">
+                        Manage Users <Users size={16} className="opacity-50 group-hover:opacity-100"/>
+                    </button>
+                 </div>
+            </div>
+        </div>
+    </div>
+  );
+
+  const renderDatabaseBrowser = () => (
+    <div className="flex flex-col h-full animate-in fade-in zoom-in duration-200">
+        <div className="flex justify-between items-center mb-6">
+             <h2 className="text-2xl font-bold text-gray-800">Database Browser</h2>
+             <div className="flex bg-white rounded-lg shadow-sm border p-1">
+                {(['policies', 'slips', 'clauses'] as const).map(type => (
+                    <button
+                        key={type}
+                        onClick={() => setDbViewType(type)}
+                        className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${dbViewType === type ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'}`}
+                    >
+                        {type}
+                    </button>
+                ))}
+             </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 overflow-hidden flex flex-col">
+            <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
+                 <div className="relative">
+                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    <input type="text" placeholder="Filter records..." className="pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 w-64"/>
+                 </div>
+                 <div className="text-xs text-gray-500 font-mono">
+                    Showing {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).length} records
+                 </div>
+            </div>
+            
+            <div className="flex-1 overflow-auto">
+                <table className="w-full text-xs text-left border-collapse">
+                    <thead className="bg-gray-100 text-gray-600 border-b border-gray-300 sticky top-0 z-10 shadow-sm font-bold uppercase tracking-wider">
+                        <tr>
+                            <th className="px-4 py-3 border-r w-16 text-center">Data</th>
+                            <th className="px-4 py-3 border-r">ID</th>
+                            {dbViewType === 'policies' && (
+                                <>
+                                    <th className="px-4 py-3 border-r">Reference</th>
+                                    <th className="px-4 py-3 border-r">Record Type</th>
+                                    <th className="px-4 py-3 border-r">Insured Name</th>
+                                    <th className="px-4 py-3 border-r">Status</th>
+                                </>
+                            )}
+                            {dbViewType === 'slips' && (
+                                <>
+                                    <th className="px-4 py-3 border-r">Slip Number</th>
+                                    <th className="px-4 py-3 border-r">Date</th>
+                                    <th className="px-4 py-3 border-r">Insured Name</th>
+                                </>
+                            )}
+                            {dbViewType === 'clauses' && (
+                                <>
+                                    <th className="px-4 py-3 border-r">Title</th>
+                                    <th className="px-4 py-3 border-r">Category</th>
+                                    <th className="px-4 py-3 border-r">Std</th>
+                                </>
+                            )}
+                            <th className="px-4 py-3 text-center w-24">State</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-mono text-gray-600">
+                        {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).map((item: any) => (
+                            <tr 
+                                key={item.id} 
+                                onClick={() => handleRowClick(item)}
+                                className={`hover:bg-blue-50 cursor-pointer transition-colors ${item.isDeleted ? 'bg-red-50 text-red-900' : ''}`}
+                            >
+                                <td className="px-4 py-2 border-r text-center">
+                                    <div className="text-blue-600 hover:text-blue-800"><Code size={14}/></div>
+                                </td>
+                                <td className="px-4 py-2 border-r truncate max-w-[120px]">{item.id}</td>
+                                {dbViewType === 'policies' && (
+                                    <>
+                                        <td className="px-4 py-2 border-r font-medium text-gray-900">{item.policyNumber}</td>
+                                        <td className="px-4 py-2 border-r">{item.recordType}</td>
+                                        <td className="px-4 py-2 border-r truncate max-w-[200px]">{item.insuredName}</td>
+                                        <td className="px-4 py-2 border-r">{item.status}</td>
+                                    </>
+                                )}
+                                {dbViewType === 'slips' && (
+                                    <>
+                                        <td className="px-4 py-2 border-r font-medium text-gray-900">{item.slipNumber}</td>
+                                        <td className="px-4 py-2 border-r">{item.date}</td>
+                                        <td className="px-4 py-2 border-r">{item.insuredName}</td>
+                                    </>
+                                )}
+                                {dbViewType === 'clauses' && (
+                                    <>
+                                        <td className="px-4 py-2 border-r font-medium text-gray-900 truncate max-w-[300px]">{item.title}</td>
+                                        <td className="px-4 py-2 border-r">{item.category}</td>
+                                        <td className="px-4 py-2 border-r">{item.isStandard ? 'Y' : 'N'}</td>
+                                    </>
+                                )}
+                                <td className="px-4 py-2 text-center">
+                                    {item.isDeleted ? <span className="text-red-600 font-bold text-[10px] uppercase border border-red-200 bg-red-100 px-1 rounded">Deleted</span> : <span className="text-green-600 text-[10px] uppercase">Active</span>}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+  );
+
+  const renderTemplates = () => (
+      <div className="flex flex-col h-full animate-in fade-in zoom-in duration-200">
+        <div className="flex justify-between items-center mb-6">
+             <div>
+                <h2 className="text-2xl font-bold text-gray-800">Policy Templates</h2>
+                <p className="text-sm text-gray-500">Manage agreement wordings and placeholders.</p>
+             </div>
+             <button onClick={() => handleEditTemplate()} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
+                 <Plus size={18}/> New Template
+             </button>
+        </div>
+
+        {isEditingTemplate ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 p-6 overflow-hidden">
+                <div className="flex justify-between items-center mb-4 border-b pb-4">
+                    <h3 className="font-bold text-lg">Edit Template</h3>
+                    <div className="flex gap-2">
+                        <button onClick={() => setIsEditingTemplate(false)} className="text-gray-500 hover:text-gray-700 px-3 py-1">Cancel</button>
+                        <button onClick={handleSaveTemplate} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 flex items-center gap-2"><Save size={16}/> Save</button>
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full overflow-hidden">
+                    <div className="md:col-span-2 flex flex-col gap-4 h-full overflow-y-auto pr-2">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
+                            <input 
+                                className="w-full border rounded p-2" 
+                                value={currentTemplate.name} 
+                                onChange={e => setCurrentTemplate({...currentTemplate, name: e.target.value})}
+                                placeholder="e.g. Standard Commercial Property"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                            <input 
+                                className="w-full border rounded p-2" 
+                                value={currentTemplate.description} 
+                                onChange={e => setCurrentTemplate({...currentTemplate, description: e.target.value})}
+                                placeholder="Description of use..."
+                            />
+                        </div>
+                        <div className="flex-1 flex flex-col">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Content (HTML/Text)</label>
+                            <textarea 
+                                className="w-full border rounded p-4 font-mono text-sm flex-1 focus:ring-2 focus:ring-blue-500 outline-none" 
+                                value={currentTemplate.content} 
+                                onChange={e => setCurrentTemplate({...currentTemplate, content: e.target.value})}
+                                placeholder="<h1>Policy Schedule</h1>..."
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* Cheat Sheet */}
+                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 overflow-y-auto">
+                        <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase">Available Variables</h4>
+                        <p className="text-xs text-gray-500 mb-4">Use these placeholders in your content. They will be replaced by actual policy data.</p>
+                        <div className="space-y-2 text-xs font-mono">
+                            {['policyNumber', 'insuredName', 'insuredAddress', 'inceptionDate', 'expiryDate', 'sumInsured', 'currency', 'grossPremium', 'industry', 'territory', 'classOfInsurance', 'deductible', 'issueDate'].map(v => (
+                                <div key={v} className="bg-white p-2 rounded border border-gray-200 cursor-pointer hover:bg-blue-50 flex justify-between group"
+                                     onClick={() => setCurrentTemplate({...currentTemplate, content: currentTemplate.content + `{{${v}}}`})}>
+                                    <span>{`{{${v}}}`}</span>
+                                    <Plus size={12} className="opacity-0 group-hover:opacity-100 text-blue-500"/>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {templates.map(t => (
+                    <div key={t.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative">
+                        <div className="flex justify-between items-start mb-2">
+                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FileText size={20}/></div>
+                             <button onClick={() => handleDeleteTemplate(t.id)} className="text-gray-300 hover:text-red-500"><X size={16}/></button>
+                        </div>
+                        <h3 className="font-bold text-gray-800">{t.name}</h3>
+                        <p className="text-sm text-gray-500 mb-4 line-clamp-2">{t.description}</p>
+                        <button onClick={() => handleEditTemplate(t)} className="w-full py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Edit Template</button>
+                    </div>
+                ))}
+            </div>
+        )}
+      </div>
+  );
+
+  const renderRecycleBin = () => (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+        <h2 className="text-2xl font-bold text-gray-800">Recycle Bin</h2>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 border-b bg-gray-50 flex gap-4">
+                 {(['policies', 'slips', 'clauses'] as const).map(type => (
+                    <button
+                        key={type}
+                        onClick={() => setRecycleType(type)}
+                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${recycleType === type ? 'bg-white shadow text-red-600 border' : 'text-gray-500 hover:bg-gray-200'}`}
+                    >
+                        {type} ({(type === 'policies' ? deletedPolicies : type === 'slips' ? deletedSlips : deletedClauses).length})
+                    </button>
+                ))}
+            </div>
+
+            <table className="w-full text-sm text-left">
+                <thead className="bg-white text-gray-700 font-semibold border-b">
+                    <tr>
+                        <th className="px-6 py-4">Item Reference</th>
+                        <th className="px-6 py-4">Description</th>
+                        <th className="px-6 py-4 text-right">Recovery Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {((recycleType === 'policies' ? deletedPolicies : recycleType === 'slips' ? deletedSlips : deletedClauses) as any[]).map(item => (
+                        <tr 
+                            key={item.id} 
+                            onClick={() => handleRowClick(item)}
+                            className="group hover:bg-gray-50 cursor-pointer"
+                        >
+                            <td className="px-6 py-4 font-mono text-gray-600">
+                                {item.policyNumber || item.slipNumber || item.category + '-' + item.id.substring(0,4)}
+                            </td>
+                            <td className="px-6 py-4">
+                                {item.insuredName || item.title || 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-right flex justify-end gap-3">
+                                <button 
+                                    onClick={(e) => handleRestore(e, item.id)} 
+                                    className="text-green-600 hover:text-green-800 font-medium text-xs flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-md border border-green-100 hover:border-green-300 transition-all"
+                                >
+                                    <RefreshCw size={12} /> Restore
+                                </button>
+                                <button 
+                                    onClick={(e) => handleHardDelete(e, item.id)} 
+                                    className="text-red-600 hover:text-red-800 font-medium text-xs flex items-center gap-1 bg-red-50 px-3 py-1.5 rounded-md border border-red-100 hover:border-red-300 transition-all"
+                                >
+                                    <Trash2 size={12} /> Shred
+                                </button>
+                            </td>
+                        </tr>
+                    ))}
+                    {((recycleType === 'policies' && deletedPolicies.length === 0) ||
+                      (recycleType === 'slips' && deletedSlips.length === 0) ||
+                      (recycleType === 'clauses' && deletedClauses.length === 0)) && (
+                        <tr>
+                            <td colSpan={3} className="px-6 py-12 text-center text-gray-400">
+                                <Trash2 size={48} className="mx-auto mb-4 opacity-20"/>
+                                Recycle bin is empty for this category.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+  );
+
+  const renderUsers = () => {
+    return (
+     <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
+            <button 
+                onClick={() => handleEditUser()}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+                <Plus size={18}/> Add User
+            </button>
+        </div>
+        
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="p-4 border-b bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
+                <ShieldCheck size={16} />
+                <span>Internal System Users (Locally Managed)</span>
+            </div>
+            <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-700">
+                    <tr>
+                        <th className="px-6 py-4">User Identity</th>
+                        <th className="px-6 py-4">Role & Authority</th>
+                        <th className="px-6 py-4 text-center">Last Login</th>
+                        <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y">
+                    {users.map(u => (
+                        <tr key={u.id} className="hover:bg-gray-50 group">
+                            <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">
+                                        {u.avatarUrl}
+                                    </div>
+                                    <div>
+                                        <div className="font-bold text-gray-900">{u.name}</div>
+                                        <div className="text-sm text-gray-500">{u.email}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                    u.role === 'Super Admin' ? 'bg-purple-100 text-purple-700' : 
+                                    u.role === 'Admin' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-gray-100 text-gray-700'
+                                }`}>
+                                    {u.role}
+                                </span>
+                            </td>
+                            <td className="px-6 py-4 text-center text-sm text-gray-500">
+                                {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString() : 'Never'}
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                                <div className="flex justify-end gap-2">
+                                    <button 
+                                        onClick={() => handleEditUser(u)} 
+                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                        title="Edit User"
+                                    >
+                                        <Edit size={16}/>
+                                    </button>
+                                    {u.id !== user?.id && (
+                                        <button 
+                                            onClick={() => handleDeleteUser(u.id)}
+                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            title="Delete User"
+                                        >
+                                            <Trash2 size={16}/>
+                                        </button>
+                                    )}
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+
+        {/* User Modal - Modified to prevent outside click close */}
+        {showUserModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
+                    <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 bg-gray-50 z-10">
+                        <h3 className="font-bold text-gray-800">{currentUser.id ? 'Edit User' : 'Add New User'}</h3>
+                        <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
+                            <input 
+                                className="w-full border rounded p-2" 
+                                value={currentUser.name} 
+                                onChange={e => setCurrentUser({...currentUser, name: e.target.value})}
+                                placeholder="e.g. John Doe"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Email (Login)</label>
+                            <input 
+                                className="w-full border rounded p-2" 
+                                value={currentUser.email} 
+                                onChange={e => setCurrentUser({...currentUser, email: e.target.value})}
+                                placeholder="john@example.com"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">
+                                {currentUser.id ? 'Reset Password (optional)' : 'Password'}
+                            </label>
+                            <input 
+                                type="text"
+                                className="w-full border rounded p-2" 
+                                value={currentUser.password || ''} 
+                                onChange={e => setCurrentUser({...currentUser, password: e.target.value})}
+                                placeholder={currentUser.id ? "Leave empty to keep current" : "Secure password"}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Role & Authority</label>
+                            <select 
+                                className="w-full border rounded p-2"
+                                value={currentUser.role}
+                                onChange={handleRoleChange}
+                            >
+                                <option value="Super Admin">Super Admin (Full Access)</option>
+                                <option value="Admin">Admin (Manager)</option>
+                                <option value="Underwriter">Underwriter (Standard)</option>
+                                <option value="Viewer">Viewer (Read Only)</option>
+                            </select>
+                        </div>
+                        
+                        {/* Permissions Grid */}
+                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-3">Detailed Permissions</label>
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canView || false} 
+                                        onChange={() => togglePermission('canView')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span>View Records</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canCreate || false} 
+                                        onChange={() => togglePermission('canCreate')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span>Create Records</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canEdit || false} 
+                                        onChange={() => togglePermission('canEdit')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span>Edit Records</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canBind || false} 
+                                        onChange={() => togglePermission('canBind')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span>Bind / Activate</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canCancel || false} 
+                                        onChange={() => togglePermission('canCancel')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span>Cancel / NTU</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canDelete || false} 
+                                        onChange={() => togglePermission('canDelete')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span>Delete Records</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:text-blue-700 col-span-2 border-t pt-2 mt-1">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={currentUser.permissions?.canManageUsers || false} 
+                                        onChange={() => togglePermission('canManageUsers')}
+                                        className="rounded text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="font-bold text-gray-800">Admin Console Access</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Initials (Avatar)</label>
+                            <input 
+                                className="w-full border rounded p-2 uppercase" 
+                                maxLength={2}
+                                value={currentUser.avatarUrl} 
+                                onChange={e => setCurrentUser({...currentUser, avatarUrl: e.target.value})}
+                                placeholder="JD"
+                            />
+                        </div>
+                    </div>
+                    <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 sticky bottom-0 z-10">
+                        <button onClick={() => setShowUserModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Cancel</button>
+                        <button onClick={handleSaveUser} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-sm">Save User</button>
+                    </div>
+                </div>
+            </div>
+        )}
+     </div>
+    );
+  };
+
+  const renderSettings = () => (
+     <div className="max-w-xl space-y-6 animate-in fade-in duration-300">
+        <h2 className="text-2xl font-bold text-gray-800">System Maintenance</h2>
+        
+        {user?.role === 'Super Admin' ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 border-l-4 border-l-red-500">
+            <h3 className="font-bold text-red-600 mb-2 flex items-center gap-2"><AlertTriangle size={20}/> Danger Zone</h3>
+            <p className="text-sm text-gray-600 mb-6">Operations here are destructive and cannot be undone.</p>
+            
+            <button 
+                onClick={() => {
+                    if(confirm("CRITICAL: Wipe entire database?")) {
+                        localStorage.clear();
+                        window.location.reload();
+                    }
+                }}
+                className="w-full py-3 bg-red-50 border border-red-200 text-red-700 font-bold rounded-lg hover:bg-red-100 transition-colors"
+            >
+                Factory Reset / Wipe Data
+            </button>
+        </div>
+        ) : (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <div className="flex items-center gap-3 text-gray-500">
+                    <ShieldCheck size={24} />
+                    <div>
+                        <h3 className="font-bold text-gray-800">Restricted Area</h3>
+                        <p className="text-sm">Only Super Administrators can access system reset functions.</p>
+                    </div>
+                </div>
+            </div>
+        )}
+     </div>
+  );
+
+  return (
+    <div className="min-h-screen flex bg-gray-100 font-sans">
+        
+        {/* Admin Sidebar */}
+        <aside 
+            className={`bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 shadow-xl z-20 fixed h-full transition-all duration-300 ease-in-out
+            ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden'}`}
+        >
+            <div className="h-16 flex items-center px-6 bg-slate-950 border-b border-slate-800 whitespace-nowrap overflow-hidden">
+                <div className="font-bold text-white tracking-wider flex items-center gap-2">
+                    <Lock size={18} className="text-emerald-500 flex-shrink-0" /> 
+                    <span className={`transition-opacity duration-200 ${!isSidebarOpen && 'opacity-0'}`}>ADMIN<span className="text-slate-600">PANEL</span></span>
+                </div>
+            </div>
+
+            <nav className="flex-1 p-4 space-y-1 overflow-y-auto overflow-x-hidden">
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-2 whitespace-nowrap">Platform</div>
+                <button 
+                    onClick={() => setActiveSection('dashboard')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'dashboard' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Activity size={18} className="flex-shrink-0" /> <span>Dashboard</span>
+                </button>
+
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Data Management</div>
+                <button 
+                    onClick={() => setActiveSection('database')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'database' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Table size={18} className="flex-shrink-0" /> <span>Database Browser</span>
+                </button>
+                 <button 
+                    onClick={() => setActiveSection('recycle')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'recycle' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Trash2 size={18} className="flex-shrink-0" /> <span>Recycle Bin</span>
+                </button>
+
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Configuration</div>
+                <button 
+                    onClick={() => setActiveSection('templates')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'templates' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <FileText size={18} className="flex-shrink-0" /> <span>Policy Templates</span>
+                </button>
+
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">System</div>
+                <button 
+                    onClick={() => setActiveSection('users')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'users' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Users size={18} className="flex-shrink-0" /> <span>Users & Roles</span>
+                </button>
+                 <button 
+                    onClick={() => setActiveSection('settings')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'settings' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <ShieldAlert size={18} className="flex-shrink-0" /> <span>Maintenance</span>
+                </button>
+            </nav>
+
+            <div className="p-4 border-t border-slate-800 whitespace-nowrap overflow-hidden">
+                <button 
+                    onClick={handleExit}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                >
+                    <LogOut size={16} className="flex-shrink-0" /> <span>Exit to App</span>
+                </button>
+            </div>
+        </aside>
+
+        {/* Main Content Area */}
+        <main className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
+            {/* Top Bar */}
+            <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shadow-sm z-10 flex-shrink-0">
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
+                        title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                    >
+                        {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+                    </button>
+
+                    <div className="flex items-center gap-2 text-gray-500 text-sm">
+                        <LayoutDashboard size={16} />
+                        <span>InsurTech Policy Manager</span>
+                        <span>/</span>
+                        <span className="font-semibold text-gray-800 capitalize">{activeSection}</span>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-right hidden sm:block">
+                        <div className="text-sm font-bold text-gray-800">{user?.name}</div>
+                        <div className="text-xs text-gray-500">{user?.role}</div>
+                    </div>
+                    <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-bold">
+                        {user?.avatarUrl || 'AD'}
+                    </div>
+                </div>
+            </header>
+
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-auto p-4 md:p-8">
+                {activeSection === 'dashboard' && renderDashboardHome()}
+                {activeSection === 'database' && renderDatabaseBrowser()}
+                {activeSection === 'recycle' && renderRecycleBin()}
+                {activeSection === 'templates' && renderTemplates()}
+                {activeSection === 'users' && renderUsers()}
+                {activeSection === 'settings' && renderSettings()}
+            </div>
+        </main>
+
+        {/* Reusable Detail Modal */}
+        {selectedItem && (
+            <DetailModal 
+                item={selectedItem} 
+                onClose={() => setSelectedItem(null)} 
+                title="Item Details"
+                allowJsonView={true}
+            />
+        )}
+    </div>
+  );
+};
+
+export default AdminConsole;
