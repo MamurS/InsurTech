@@ -20,7 +20,7 @@ interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  companyName: 'Mosaic Insurance Group',
+  companyName: 'InsurTech Solutions',
   currency: 'USD',
   dateFormat: 'YYYY-MM-DD',
   defaultCommission: 15.0,

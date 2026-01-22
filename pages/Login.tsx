@@ -36,7 +36,7 @@ const Login: React.FC = () => {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
       <div className="max-w-5xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
         
-        {/* Left Panel: Mosaic Branding (Black Background like Presentation Cover) */}
+        {/* Left Panel: Branding (Black Background like Presentation Cover) */}
         <div className="bg-black text-white p-12 md:w-1/2 flex flex-col justify-center relative overflow-hidden">
           
           {/* Background Watermark */}
@@ -47,8 +47,8 @@ const Login: React.FC = () => {
           <div className="relative z-10 flex flex-col items-center text-center">
             <MosaicLogo className="w-32 h-32 mb-8" variant="color" />
             
-            <h1 className="text-4xl font-light tracking-wide mb-2">Mosaic Insurance</h1>
-            <h1 className="text-4xl font-bold tracking-wide mb-8">Group</h1>
+            <h1 className="text-4xl font-light tracking-wide mb-2">InsurTech</h1>
+            <h1 className="text-4xl font-bold tracking-wide mb-8">Solutions</h1>
             
             <div className="w-16 h-1 bg-gradient-to-r from-blue-500 via-green-500 to-red-500 mb-8"></div>
             
@@ -58,7 +58,7 @@ const Login: React.FC = () => {
           </div>
 
           <div className="relative z-10 mt-12 space-y-3 text-sm text-gray-500 text-center">
-             <p>The first 100% foreign insurance company in Uzbekistan.</p>
+             <p>A comprehensive platform for modern policy management.</p>
           </div>
         </div>
 
@@ -89,7 +89,7 @@ const Login: React.FC = () => {
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                        placeholder="mosaicAdmin2026"
+                        placeholder="admin2026"
                     />
                 </div>
             </div>
@@ -118,10 +118,12 @@ const Login: React.FC = () => {
             </button>
           </form>
 
-          <div className="mt-8 text-center">
-              <p className="text-xs text-gray-400">
-                  By signing in, you agree to the MIG internal data protection policies.
-              </p>
+          <div className="mt-8 text-center bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <p className="text-xs text-gray-500 font-bold uppercase mb-2">Default Credentials</p>
+              <div className="text-xs text-gray-600 font-mono space-y-1">
+                  <div>User: admin2026</div>
+                  <div>Pass: X7#k9@mP2$vL5nQ!</div>
+              </div>
           </div>
 
           <div className="mt-auto pt-8 flex justify-center gap-6 text-gray-300">

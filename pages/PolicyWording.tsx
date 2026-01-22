@@ -99,7 +99,7 @@ const PolicyWording: React.FC = () => {
                 <div className="flex items-center gap-4">
                     <MosaicLogo className="w-16 h-16" />
                     <div>
-                        <h1 className="text-2xl font-serif font-bold text-slate-900">Mosaic Insurance Group</h1>
+                        <h1 className="text-2xl font-serif font-bold text-slate-900">InsurTech Solutions</h1>
                         <p className="text-slate-500 text-sm uppercase tracking-widest">{template.name}</p>
                     </div>
                 </div>
@@ -132,7 +132,7 @@ const PolicyWording: React.FC = () => {
         
         <div className="text-center mb-8 border-b-4 border-double border-gray-800 pb-4">
             <h1 className="text-2xl font-bold uppercase tracking-widest">Reinsurance Slip</h1>
-            <p className="text-sm text-gray-600 uppercase mt-1">Mosaic Insurance Group - {policy.recordType}</p>
+            <p className="text-sm text-gray-600 uppercase mt-1">InsurTech Solutions - {policy.recordType}</p>
         </div>
 
         <div className="grid grid-cols-4 gap-4 mb-6 text-sm relative z-10">
@@ -140,7 +140,7 @@ const PolicyWording: React.FC = () => {
             <div className="col-span-3 font-bold">{policy.classOfInsurance}</div>
 
             <div className="font-bold text-right text-gray-600">REINSURED:</div>
-            <div className="col-span-3">{policy.recordType === 'Outward' ? 'Mosaic Insurance Group JSC IO' : policy.cedantName}</div>
+            <div className="col-span-3">{policy.recordType === 'Outward' ? 'InsurTech Solutions' : policy.cedantName}</div>
 
             <div className="font-bold text-right text-gray-600">ORIGINAL INSURED:</div>
             <div className="col-span-3">{policy.insuredName}</div>
@@ -171,7 +171,7 @@ const PolicyWording: React.FC = () => {
             <h3 className="font-bold text-sm mb-4">SECURITY / MARKET:</h3>
             <div className="border p-4 rounded text-sm">
                 <div className="flex justify-between mb-2">
-                    <span>{policy.recordType === 'Outward' ? policy.reinsurerName : 'Mosaic Insurance Group'}</span>
+                    <span>{policy.recordType === 'Outward' ? policy.reinsurerName : 'InsurTech Solutions'}</span>
                     <span className="font-bold">{policy.ourShare}% Line</span>
                 </div>
                 <div className="text-xs text-gray-500">
@@ -187,7 +187,7 @@ const PolicyWording: React.FC = () => {
          <div className="flex items-center gap-4 border-b pb-6 mb-10">
             <MosaicLogo className="w-14 h-14" />
             <div>
-                 <h1 className="text-xl font-bold text-slate-900">Mosaic Insurance Group</h1>
+                 <h1 className="text-xl font-bold text-slate-900">InsurTech Solutions</h1>
                  <p className="text-slate-500 text-sm">INTERNAL SLIP ALLOCATION NOTE</p>
             </div>
         </div>
@@ -213,7 +213,7 @@ const PolicyWording: React.FC = () => {
         </div>
 
         <div className="mt-20 text-center text-xs text-gray-400">
-            <p>This document certifies the reservation of the above slip number in the MIG system.</p>
+            <p>This document certifies the reservation of the above slip number in the system.</p>
             <p>Generated on {new Date().toLocaleString()}</p>
         </div>
     </div>

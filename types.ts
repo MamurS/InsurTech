@@ -166,7 +166,7 @@ export interface Policy {
   equivalentUSD?: number; // Equivalent in USD
 
   // --- Reinsurance Structure ---
-  ourShare: number; // MIG Share / Reinsurer Share in Outward / Доля (%)
+  ourShare: number; // Our Share / Reinsurer Share in Outward / Доля (%)
   reinsuranceCommission?: number; // Reinsurance Commission
   netReinsurancePremium?: number; // Net Reinsurance Premium (Payable/Receivable)
   

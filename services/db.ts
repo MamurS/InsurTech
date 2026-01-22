@@ -2,11 +2,12 @@
 import { Policy, Clause, ReinsuranceSlip, Currency, PolicyStatus, PaymentStatus, PolicyTemplate, User, DEFAULT_PERMISSIONS } from '../types';
 import { supabase } from './supabase';
 
-const POLICIES_KEY = 'insurtech_policies';
-const CLAUSES_KEY = 'insurtech_clauses';
-const SLIPS_KEY = 'insurtech_slips';
-const TEMPLATES_KEY = 'insurtech_templates';
-const USERS_KEY = 'insurtech_users';
+// Updated keys to version 2 to clear legacy data/credentials
+const POLICIES_KEY = 'insurtech_policies_v2';
+const CLAUSES_KEY = 'insurtech_clauses_v2';
+const SLIPS_KEY = 'insurtech_slips_v2';
+const TEMPLATES_KEY = 'insurtech_templates_v2';
+const USERS_KEY = 'insurtech_users_v2';
 
 const isSupabaseEnabled = () => !!supabase;
 
@@ -14,7 +15,7 @@ const isSupabaseEnabled = () => !!supabase;
 const SEED_USERS: User[] = [
   {
     id: 'user_admin_001',
-    email: 'mosaicAdmin2026',
+    email: 'admin2026',
     password: 'X7#k9@mP2$vL5nQ!', // Strong password generated for Super Admin
     name: 'Super Administrator',
     role: 'Super Admin',
@@ -315,7 +316,7 @@ const SEED_TEMPLATES: PolicyTemplate[] = [
         Gross Premium: {{currency}} {{grossPremium}}</p>
 
         <br><br>
-        <p><strong>In witness whereof</strong>, the undersigned being fully authorized by the Insurer has signed this Policy on behalf of the Mosaic Insurance Group.</p>
+        <p><strong>In witness whereof</strong>, the undersigned being fully authorized by the Insurer has signed this Policy on behalf of the InsurTech Solutions.</p>
         
         <br>
         <div style="margin-top: 50px;">
@@ -361,7 +362,7 @@ const SEED_TEMPLATES: PolicyTemplate[] = [
            </p>
 
            <div style="margin-top: 50px; text-align: right;">
-             <p style="font-weight: bold;">Mosaic Insurance Group</p>
+             <p style="font-weight: bold;">InsurTech Solutions</p>
              <p>Authorised Insurers</p>
            </div>
          </div>

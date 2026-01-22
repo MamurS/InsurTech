@@ -1,3 +1,4 @@
+
 import ExcelJS from 'exceljs';
 import { Policy, ReinsuranceSlip, RecordType, Currency } from '../types';
 
@@ -123,7 +124,7 @@ export const ExcelService = {
         { header: 'Excess (FC)', key: 'excessForeignCurrency', width: 15, format: '#,##0.00' },
         
         { header: 'Gross Prem (FC)', key: 'grossPremium', width: 15, fill: COLORS.green, format: '#,##0.00' },
-        { header: 'MIG %', key: 'ourShare', width: 8, format: '0.00%' },
+        { header: 'Our %', key: 'ourShare', width: 8, format: '0.00%' },
         { header: 'Sum Reins (FC)', key: 'sumReinsuredForeign', width: 15, format: '#,##0.00' },
         { header: 'Comm %', key: 'reinsuranceCommission', width: 8, format: '0.00%' },
         { header: 'Net Prem', key: 'netReinsurancePremium', width: 15, format: '#,##0.00' },

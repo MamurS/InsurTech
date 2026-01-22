@@ -436,7 +436,7 @@ const PolicyForm: React.FC = () => {
                          
                          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                              <div>
-                                <label className={labelClass}>{isOutward ? 'Ceded Share %' : 'MIG Share %'}</label>
+                                <label className={labelClass}>{isOutward ? 'Ceded Share %' : 'Our Share %'}</label>
                                 <input type="number" name="ourShare" value={formData.ourShare} onChange={handleChange} className={inputClass}/>
                              </div>
                              <div>

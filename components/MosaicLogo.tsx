@@ -49,7 +49,7 @@ export const MosaicLogo: React.FC<MosaicLogoProps> = ({ className = "w-10 h-10",
           <div className="flex flex-col justify-center">
              <span className="font-sans tracking-tight leading-none font-bold" 
                    style={{ color: getTextColor(), fontSize: '1.5em' }}>
-                 MIG
+                 ITS
              </span>
           </div>
       )}

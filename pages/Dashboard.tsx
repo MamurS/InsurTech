@@ -391,7 +391,7 @@ const Dashboard: React.FC = () => {
             
             <SortableHeader label="Gross Prem (FC)" sortKey="grossPremium" className="bg-green-50 text-right" />
             <SortableHeader label="Gross Prem (Sums)" sortKey="premiumNationalCurrency" className="bg-green-50 text-right" />
-            <SortableHeader label="MIG Share %" sortKey="ourShare" />
+            <SortableHeader label="Our Share %" sortKey="ourShare" />
             <SortableHeader label="Sum Reins (FC)" sortKey="sumReinsuredForeign" className="text-right" />
             <SortableHeader label="Reins Comm %" sortKey="reinsuranceCommission" className="text-right" />
             <SortableHeader label="Net Reins Prem" sortKey="netReinsurancePremium" className="text-right" />
