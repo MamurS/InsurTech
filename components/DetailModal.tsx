@@ -107,7 +107,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         type="date" 
                         value={terminationData.terminationDate}
                         onChange={(e) => setTerminationData({...terminationData, terminationDate: e.target.value})}
-                        className="w-full p-2 border rounded-lg text-sm"
+                        className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900"
                       />
                   </div>
                   
@@ -116,7 +116,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                       <select 
                         value={terminationData.initiator}
                         onChange={(e) => setTerminationData({...terminationData, initiator: e.target.value as any})}
-                        className="w-full p-2 border rounded-lg text-sm"
+                        className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900"
                       >
                           <option value="Us">Us (Insurer)</option>
                           <option value="Broker">Broker</option>
@@ -132,7 +132,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         value={terminationData.reason}
                         onChange={(e) => setTerminationData({...terminationData, reason: e.target.value})}
                         placeholder="e.g. Non-payment of premium..."
-                        className="w-full p-2 border rounded-lg text-sm resize-none"
+                        className="w-full p-2 bg-white border rounded-lg text-sm resize-none text-gray-900"
                       />
                   </div>
               </div>

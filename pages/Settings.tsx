@@ -158,7 +158,7 @@ const Settings: React.FC = () => {
                             type="text" 
                             value={settings.companyName}
                             onChange={(e) => handleChange('companyName', e.target.value)}
-                            className="w-full pl-10 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full pl-10 p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                         />
                     </div>
                 </div>
@@ -168,7 +168,7 @@ const Settings: React.FC = () => {
                         <select 
                             value={settings.currency}
                             onChange={(e) => handleChange('currency', e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                         >
                             <option value="USD">USD ($)</option>
                             <option value="EUR">EUR (€)</option>
@@ -181,7 +181,7 @@ const Settings: React.FC = () => {
                         <select 
                             value={settings.dateFormat}
                             onChange={(e) => handleChange('dateFormat', e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                         >
                             <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                             <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -215,7 +215,7 @@ const Settings: React.FC = () => {
                             step="0.1"
                             value={settings.defaultCommission}
                             onChange={(e) => handleChange('defaultCommission', parseFloat(e.target.value))}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                         />
                     </div>
                     <div>
@@ -225,7 +225,7 @@ const Settings: React.FC = () => {
                             step="0.1"
                             value={settings.defaultTax}
                             onChange={(e) => handleChange('defaultTax', parseFloat(e.target.value))}
-                            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                         />
                     </div>
                 </div>

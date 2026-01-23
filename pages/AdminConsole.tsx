@@ -304,7 +304,7 @@ const AdminConsole: React.FC = () => {
             <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
                  <div className="relative">
                     <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <input type="text" placeholder="Filter records..." className="pl-9 pr-4 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 w-64"/>
+                    <input type="text" placeholder="Filter records..." className="pl-9 pr-4 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 w-64 text-gray-900"/>
                  </div>
                  <div className="text-xs text-gray-500 font-mono">
                     Showing {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).length} records
@@ -413,7 +413,7 @@ const AdminConsole: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
                             <input 
-                                className="w-full border rounded p-2" 
+                                className="w-full bg-white border rounded p-2 text-gray-900" 
                                 value={currentTemplate.name} 
                                 onChange={e => setCurrentTemplate({...currentTemplate, name: e.target.value})}
                                 placeholder="e.g. Standard Commercial Property"
@@ -422,7 +422,7 @@ const AdminConsole: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
                             <input 
-                                className="w-full border rounded p-2" 
+                                className="w-full bg-white border rounded p-2 text-gray-900" 
                                 value={currentTemplate.description} 
                                 onChange={e => setCurrentTemplate({...currentTemplate, description: e.target.value})}
                                 placeholder="Description of use..."
@@ -431,7 +431,7 @@ const AdminConsole: React.FC = () => {
                         <div className="flex-1 flex flex-col">
                             <label className="block text-sm font-bold text-gray-700 mb-1">Content (HTML/Text)</label>
                             <textarea 
-                                className="w-full border rounded p-4 font-mono text-sm flex-1 focus:ring-2 focus:ring-blue-500 outline-none" 
+                                className="w-full bg-white border rounded p-4 font-mono text-sm flex-1 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900" 
                                 value={currentTemplate.content} 
                                 onChange={e => setCurrentTemplate({...currentTemplate, content: e.target.value})}
                                 placeholder="<h1>Policy Schedule</h1>..."
@@ -634,7 +634,7 @@ const AdminConsole: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
                             <input 
-                                className="w-full border rounded p-2" 
+                                className="w-full bg-white border rounded p-2 text-gray-900" 
                                 value={currentUser.name} 
                                 onChange={e => setCurrentUser({...currentUser, name: e.target.value})}
                                 placeholder="e.g. John Doe"
@@ -643,7 +643,7 @@ const AdminConsole: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Email (Login)</label>
                             <input 
-                                className="w-full border rounded p-2" 
+                                className="w-full bg-white border rounded p-2 text-gray-900" 
                                 value={currentUser.email} 
                                 onChange={e => setCurrentUser({...currentUser, email: e.target.value})}
                                 placeholder="john@example.com"
@@ -655,7 +655,7 @@ const AdminConsole: React.FC = () => {
                             </label>
                             <input 
                                 type="text"
-                                className="w-full border rounded p-2" 
+                                className="w-full bg-white border rounded p-2 text-gray-900" 
                                 value={currentUser.password || ''} 
                                 onChange={e => setCurrentUser({...currentUser, password: e.target.value})}
                                 placeholder={currentUser.id ? "Leave empty to keep current" : "Secure password"}
@@ -664,7 +664,7 @@ const AdminConsole: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Role & Authority</label>
                             <select 
-                                className="w-full border rounded p-2"
+                                className="w-full bg-white border rounded p-2 text-gray-900"
                                 value={currentUser.role}
                                 onChange={handleRoleChange}
                             >
@@ -748,7 +748,7 @@ const AdminConsole: React.FC = () => {
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Initials (Avatar)</label>
                             <input 
-                                className="w-full border rounded p-2 uppercase" 
+                                className="w-full bg-white border rounded p-2 uppercase text-gray-900" 
                                 maxLength={2}
                                 value={currentUser.avatarUrl} 
                                 onChange={e => setCurrentUser({...currentUser, avatarUrl: e.target.value})}

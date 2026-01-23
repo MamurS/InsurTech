@@ -151,7 +151,7 @@ const SlipsDashboard: React.FC = () => {
         <input 
           type="text" 
           placeholder="Search slip no, insured, or broker..." 
-          className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm transition-all"
+          className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm transition-all text-gray-900"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
         />

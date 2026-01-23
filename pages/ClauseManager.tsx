@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
 import { Clause } from '../types';
@@ -116,7 +117,7 @@ const ClauseManager: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">Title</label>
                   <input 
-                    className="w-full border rounded p-2"
+                    className="w-full bg-white border rounded p-2 text-gray-900"
                     value={newClause.title}
                     onChange={e => setNewClause({...newClause, title: e.target.value})}
                     placeholder="e.g., War Exclusion"
@@ -125,7 +126,7 @@ const ClauseManager: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium mb-1">Category</label>
                   <select 
-                    className="w-full border rounded p-2"
+                    className="w-full bg-white border rounded p-2 text-gray-900"
                     value={newClause.category}
                     onChange={e => setNewClause({...newClause, category: e.target.value as any})}
                   >
@@ -145,7 +146,7 @@ const ClauseManager: React.FC = () => {
                 </div>
                 <div className="flex gap-2">
                   <input 
-                    className="flex-1 border border-purple-200 rounded p-2 text-sm focus:ring-purple-500 focus:border-purple-500"
+                    className="flex-1 bg-white border border-purple-200 rounded p-2 text-sm focus:ring-purple-500 focus:border-purple-500 text-gray-900"
                     placeholder="Describe the clause you need (e.g., 'Exclude damage from nuclear explosions')..."
                     value={aiPrompt}
                     onChange={e => setAiPrompt(e.target.value)}
@@ -163,7 +164,7 @@ const ClauseManager: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium mb-1">Content</label>
                 <textarea 
-                  className="w-full border rounded p-2 h-32 font-serif text-gray-700"
+                  className="w-full bg-white border rounded p-2 h-32 font-serif text-gray-900"
                   value={newClause.content}
                   onChange={e => setNewClause({...newClause, content: e.target.value})}
                   placeholder="Clause text goes here..."

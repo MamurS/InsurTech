@@ -1,9 +1,148 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, PaymentStatus, RecordType } from '../types';
-import { Save, ArrowLeft, Calculator, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Shield, Upload, CheckCircle, XCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Save, ArrowLeft, Calculator, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Shield, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search } from 'lucide-react';
+
+// --- DATASETS FOR AUTOCOMPLETE ---
+
+const UZBEK_REGIONS = [
+  "Tashkent City", "Tashkent Region", "Andijan", "Bukhara", "Fergana", "Jizzakh", 
+  "Namangan", "Navoiy", "Qashqadaryo", "Samarkand", "Sirdaryo", "Surxondaryo", "Xorazm", "Republic of Karakalpakstan"
+];
+
+const COUNTRIES = [
+  "Uzbekistan", "Kazakhstan", "Russia", "Turkey", "United Arab Emirates", 
+  "United Kingdom", "USA", "China", "Germany", "Switzerland", "France", "Singapore"
+];
+
+const INSURANCE_CLASSES = [
+  "01 - Accident", 
+  "02 - Sickness", 
+  "03 - Land Vehicles (KASKO)", 
+  "04 - Railway Rolling Stock", 
+  "05 - Aircraft", 
+  "06 - Ships", 
+  "07 - Goods in Transit (Cargo)", 
+  "08 - Fire and Natural Forces", 
+  "09 - Other Damage to Property", 
+  "10 - Motor Vehicle Liability (CMTPL)", 
+  "11 - Aircraft Liability", 
+  "12 - Ships Liability", 
+  "13 - General Liability", 
+  "14 - Credit", 
+  "15 - Suretyship", 
+  "16 - Miscellaneous Financial Loss", 
+  "17 - Legal Expenses", 
+  "18 - Assistance"
+];
+
+const INSURANCE_TYPES = [
+  "Voluntary Property Insurance",
+  "Mandatory Motor Liability (OSGO)",
+  "Voluntary Motor Insurance (KASKO)",
+  "Construction All Risk (CAR)",
+  "Erection All Risk (EAR)",
+  "General Third Party Liability (GTPL)",
+  "Employer's Liability",
+  "Professional Indemnity",
+  "Cargo Insurance",
+  "Health Insurance",
+  "Travel Insurance",
+  "Banker's Blanket Bond (BBB)",
+  "Cyber Insurance",
+  "Directors & Officers (D&O)"
+];
+
+const BROKERS = [
+  "Direct (No Broker)",
+  "Marsh",
+  "Aon",
+  "Willis Towers Watson",
+  "Arthur J. Gallagher",
+  "Local Broker LLC",
+  "Uzbek Insurance Broker",
+  "Silk Road Broking"
+];
+
+// --- REUSABLE SEARCHABLE INPUT COMPONENT ---
+interface SearchableInputProps {
+  label: string;
+  name: string;
+  value: string;
+  options: string[];
+  onChange: (e: { target: { name: string; value: string } }) => void;
+  placeholder?: string;
+  required?: boolean;
+}
+
+const SearchableInput: React.FC<SearchableInputProps> = ({ label, name, value, options, onChange, placeholder, required }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [wrapperRef]);
+
+  const filteredOptions = options.filter(opt => 
+    opt.toLowerCase().includes(value?.toLowerCase() || '')
+  );
+
+  const handleSelect = (opt: string) => {
+    onChange({ target: { name, value: opt } });
+    setIsOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onChange(e);
+    setIsOpen(true);
+  };
+
+  return (
+    <div className="relative w-full" ref={wrapperRef}>
+      <label className="block text-sm font-medium text-gray-600 mb-1.5">{label}</label>
+      <div className="relative">
+        <input
+          type="text"
+          name={name}
+          value={value || ''}
+          onChange={handleInputChange}
+          onClick={() => setIsOpen(true)}
+          required={required}
+          placeholder={placeholder || "Type to search..."}
+          autoComplete="off"
+          className="w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-gray-900 pr-8"
+        />
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+          {isOpen ? <Search size={14}/> : <ChevronDown size={14}/>}
+        </div>
+      </div>
+      
+      {isOpen && filteredOptions.length > 0 && (
+        <ul className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+          {filteredOptions.map((opt) => (
+            <li 
+              key={opt}
+              onClick={() => handleSelect(opt)}
+              className="px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer border-b border-gray-50 last:border-0"
+            >
+              {opt}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+};
+
 
 const PolicyForm: React.FC = () => {
   const { id } = useParams();
@@ -11,10 +150,9 @@ const PolicyForm: React.FC = () => {
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
-
-  // File Upload State (Simulation)
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
+  // Initialize with empty strings for all text fields to avoid uncontrolled/controlled errors
   const [formData, setFormData] = useState<Policy>({
     id: crypto.randomUUID(),
     recordType: 'Direct',
@@ -27,8 +165,11 @@ const PolicyForm: React.FC = () => {
     brokerName: '',
     industry: '',
     territory: 'Uzbekistan',
+    city: '',
     jurisdiction: 'Uzbekistan',
     classOfInsurance: '',
+    typeOfInsurance: '',
+    riskCode: '',
     currency: Currency.USD,
     sumInsured: 0,
     grossPremium: 0,
@@ -41,7 +182,7 @@ const PolicyForm: React.FC = () => {
     inceptionDate: new Date().toISOString().split('T')[0],
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     issueDate: new Date().toISOString().split('T')[0],
-    status: PolicyStatus.PENDING, // Default to Pending Confirmation
+    status: PolicyStatus.PENDING,
     paymentStatus: PaymentStatus.PENDING,
     selectedClauseIds: [],
     installments: [],
@@ -53,13 +194,20 @@ const PolicyForm: React.FC = () => {
       if (isEdit && id) {
         const policy = await DB.getPolicy(id);
         if (policy) {
-          setFormData(policy);
+          // Ensure potentially undefined fields are at least empty strings
+          setFormData({
+            ...policy,
+            brokerName: policy.brokerName || '',
+            city: policy.city || '',
+            classOfInsurance: policy.classOfInsurance || '',
+            typeOfInsurance: policy.typeOfInsurance || '',
+            territory: policy.territory || 'Uzbekistan'
+          });
         } else {
           alert('Policy not found');
           navigate('/');
         }
       } else {
-        // Generate a new reference number for fresh forms
         setFormData(prev => ({ 
            ...prev, 
            policyNumber: `AIC/${prev.recordType === 'Outward' ? 'OUT' : prev.recordType === 'Inward' ? 'IN' : 'D'}/${new Date().getFullYear()}/${Math.floor(Math.random() * 1000)}` 
@@ -70,7 +218,7 @@ const PolicyForm: React.FC = () => {
     loadData();
   }, [id, isEdit, navigate]);
 
-  // Auto-calculation Effect
+  // Calculations
   useEffect(() => {
     const gross = formData.grossPremium || 0;
     const comm = formData.commissionPercent || 0;
@@ -91,9 +239,9 @@ const PolicyForm: React.FC = () => {
     }));
   }, [formData.grossPremium, formData.commissionPercent, formData.taxPercent, formData.cededPremiumForeign, formData.reinsuranceCommission, formData.recordType]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: { target: { name: string; value: string } }) => {
     const { name, value } = e.target;
-    // Expanded list of numeric fields
+    
     const numericFields = [
         'sumInsured', 'sumInsuredNational', 'grossPremium', 'premiumNationalCurrency', 
         'exchangeRate', 'commissionPercent', 'taxPercent', 'ourShare', 
@@ -111,13 +259,16 @@ const PolicyForm: React.FC = () => {
   };
 
   const handleTypeSelect = (type: RecordType) => {
-    if (confirm("Changing the record type will reset the reference number. Continue?")) {
-        setFormData(prev => ({ 
+    if (isEdit) {
+        if (!confirm("Changing the record type will reset the reference number. Continue?")) {
+            return;
+        }
+    }
+    setFormData(prev => ({ 
         ...prev, 
         recordType: type,
         policyNumber: `AIC/${type === 'Outward' ? 'OUT' : type === 'Inward' ? 'IN' : 'D'}/${new Date().getFullYear()}/${Math.floor(Math.random() * 1000)}`
-        }));
-    }
+    }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -126,35 +277,29 @@ const PolicyForm: React.FC = () => {
     }
   };
 
+  // Workflow Actions
   const handleActivate = async (e: React.MouseEvent) => {
     e.preventDefault();
     if (!selectedFile && !formData.signedDocument) {
-        if(!window.confirm("You are activating this policy without uploading a signed slip. Are you sure?")) return;
+        if(!window.confirm("Activating without a signed slip. Continue?")) return;
     }
-
     setProcessingAction('activate');
     try {
-        const updatedData = { ...formData };
-        
-        // If a new file is selected, update the document field
+        const updatedData = { ...formData, status: PolicyStatus.ACTIVE, activationDate: new Date().toISOString() };
         if (selectedFile) {
             updatedData.signedDocument = {
                 fileName: selectedFile.name,
                 uploadDate: new Date().toISOString(),
-                url: URL.createObjectURL(selectedFile) // Simulation
+                url: URL.createObjectURL(selectedFile)
             };
         }
-
-        updatedData.status = PolicyStatus.ACTIVE;
-        updatedData.activationDate = new Date().toISOString();
-
         setFormData(updatedData);
         await DB.savePolicy(updatedData);
-        alert("Policy has been successfully BOUND and ACTIVATED.");
+        alert("Policy BOUND and ACTIVATED.");
         navigate('/');
     } catch (error) {
-        console.error("Activation failed", error);
-        alert("Failed to activate policy.");
+        console.error(error);
+        alert("Failed to activate.");
     } finally {
         setProcessingAction(null);
     }
@@ -162,39 +307,25 @@ const PolicyForm: React.FC = () => {
 
   const handleNTU = async (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation(); 
-    if(window.confirm("Confirm 'Not Taken Up'?\n\nThis implies the deal was not concluded by the client/broker. The record will remain as cancelled/NTU for audit purposes.")) {
+    if(window.confirm("Confirm 'Not Taken Up'?")) {
         setProcessingAction('ntu');
         try {
             const updatedData = { ...formData, status: PolicyStatus.NTU };
             await DB.savePolicy(updatedData);
-            alert("Policy marked as NTU.");
             navigate('/');
-        } catch (error) {
-            console.error("NTU failed", error);
-            alert("Failed to update status.");
-        } finally {
-            setProcessingAction(null);
-        }
+        } catch (error) { console.error(error); } finally { setProcessingAction(null); }
     }
   };
 
   const handleCancel = async (e: React.MouseEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    if(window.confirm("Are you sure you want to CANCEL this active policy?\n\nThis action denotes an early termination. The policy will be moved to the Cancelled/NTU tab.")) {
+    if(window.confirm("CANCEL active policy?")) {
         setProcessingAction('cancel');
         try {
             const updatedData = { ...formData, status: PolicyStatus.CANCELLED };
             await DB.savePolicy(updatedData);
-            alert("Policy cancelled successfully.");
             navigate('/');
-        } catch (error) {
-            console.error("Cancellation failed", error);
-            alert("Failed to cancel policy.");
-        } finally {
-            setProcessingAction(null);
-        }
+        } catch (error) { console.error(error); } finally { setProcessingAction(null); }
     }
   };
 
@@ -218,11 +349,11 @@ const PolicyForm: React.FC = () => {
   const isDirect = formData.recordType === 'Direct';
   const isOutward = formData.recordType === 'Outward';
 
-  // Styles
   const sectionTitleClass = "text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2";
   const labelClass = "block text-sm font-medium text-gray-600 mb-1.5";
-  const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm";
-  const selectClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm";
+  // Added text-gray-900 to ensure visibility
+  const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-gray-900";
+  const selectClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-gray-900";
 
   return (
     <div className="max-w-7xl mx-auto pb-20">
@@ -275,16 +406,20 @@ const PolicyForm: React.FC = () => {
                         {(['Direct', 'Inward', 'Outward'] as RecordType[]).map((type) => (
                             <div 
                                 key={type}
-                                onClick={() => formData.recordType !== type && handleTypeSelect(type)}
-                                className={`flex-1 cursor-pointer border-2 rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all
+                                onClick={() => {
+                                    if (formData.recordType !== type) {
+                                        handleTypeSelect(type);
+                                    }
+                                }}
+                                className={`flex-1 cursor-pointer border-2 rounded-lg p-4 flex flex-col items-center justify-center gap-2 transition-all select-none
                                     ${formData.recordType === type 
                                         ? (type === 'Direct' ? 'border-blue-500 bg-blue-50 text-blue-700' : type === 'Inward' ? 'border-purple-500 bg-purple-50 text-purple-700' : 'border-amber-500 bg-amber-50 text-amber-700') 
-                                        : 'border-gray-100 hover:border-gray-300 text-gray-500'}`}
+                                        : 'border-gray-100 hover:border-gray-300 text-gray-500 hover:bg-gray-50'}`}
                             >
                                 {type === 'Direct' && <ShieldCheck size={24} />}
                                 {type === 'Inward' && <ArrowRightLeft size={24} />}
                                 {type === 'Outward' && <Shield size={24} />}
-                                <span className="font-bold text-sm">{type}</span>
+                                <span className="font-bold text-sm text-gray-900">{type}</span>
                             </div>
                         ))}
                     </div>
@@ -300,7 +435,7 @@ const PolicyForm: React.FC = () => {
                             <>
                                 <div>
                                     <label className={labelClass}>Cedent (Reinsured)</label>
-                                    <input type="text" name="cedantName" value={formData.cedantName || ''} onChange={handleChange} className={`${inputClass} bg-purple-50/50 border-purple-200`}/>
+                                    <input type="text" name="cedantName" value={formData.cedantName || ''} onChange={handleChange} className={`${inputClass} !bg-purple-50 border-purple-200`}/>
                                 </div>
                                 <div>
                                     <label className={labelClass}>Retrocedent / Borrower</label>
@@ -312,47 +447,72 @@ const PolicyForm: React.FC = () => {
                         {isOutward && (
                              <div>
                                 <label className={labelClass}>Reinsurer</label>
-                                <input type="text" name="reinsurerName" value={formData.reinsurerName || ''} onChange={handleChange} className={`${inputClass} bg-amber-50/50 border-amber-200`}/>
+                                <input type="text" name="reinsurerName" value={formData.reinsurerName || ''} onChange={handleChange} className={`${inputClass} !bg-amber-50 border-amber-200`}/>
                             </div>
                         )}
 
                         <div>
                             <label className={labelClass}>Original Insured Name</label>
-                            <input type="text" required name="insuredName" value={formData.insuredName} onChange={handleChange} className={inputClass}/>
+                            <input type="text" required name="insuredName" value={formData.insuredName || ''} onChange={handleChange} className={inputClass}/>
                         </div>
 
-                         <div>
-                            <label className={labelClass}>Broker</label>
-                            <input type="text" name="brokerName" value={formData.brokerName || ''} onChange={handleChange} className={inputClass}/>
-                        </div>
+                        {/* AUTOCOMPLETE: Broker */}
+                        <SearchableInput 
+                            label="Broker" 
+                            name="brokerName" 
+                            value={formData.brokerName || ''} 
+                            options={BROKERS} 
+                            onChange={handleChange} 
+                        />
 
-                        {/* Location & Industry */}
-                        <div>
-                            <label className={labelClass}>Territory (Country)</label>
-                            <input type="text" name="territory" value={formData.territory} onChange={handleChange} className={inputClass}/>
-                        </div>
+                        {/* AUTOCOMPLETE: Country */}
+                        <SearchableInput 
+                            label="Territory (Country)" 
+                            name="territory" 
+                            value={formData.territory || 'Uzbekistan'} 
+                            options={COUNTRIES} 
+                            onChange={handleChange} 
+                        />
                         
                         {isDirect && (
-                            <div>
-                                <label className={labelClass}>City / Region</label>
-                                <input type="text" name="city" value={formData.city || ''} onChange={handleChange} className={inputClass}/>
-                            </div>
+                            /* AUTOCOMPLETE: City/Region */
+                            <SearchableInput 
+                                label="City / Region" 
+                                name="city" 
+                                value={formData.city || ''} 
+                                options={UZBEK_REGIONS} 
+                                onChange={handleChange} 
+                            />
                         )}
 
                         <div>
                             <label className={labelClass}>Industry / Business</label>
-                            <input type="text" name="industry" value={formData.industry} onChange={handleChange} className={inputClass}/>
+                            <input type="text" name="industry" value={formData.industry || ''} onChange={handleChange} className={inputClass}/>
                         </div>
 
-                        {/* Classifications */}
-                        <div>
-                             <label className={labelClass}>Class of Insurance (Code)</label>
-                             <input type="text" name="classOfInsurance" value={formData.classOfInsurance} onChange={handleChange} className={inputClass}/>
+                        {/* AUTOCOMPLETE: Class of Insurance */}
+                        <div className="md:col-span-2">
+                            <SearchableInput 
+                                label="Class of Insurance (Code)" 
+                                name="classOfInsurance" 
+                                value={formData.classOfInsurance || ''} 
+                                options={INSURANCE_CLASSES} 
+                                onChange={handleChange} 
+                                placeholder="e.g. 03 - Land Vehicles"
+                            />
                         </div>
-                        <div>
-                             <label className={labelClass}>Type of Insurance</label>
-                             <input type="text" name="typeOfInsurance" value={formData.typeOfInsurance || ''} onChange={handleChange} className={inputClass}/>
+
+                        {/* AUTOCOMPLETE: Type of Insurance */}
+                        <div className="md:col-span-2">
+                             <SearchableInput 
+                                label="Type of Insurance" 
+                                name="typeOfInsurance" 
+                                value={formData.typeOfInsurance || ''} 
+                                options={INSURANCE_TYPES} 
+                                onChange={handleChange} 
+                            />
                         </div>
+                        
                          {isDirect && (
                              <div>
                                 <label className={labelClass}>Risk Code</label>
@@ -507,7 +667,7 @@ const PolicyForm: React.FC = () => {
                         {/* Status Display */}
                         <div className="mb-4">
                             <div className="text-sm text-gray-600 mb-1">Current Status:</div>
-                            <div className="font-bold text-lg">{formData.status}</div>
+                            <div className="font-bold text-lg text-gray-900">{formData.status}</div>
                         </div>
 
                         {formData.status !== PolicyStatus.ACTIVE && formData.status !== PolicyStatus.NTU && (
@@ -574,7 +734,7 @@ const PolicyForm: React.FC = () => {
                             <div className="mt-4 bg-white/60 p-3 rounded-lg border border-black/5 flex items-center gap-3">
                                 <div className="p-2 bg-red-100 rounded text-red-600"><FileText size={16}/></div>
                                 <div className="flex-1 overflow-hidden">
-                                    <div className="text-sm font-bold truncate">{formData.signedDocument.fileName}</div>
+                                    <div className="text-sm font-bold truncate text-gray-900">{formData.signedDocument.fileName}</div>
                                     <div className="text-xs text-gray-500">Uploaded: {new Date(formData.signedDocument.uploadDate).toLocaleDateString()}</div>
                                 </div>
                             </div>
@@ -589,7 +749,7 @@ const PolicyForm: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <label className={labelClass}>{isDirect ? 'Agreement Number' : 'Our Reference No'}</label>
-                            <input type="text" name="policyNumber" value={formData.policyNumber} onChange={handleChange} className={`${inputClass} font-mono`}/>
+                            <input type="text" name="policyNumber" value={formData.policyNumber || ''} onChange={handleChange} className={`${inputClass} font-mono`}/>
                         </div>
 
                          {(isInward || isOutward) && (
@@ -650,7 +810,6 @@ const PolicyForm: React.FC = () => {
                     <h3 className={sectionTitleClass}><ShieldCheck size={18} className="text-blue-500"/> Config</h3>
                     
                     <div className="space-y-4">
-                        {/* Status is now handled by the Workflow section, but we allow manual override here if needed, or read-only */}
                         <div className="opacity-70 pointer-events-none">
                             <label className={labelClass}>Policy Status (Managed above)</label>
                             <select name="status" value={formData.status} disabled className={`${selectClass} bg-gray-100`}>

@@ -49,7 +49,8 @@ const SlipForm: React.FC = () => {
 
   // Shared Styles
   const labelClass = "block text-sm font-medium text-gray-600 mb-1.5";
-  const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm";
+  // Added text-gray-900 to ensure visibility
+  const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm text-gray-900";
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
