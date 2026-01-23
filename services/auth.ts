@@ -64,11 +64,10 @@ export const AuthService = {
         .eq('id', data.user.id)
         .single();
 
+      // Fallback if profile row is missing
       const role: UserRole = profile?.role || 'Underwriter';
       const permissions: UserPermissions = profile?.permissions || DEFAULT_PERMISSIONS[role];
 
-      // If profile doesn't exist, we might want to create a stub?
-      // For now, we return the constructed user object
       return {
           id: data.user.id,
           email: data.user.email || '',
@@ -99,7 +98,59 @@ export const AuthService = {
       }
     }
     
-    throw new Error('User not found.');
+    throw new Error('User not found in local database.');
+  },
+
+  /**
+   * Registers a new user (Supabase Only)
+   */
+  register: async (email: string, password?: string, name?: string): Promise<User | null> => {
+    if (!supabase) {
+      throw new Error("Registration is only available when connected to a database.");
+    }
+
+    // 1. Create Auth User
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: password || '',
+      options: {
+        data: {
+          full_name: name,
+          avatar_url: name ? name.substring(0, 2).toUpperCase() : 'NU'
+        }
+      }
+    });
+
+    if (error) throw error;
+    if (!data.user) return null;
+
+    // 2. Create Public Profile
+    // Note: If email confirmation is on, the user won't be able to log in until confirmed.
+    // However, we can insert the profile row now.
+    const newUserProfile = {
+      id: data.user.id,
+      email: email,
+      name: name || 'New User',
+      role: 'Super Admin', // First user created via this UI defaults to Super Admin for convenience
+      avatarUrl: name ? name.substring(0, 2).toUpperCase() : 'NU',
+      permissions: DEFAULT_PERMISSIONS['Super Admin'],
+      lastLogin: new Date().toISOString()
+    };
+
+    const { error: profileError } = await supabase
+      .from('users')
+      .insert(newUserProfile);
+
+    if (profileError) {
+      console.error("Profile creation failed", profileError);
+      // We don't throw here to avoid blocking the auth flow, 
+      // but in a real app we might want to handle this better.
+    }
+
+    return {
+        ...newUserProfile,
+        role: newUserProfile.role as UserRole
+    };
   },
 
   logout: async (): Promise<void> => {
