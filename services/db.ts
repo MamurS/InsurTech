@@ -2,32 +2,20 @@
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS } from '../types';
 import { supabase } from './supabase';
 
-// Local storage keys (Fallback)
+// Local storage keys (Fallback for when no API keys are provided)
 const POLICIES_KEY = 'insurtech_policies_v2';
 const CLAUSES_KEY = 'insurtech_clauses_v2';
 const SLIPS_KEY = 'insurtech_slips_v2';
 const TEMPLATES_KEY = 'insurtech_templates_v2';
 const USERS_KEY = 'insurtech_users_v2';
-const FORCE_LOCAL_KEY = 'insurtech_force_local';
 
 // Helper to check connection status
-// Returns true ONLY if Supabase is configured AND we haven't forced local mode
+// Returns true ONLY if Supabase is configured
 const isSupabaseEnabled = () => {
-  return !!supabase && localStorage.getItem(FORCE_LOCAL_KEY) !== 'true';
+  return !!supabase;
 };
 
 export const DB = {
-  // Utility to toggle mode
-  isOfflineMode: () => localStorage.getItem(FORCE_LOCAL_KEY) === 'true',
-  
-  setOfflineMode: (enable: boolean) => {
-    if (enable) {
-      localStorage.setItem(FORCE_LOCAL_KEY, 'true');
-    } else {
-      localStorage.removeItem(FORCE_LOCAL_KEY);
-    }
-  },
-
   // --- Policies ---
   getPolicies: async (): Promise<Policy[]> => {
     if (isSupabaseEnabled()) {

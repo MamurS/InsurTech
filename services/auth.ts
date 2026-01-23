@@ -4,11 +4,10 @@ import { User, UserRole, DEFAULT_PERMISSIONS, UserPermissions } from '../types';
 import { DB } from './db';
 
 const USER_STORAGE_KEY = 'insurtech_user_session';
-const FORCE_LOCAL_KEY = 'insurtech_force_local';
 
 // Helper to check if we should use Supabase
 const isSupabaseEnabled = () => {
-    return !!supabase && localStorage.getItem(FORCE_LOCAL_KEY) !== 'true';
+    return !!supabase;
 };
 
 export const AuthService = {
@@ -17,7 +16,7 @@ export const AuthService = {
    * Checks Supabase first, merging Auth state with Public Profile data.
    */
   getSession: async (): Promise<User | null> => {
-    // 1. Check Supabase Real Auth (Only if online mode)
+    // 1. Check Supabase Real Auth (Only if enabled)
     if (isSupabaseEnabled()) {
       const { data: { session } } = await supabase!.auth.getSession();
       if (session?.user) {
@@ -45,7 +44,7 @@ export const AuthService = {
       }
     }
 
-    // 2. Fallback to Local Mock Storage
+    // 2. Fallback to Local Mock Storage (Only if Supabase is NOT configured at all)
     const stored = localStorage.getItem(USER_STORAGE_KEY);
     if (stored) {
       return JSON.parse(stored);
@@ -85,7 +84,7 @@ export const AuthService = {
       };
     }
 
-    // 2. Persistent Local Storage Logic
+    // 2. Persistent Local Storage Logic (Fallback for Dev without Supabase)
     const users = await DB.getUsers();
     const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
     
