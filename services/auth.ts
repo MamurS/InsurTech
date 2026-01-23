@@ -104,7 +104,13 @@ export const AuthService = {
   /**
    * Registers a new user (Supabase Only)
    */
-  register: async (email: string, password?: string, name?: string): Promise<User | null> => {
+  register: async (
+    email: string, 
+    password?: string, 
+    name?: string, 
+    role?: UserRole, 
+    permissions?: UserPermissions
+  ): Promise<User | null> => {
     if (!supabase) {
       throw new Error("Registration is only available when connected to a database.");
     }
@@ -124,16 +130,20 @@ export const AuthService = {
     if (error) throw error;
     if (!data.user) return null;
 
-    // 2. Create Public Profile
-    // Note: If email confirmation is on, the user won't be able to log in until confirmed.
-    // However, we can insert the profile row now.
+    // 2. Determine Role
+    // If a role is passed (from Admin Console), use it.
+    // If no role passed (Login page registration), default to 'Super Admin' for the first user.
+    const finalRole = role || 'Super Admin';
+    const finalPermissions = permissions || DEFAULT_PERMISSIONS[finalRole];
+
+    // 3. Create Public Profile
     const newUserProfile = {
       id: data.user.id,
       email: email,
       name: name || 'New User',
-      role: 'Super Admin', // First user created via this UI defaults to Super Admin for convenience
+      role: finalRole,
       avatarUrl: name ? name.substring(0, 2).toUpperCase() : 'NU',
-      permissions: DEFAULT_PERMISSIONS['Super Admin'],
+      permissions: finalPermissions,
       lastLogin: new Date().toISOString()
     };
 
@@ -143,8 +153,6 @@ export const AuthService = {
 
     if (profileError) {
       console.error("Profile creation failed", profileError);
-      // We don't throw here to avoid blocking the auth flow, 
-      // but in a real app we might want to handle this better.
     }
 
     return {

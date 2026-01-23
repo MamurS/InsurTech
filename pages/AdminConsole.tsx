@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { AuthService } from '../services/auth';
+import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, User, UserRole, UserPermissions, DEFAULT_PERMISSIONS } from '../types';
 import { DetailModal } from '../components/DetailModal';
@@ -10,7 +11,7 @@ import {
   Trash2, RefreshCw, Users, 
   Lock, CheckCircle, AlertTriangle, Table, Code, 
   LogOut, LayoutDashboard, Search, Terminal, Activity,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert, FileText, Plus, Save, X, Edit
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert, FileText, Plus, Save, X, Edit, Loader2
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'users' | 'settings' | 'templates';
@@ -59,6 +60,7 @@ const AdminConsole: React.FC = () => {
   // Selection & Modal State
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Stats for Dashboard
   const stats = {
@@ -177,17 +179,42 @@ const AdminConsole: React.FC = () => {
           return;
       }
 
-      // If ID is missing, it's a new user -> generate ID
-      const userToSave: User = {
-          ...currentUser,
-          id: currentUser.id || crypto.randomUUID(),
-          // Ensure permissions are set
-          permissions: currentUser.permissions || DEFAULT_PERMISSIONS[currentUser.role as UserRole]
-      } as User;
+      setActionLoading(true);
+      try {
+        // CASE 1: NEW USER + SUPABASE
+        if (!currentUser.id && supabase) {
+            // We must use AuthService.register to create the Auth User first.
+            // Note: In client-side Supabase, creating a new user might sign them in automatically.
+            await AuthService.register(
+                currentUser.email,
+                currentUser.password,
+                currentUser.name,
+                currentUser.role as UserRole,
+                currentUser.permissions
+            );
+            alert(`User ${currentUser.email} created successfully.`);
+        } 
+        // CASE 2: LOCAL or UPDATING EXISTING USER
+        else {
+             // If ID is missing (Local New User), generate it
+             // If ID exists (Update), keep it
+             const userToSave: User = {
+                ...currentUser,
+                id: currentUser.id || crypto.randomUUID(),
+                permissions: currentUser.permissions || DEFAULT_PERMISSIONS[currentUser.role as UserRole]
+             } as User;
+             
+             await DB.saveUser(userToSave);
+        }
 
-      await DB.saveUser(userToSave);
-      setShowUserModal(false);
-      loadAllData();
+        setShowUserModal(false);
+        loadAllData();
+      } catch (error: any) {
+          console.error("Save failed:", error);
+          alert("Failed to save user: " + (error.message || "Unknown error"));
+      } finally {
+          setActionLoading(false);
+      }
   };
 
   const handleDeleteUser = async (id: string) => {
@@ -559,7 +586,7 @@ const AdminConsole: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-4 border-b bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
                 <ShieldCheck size={16} />
-                <span>Internal System Users (Locally Managed)</span>
+                <span>Internal System Users ({users.length})</span>
             </div>
             <table className="w-full text-left">
                 <thead className="bg-gray-50 text-gray-700">
@@ -647,6 +674,7 @@ const AdminConsole: React.FC = () => {
                                 value={currentUser.email} 
                                 onChange={e => setCurrentUser({...currentUser, email: e.target.value})}
                                 placeholder="john@example.com"
+                                disabled={!!currentUser.id} // Disable email edit for existing users (auth limitation)
                             />
                         </div>
                         <div>
@@ -757,8 +785,21 @@ const AdminConsole: React.FC = () => {
                         </div>
                     </div>
                     <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 sticky bottom-0 z-10">
-                        <button onClick={() => setShowUserModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Cancel</button>
-                        <button onClick={handleSaveUser} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-sm">Save User</button>
+                        <button 
+                            onClick={() => setShowUserModal(false)} 
+                            className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg"
+                            disabled={actionLoading}
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handleSaveUser} 
+                            disabled={actionLoading}
+                            className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-sm flex items-center gap-2 disabled:opacity-70"
+                        >
+                            {actionLoading ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
+                            Save User
+                        </button>
                     </div>
                 </div>
             </div>
