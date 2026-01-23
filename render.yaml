@@ -1,0 +1,15 @@
+
+services:
+  - type: web
+    name: insurtech-policy-manager
+    env: static
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      # Handle React Router (SPA) rewrites
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 20.0.0
