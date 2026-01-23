@@ -8,33 +8,26 @@ const CLAUSES_KEY = 'insurtech_clauses_v2';
 const SLIPS_KEY = 'insurtech_slips_v2';
 const TEMPLATES_KEY = 'insurtech_templates_v2';
 const USERS_KEY = 'insurtech_users_v2';
+const FORCE_LOCAL_KEY = 'insurtech_force_local';
 
-const isSupabaseEnabled = () => !!supabase;
-
-// Mock Data
-const SEED_USERS: User[] = [
-  {
-    id: 'user_admin_001',
-    email: 'admin2026',
-    password: 'X7#k9@mP2$vL5nQ!', 
-    name: 'Super Administrator',
-    role: 'Super Admin',
-    avatarUrl: 'SA',
-    lastLogin: new Date().toISOString(),
-    permissions: DEFAULT_PERMISSIONS['Super Admin']
-  }
-];
-
-const getLocal = <T>(key: string, seed: T): T => {
-  const stored = localStorage.getItem(key);
-  if (!stored) {
-    localStorage.setItem(key, JSON.stringify(seed));
-    return seed;
-  }
-  return JSON.parse(stored);
+// Helper to check connection status
+// Returns true ONLY if Supabase is configured AND we haven't forced local mode
+const isSupabaseEnabled = () => {
+  return !!supabase && localStorage.getItem(FORCE_LOCAL_KEY) !== 'true';
 };
 
 export const DB = {
+  // Utility to toggle mode
+  isOfflineMode: () => localStorage.getItem(FORCE_LOCAL_KEY) === 'true',
+  
+  setOfflineMode: (enable: boolean) => {
+    if (enable) {
+      localStorage.setItem(FORCE_LOCAL_KEY, 'true');
+    } else {
+      localStorage.removeItem(FORCE_LOCAL_KEY);
+    }
+  },
+
   // --- Policies ---
   getPolicies: async (): Promise<Policy[]> => {
     if (isSupabaseEnabled()) {
@@ -353,4 +346,27 @@ export const DB = {
     users = users.filter((u: User) => u.id !== id);
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
   }
+};
+
+// Mock Data
+const SEED_USERS: User[] = [
+  {
+    id: 'user_admin_001',
+    email: 'admin2026',
+    password: 'X7#k9@mP2$vL5nQ!', 
+    name: 'Super Administrator',
+    role: 'Super Admin',
+    avatarUrl: 'SA',
+    lastLogin: new Date().toISOString(),
+    permissions: DEFAULT_PERMISSIONS['Super Admin']
+  }
+];
+
+const getLocal = <T>(key: string, seed: T): T => {
+  const stored = localStorage.getItem(key);
+  if (!stored) {
+    localStorage.setItem(key, JSON.stringify(seed));
+    return seed;
+  }
+  return JSON.parse(stored);
 };

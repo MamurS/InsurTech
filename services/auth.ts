@@ -4,6 +4,12 @@ import { User, UserRole, DEFAULT_PERMISSIONS, UserPermissions } from '../types';
 import { DB } from './db';
 
 const USER_STORAGE_KEY = 'insurtech_user_session';
+const FORCE_LOCAL_KEY = 'insurtech_force_local';
+
+// Helper to check if we should use Supabase
+const isSupabaseEnabled = () => {
+    return !!supabase && localStorage.getItem(FORCE_LOCAL_KEY) !== 'true';
+};
 
 export const AuthService = {
   /**
@@ -11,13 +17,13 @@ export const AuthService = {
    * Checks Supabase first, merging Auth state with Public Profile data.
    */
   getSession: async (): Promise<User | null> => {
-    // 1. Check Supabase Real Auth
-    if (supabase) {
-      const { data: { session } } = await supabase.auth.getSession();
+    // 1. Check Supabase Real Auth (Only if online mode)
+    if (isSupabaseEnabled()) {
+      const { data: { session } } = await supabase!.auth.getSession();
       if (session?.user) {
         
         // Fetch Profile from public.users to get the Role
-        const { data: profile } = await supabase
+        const { data: profile } = await supabase!
           .from('users')
           .select('*')
           .eq('id', session.user.id)
@@ -53,12 +59,12 @@ export const AuthService = {
    */
   login: async (email: string, password?: string): Promise<User | null> => {
     // 1. Supabase Logic
-    if (supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: password || '' });
+    if (isSupabaseEnabled()) {
+      const { data, error } = await supabase!.auth.signInWithPassword({ email, password: password || '' });
       if (error || !data.session) throw error;
       
       // Fetch Profile to get Role
-      const { data: profile } = await supabase
+      const { data: profile } = await supabase!
         .from('users')
         .select('*')
         .eq('id', data.user.id)
@@ -111,12 +117,12 @@ export const AuthService = {
     role?: UserRole, 
     permissions?: UserPermissions
   ): Promise<User | null> => {
-    if (!supabase) {
+    if (!isSupabaseEnabled()) {
       throw new Error("Registration is only available when connected to a database.");
     }
 
     // 1. Create Auth User
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await supabase!.auth.signUp({
       email,
       password: password || '',
       options: {
@@ -147,7 +153,7 @@ export const AuthService = {
       lastLogin: new Date().toISOString()
     };
 
-    const { error: profileError } = await supabase
+    const { error: profileError } = await supabase!
       .from('users')
       .insert(newUserProfile);
 
@@ -162,8 +168,8 @@ export const AuthService = {
   },
 
   logout: async (): Promise<void> => {
-    if (supabase) {
-      await supabase.auth.signOut();
+    if (isSupabaseEnabled()) {
+      await supabase!.auth.signOut();
     }
     localStorage.removeItem(USER_STORAGE_KEY);
   },
