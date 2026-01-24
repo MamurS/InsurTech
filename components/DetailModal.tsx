@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Policy, ReinsuranceSlip, Clause, PolicyStatus, TerminationDetails } from '../types';
 import { DB } from '../services/db';
@@ -277,11 +276,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         <div className="flex flex-wrap items-center gap-3 mb-4 justify-between">
             <div className="flex gap-3">
                 <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    policy.recordType === 'Direct' ? 'bg-blue-100 text-blue-700' :
-                    policy.recordType === 'Inward' ? 'bg-purple-100 text-purple-700' :
+                    policy.channel === 'Direct' ? 'bg-blue-100 text-blue-700' :
+                    policy.channel === 'Inward' ? 'bg-purple-100 text-purple-700' :
                     'bg-amber-100 text-amber-700'
                 }`}>
-                    {policy.recordType} Insurance
+                    {policy.channel} Insurance
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-bold ${
                     policy.status === PolicyStatus.ACTIVE ? 'bg-green-100 text-green-700' : 
@@ -503,7 +502,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         </div>
 
         {/* Reinsurance Specifics */}
-        {(policy.recordType !== 'Direct') && (
+        {(policy.channel !== 'Direct' || policy.hasOutwardReinsurance) && (
             <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
                 <h4 className="font-bold text-amber-900 mb-4 flex items-center gap-2"><ArrowRightLeft size={16}/> Reinsurance Details</h4>
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
@@ -583,8 +582,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
   const renderContent = () => {
     // Type guards or duck typing
-    if ('recordType' in item) return renderPolicyDetail(item as Policy);
-    if ('slipNumber' in item && !('recordType' in item)) return renderSlipDetail(item as ReinsuranceSlip);
+    if ('channel' in item) return renderPolicyDetail(item as Policy);
+    if ('slipNumber' in item && !('channel' in item)) return renderSlipDetail(item as ReinsuranceSlip);
     if ('content' in item) return renderClauseDetail(item as Clause);
     return <div className="text-red-500">Unknown item type</div>;
   };

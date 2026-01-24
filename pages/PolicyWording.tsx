@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -54,7 +53,7 @@ const PolicyWording: React.FC = () => {
   }
 
   // Type Guards
-  const isPolicy = (i: any): i is Policy => 'recordType' in i;
+  const isPolicy = (i: any): i is Policy => 'channel' in i;
 
   // --- RENDERERS ---
 
@@ -132,7 +131,7 @@ const PolicyWording: React.FC = () => {
         
         <div className="text-center mb-8 border-b-4 border-double border-gray-800 pb-4">
             <h1 className="text-2xl font-bold uppercase tracking-widest">Reinsurance Slip</h1>
-            <p className="text-sm text-gray-600 uppercase mt-1">InsurTech Solutions - {policy.recordType}</p>
+            <p className="text-sm text-gray-600 uppercase mt-1">InsurTech Solutions - {policy.channel}</p>
         </div>
 
         <div className="grid grid-cols-4 gap-4 mb-6 text-sm relative z-10">
@@ -140,7 +139,7 @@ const PolicyWording: React.FC = () => {
             <div className="col-span-3 font-bold">{policy.classOfInsurance}</div>
 
             <div className="font-bold text-right text-gray-600">REINSURED:</div>
-            <div className="col-span-3">{policy.recordType === 'Outward' ? 'InsurTech Solutions' : policy.cedantName}</div>
+            <div className="col-span-3">{policy.channel === 'Inward' ? policy.cedantName : 'InsurTech Solutions'}</div>
 
             <div className="font-bold text-right text-gray-600">ORIGINAL INSURED:</div>
             <div className="col-span-3">{policy.insuredName}</div>
@@ -171,7 +170,7 @@ const PolicyWording: React.FC = () => {
             <h3 className="font-bold text-sm mb-4">SECURITY / MARKET:</h3>
             <div className="border p-4 rounded text-sm">
                 <div className="flex justify-between mb-2">
-                    <span>{policy.recordType === 'Outward' ? policy.reinsurerName : 'InsurTech Solutions'}</span>
+                    <span>{policy.channel === 'Inward' ? 'InsurTech Solutions' : policy.reinsurerName}</span>
                     <span className="font-bold">{policy.ourShare}% Line</span>
                 </div>
                 <div className="text-xs text-gray-500">
@@ -227,7 +226,7 @@ const PolicyWording: React.FC = () => {
          <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
             <h3 className="font-bold text-gray-800 flex items-center gap-2"><Settings2 size={16}/> Configuration</h3>
             
-            {isPolicy(item) && item.recordType === 'Direct' && templates.length > 0 && (
+            {isPolicy(item) && item.channel === 'Direct' && templates.length > 0 && (
                 <div>
                     <label className="block text-xs font-bold text-gray-500 uppercase mb-2">Select Template</label>
                     <select 
@@ -263,7 +262,7 @@ const PolicyWording: React.FC = () => {
 
       <div className="flex-1 overflow-y-auto bg-gray-100 p-8 rounded-xl print:p-0 print:bg-white border border-gray-200">
         {isPolicy(item) 
-            ? (item.recordType === 'Direct' 
+            ? (item.channel === 'Direct' 
                 ? renderDynamicPolicy(item) // New dynamic render
                 : renderReinsuranceSlip(item)) // Legacy render for reinsurance
             : renderRegistrySlipNote(item)

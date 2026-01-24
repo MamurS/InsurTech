@@ -23,7 +23,9 @@ export enum PaymentStatus {
   PARTIAL = 'Partial',
 }
 
-export type RecordType = 'Direct' | 'Inward' | 'Outward';
+// Restructured Architecture types
+export type Channel = 'Direct' | 'Inward';
+export type IntermediaryType = 'Direct' | 'Broker' | 'Agent' | 'MGA';
 
 export type UserRole = 'Super Admin' | 'Admin' | 'Underwriter' | 'Viewer';
 
@@ -105,7 +107,11 @@ export interface TerminationDetails {
 
 export interface Policy {
   id: string;
-  recordType: RecordType; // Direct, Inward, or Outward
+  
+  // --- Architecture ---
+  channel: Channel; // Direct Insurance or Inward Reinsurance
+  intermediaryType: IntermediaryType; // Broker, Agent, MGA, or Direct
+  intermediaryName?: string; // Name of the Broker/Agent/MGA
 
   // --- Identifiers & Reference ---
   policyNumber: string; // Internal Policy No / Reference Link
@@ -129,13 +135,11 @@ export interface Policy {
   activationDate?: string; // Date when policy was officially bound/validated
 
   // --- Parties ---
-  insuredName: string; // Insured
+  insuredName: string; // Original Insured
   insuredAddress?: string;
   borrower?: string; // 1c / Borrower / Заемщик
-  cedantName?: string; // Reinsured / Перестрахователь
+  cedantName?: string; // Reinsured / Cedant (For Inward)
   retrocedent?: string; // Retrocedent / Ретроцедент
-  reinsurerName?: string; // For Outward
-  brokerName?: string; // Broker
   performer?: string; // Performer / Исполнитель
   
   // --- Risk Details ---
@@ -150,7 +154,7 @@ export interface Policy {
   
   // --- Financials (Sums & Limits) ---
   currency: Currency;
-  sumInsured: number; // Sum Insured in FC
+  sumInsured: number; // Sum Insured in FC (100%)
   sumInsuredNational?: number; // Sum Insured in Sums (National)
   
   limitForeignCurrency?: number; // Limit in FC
@@ -160,22 +164,25 @@ export interface Policy {
   
   // --- Financials (Premiums) ---
   premiumRate?: number; // Rate / Ставка (%)
-  grossPremium: number; // Premium in FC / Gross Reinsurance Premium
+  grossPremium: number; // Premium in FC / Gross Reinsurance Premium (100%)
   premiumNationalCurrency?: number; // Premium in National Currency
   exchangeRate: number; 
   equivalentUSD?: number; // Equivalent in USD
 
-  // --- Reinsurance Structure ---
-  ourShare: number; // Our Share / Reinsurer Share in Outward / Доля (%)
-  reinsuranceCommission?: number; // Reinsurance Commission
-  netReinsurancePremium?: number; // Net Reinsurance Premium (Payable/Receivable)
+  // --- Our Share (Inward/Direct) ---
+  ourShare: number; // Percentage of risk we accept
+  
+  // --- Outward Reinsurance / Retrocession (Ceding) ---
+  hasOutwardReinsurance?: boolean;
+  reinsurerName?: string; // Who are we ceding to?
+  cededShare?: number; // Percentage we are ceding
+  cededPremiumForeign?: number; // Premium we pay to reinsurer
+  reinsuranceCommission?: number; // Commission we receive from reinsurer
+  netReinsurancePremium?: number; // Net Payable to Reinsurer
   
   sumReinsuredForeign?: number; // Sum Reinsured / Обязательства перестраховщика (FC)
   sumReinsuredNational?: number; // Sum Reinsured (Sums)
   
-  cededPremiumForeign?: number; // Ceded Premium FC (Outward)
-  cededPremiumNational?: number; // Ceded Premium National (Outward)
-
   receivedPremiumForeign?: number; // Received Premium in FC
   receivedPremiumNational?: number; // Received Premium in National Currency
   
@@ -192,7 +199,7 @@ export interface Policy {
 
   // --- Standard Fields ---
   netPremium: number; // Calculated net
-  commissionPercent: number; // Standard Commission %
+  commissionPercent: number; // Acquisition Cost / Commission to Intermediary
   taxPercent?: number;
   deductible?: string;
   conditions?: string;
