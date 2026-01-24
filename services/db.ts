@@ -10,9 +10,45 @@ const TEMPLATES_KEY = 'insurtech_templates_v2';
 const USERS_KEY = 'insurtech_users_v2';
 
 // Helper to check connection status
-// Returns true ONLY if Supabase is configured
 const isSupabaseEnabled = () => {
   return !!supabase;
+};
+
+// --- DATA ADAPTERS ---
+// These map the new Frontend types (Channel, Intermediary) to the potentially old Database Schema (recordType)
+// ensuring backward compatibility and preventing save errors.
+
+const toAppPolicy = (dbRecord: any): Policy => {
+  // If the record already has 'channel', use it. Otherwise, derive from 'recordType'.
+  const derivedChannel = dbRecord.channel || (dbRecord.recordType === 'Inward' ? 'Inward' : 'Direct');
+  
+  // Map broker info
+  const derivedIntermediaryType = dbRecord.intermediaryType || (dbRecord.brokerName ? 'Broker' : 'Direct');
+  const derivedIntermediaryName = dbRecord.intermediaryName || dbRecord.brokerName;
+
+  return {
+    ...dbRecord,
+    channel: derivedChannel,
+    intermediaryType: derivedIntermediaryType,
+    intermediaryName: derivedIntermediaryName,
+    // Ensure numeric values are numbers
+    sumInsured: Number(dbRecord.sumInsured || 0),
+    grossPremium: Number(dbRecord.grossPremium || 0),
+    ourShare: Number(dbRecord.ourShare || 100),
+  } as Policy;
+};
+
+const toDbPolicy = (policy: Policy): any => {
+  return {
+    ...policy,
+    // Map new fields BACK to old fields to satisfy DB constraints (NOT NULL columns)
+    recordType: policy.channel, 
+    brokerName: policy.intermediaryName, // Sync intermediary name to legacy broker column
+    
+    // Explicitly ensure numeric fields are safe
+    sumInsured: policy.sumInsured || 0,
+    grossPremium: policy.grossPremium || 0
+  };
 };
 
 export const DB = {
@@ -21,7 +57,7 @@ export const DB = {
     if (isSupabaseEnabled()) {
       const { data, error } = await supabase!.from('policies').select('*').order('created_at', { ascending: false });
       if (error) { console.error("Supabase Error:", error); return []; }
-      return data as Policy[];
+      return (data || []).map(toAppPolicy);
     }
     return getLocal(POLICIES_KEY, []);
   },
@@ -29,7 +65,7 @@ export const DB = {
   getAllPolicies: async (): Promise<Policy[]> => {
     if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('policies').select('*');
-      return data as Policy[] || [];
+      return (data || []).map(toAppPolicy);
     }
     return getLocal(POLICIES_KEY, []);
   },
@@ -37,8 +73,8 @@ export const DB = {
   getPolicy: async (id: string): Promise<Policy | undefined> => {
     if (isSupabaseEnabled()) {
       const { data, error } = await supabase!.from('policies').select('*').eq('id', id).single();
-      if (error) return undefined;
-      return data as Policy;
+      if (error || !data) return undefined;
+      return toAppPolicy(data);
     }
     const policies = getLocal(POLICIES_KEY, []);
     return policies.find((p: Policy) => p.id === id);
@@ -46,10 +82,12 @@ export const DB = {
 
   savePolicy: async (policy: Policy): Promise<void> => {
     if (isSupabaseEnabled()) {
-      // Remove any UI-specific or undefined fields if necessary, though Supabase handles extra fields by ignoring if configured or erroring.
-      // We assume table matches types.
-      const { error } = await supabase!.from('policies').upsert(policy);
-      if (error) throw error;
+      const dbPayload = toDbPolicy(policy);
+      const { error } = await supabase!.from('policies').upsert(dbPayload);
+      if (error) {
+          console.error("Save Policy Error", error);
+          throw error;
+      }
       return;
     }
     const policies = getLocal(POLICIES_KEY, [] as Policy[]);
@@ -61,7 +99,6 @@ export const DB = {
 
   deletePolicy: async (id: string): Promise<void> => {
     if (isSupabaseEnabled()) {
-      // Soft delete
       await supabase!.from('policies').update({ isDeleted: true }).eq('id', id);
       return;
     }
@@ -77,7 +114,7 @@ export const DB = {
   getDeletedPolicies: async (): Promise<Policy[]> => {
     if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('policies').select('*').eq('isDeleted', true);
-      return data as Policy[] || [];
+      return (data || []).map(toAppPolicy);
     }
     return getLocal(POLICIES_KEY, [] as Policy[]).filter((p: Policy) => p.isDeleted);
   },
@@ -303,8 +340,6 @@ export const DB = {
 
   saveUser: async (user: User): Promise<void> => {
     if (isSupabaseEnabled()) {
-       // Upsert profile in public.users
-       // Note: This does NOT create the Auth User. The Auth User must exist first.
        const { error } = await supabase!.from('users').upsert({
            id: user.id,
            email: user.email,
@@ -327,7 +362,6 @@ export const DB = {
   deleteUser: async (id: string): Promise<void> => {
     if (isSupabaseEnabled()) {
       await supabase!.from('users').delete().eq('id', id);
-      // Note: This does not delete from auth.users. 
       return;
     }
     let users = getLocal(USERS_KEY, SEED_USERS);
@@ -336,7 +370,6 @@ export const DB = {
   }
 };
 
-// Mock Data
 const SEED_USERS: User[] = [
   {
     id: 'user_admin_001',

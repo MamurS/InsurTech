@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Policy, ReinsuranceSlip, Clause, PolicyStatus, TerminationDetails } from '../types';
 import { DB } from '../services/db';
 import { 
   X, Building2, Calendar, DollarSign, ArrowRightLeft, 
-  FileSpreadsheet, Code, CheckCircle, ShieldAlert, FileText, Download, Upload, AlertCircle, Trash2, XCircle, AlertTriangle
+  FileSpreadsheet, Code, CheckCircle, ShieldAlert, FileText, Download, Upload, AlertCircle, Trash2, XCircle, AlertTriangle, Briefcase, Info
 } from 'lucide-react';
 
 interface DetailModalProps {
@@ -42,26 +43,18 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   };
 
   const handleStatusChange = async (newStatus: PolicyStatus, policy: Policy, additionalData?: any) => {
-    console.log("=== handleStatusChange START ===");
-    console.log("newStatus:", newStatus);
-    
-    // NOTE: Window.confirm calls removed. Confirmation is now handled by custom modals before calling this function.
-
     setIsProcessing(true);
     
     try {
-        console.log("Creating updatedPolicy...");
         const updatedPolicy = { ...policy, status: newStatus };
         
         // Handle additional data (like termination details)
         if (newStatus === PolicyStatus.EARLY_TERMINATION && additionalData) {
-            console.log("Adding termination details...");
             updatedPolicy.terminationDetails = additionalData;
         }
 
         // Simulate file upload if file selected
         if (uploadFile) {
-            console.log("Processing uploadFile...");
             updatedPolicy.signedDocument = {
                 fileName: uploadFile.name,
                 uploadDate: new Date().toISOString(),
@@ -71,17 +64,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 updatedPolicy.activationDate = new Date().toISOString();
             }
         } else if (newStatus === PolicyStatus.ACTIVE) {
-            console.log("Setting activationDate...");
             updatedPolicy.activationDate = new Date().toISOString();
         }
 
-        console.log("About to save policy:", updatedPolicy);
         await DB.savePolicy(updatedPolicy);
-        console.log("Policy saved successfully!");
-        
-        if (onRefresh) {
-            onRefresh();
-        }
+        if (onRefresh) onRefresh();
         onClose();
     } catch (e) {
         console.error("Error updating status:", e);
@@ -145,7 +132,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                   </button>
                   <button 
                     onClick={() => {
-                        // Validate
                         if (!terminationData.reason.trim()) {
                             alert("Please provide a reason.");
                             return;
@@ -174,10 +160,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             <div className="p-6">
                 <p className="text-gray-600 text-sm">
                     This means the deal was cancelled by the client/broker before inception. 
-                    The record will be preserved for history and moved to the Cancelled/NTU tab.
-                </p>
-                <p className="text-gray-500 text-xs mt-3">
-                    This action cannot be easily undone.
+                    The record will be preserved for history.
                 </p>
             </div>
 
@@ -223,7 +206,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                             No signed document uploaded
                         </p>
                         <p className="text-amber-600 text-xs mt-1">
-                            You are activating this policy without a signed slip. You can still proceed.
+                            You are activating this policy without a signed slip.
                         </p>
                     </div>
                 ) : (
@@ -236,8 +219,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 )}
                 
                 <p className="text-gray-600 text-sm">
-                    This will bind the risk and mark the policy as <strong>Active</strong>. 
-                    The policy will be live in the system.
+                    This will bind the risk and mark the policy as <strong>Active</strong>.
                 </p>
             </div>
 
@@ -266,10 +248,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   );
 
   const renderPolicyDetail = (policy: Policy) => {
-    // Debugging policy status rendering
-    console.log("Rendering policy detail, status:", policy.status);
-    console.log("Is PENDING?", policy.status === PolicyStatus.PENDING);
-
     return (
     <div className="space-y-6 relative">
         {/* Header Badge */}
@@ -296,7 +274,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             </div>
         </div>
 
-        {/* WORKFLOW ACTION CARD (Pending) */}
+        {/* WORKFLOW ACTIONS */}
         {policy.status === PolicyStatus.PENDING && (
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 mb-6 shadow-sm">
                 <h4 className="font-bold text-orange-900 flex items-center gap-2 mb-3">
@@ -305,7 +283,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 
                 <div className="bg-white p-4 rounded-lg border border-orange-100 mb-4">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        1. Upload Signed Slip / Evidence of Cover
+                        1. Upload Signed Slip
                     </label>
                     <div className="flex items-center gap-3">
                         <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
@@ -319,16 +297,12 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                             </button>
                         )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">Upload the finalized, signed document from the broker.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <button 
                         type="button"
-                        onClick={() => {
-                            console.log("Opening NTU confirmation modal");
-                            setShowNTUConfirm(true);
-                        }}
+                        onClick={() => setShowNTUConfirm(true)}
                         disabled={isProcessing}
                         title="Mark as NTU"
                         className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors shadow-sm text-sm"
@@ -338,10 +312,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
                     <button 
                         type="button"
-                        onClick={() => {
-                            console.log("Opening Activate confirmation modal");
-                            setShowActivateConfirm(true);
-                        }}
+                        onClick={() => setShowActivateConfirm(true)}
                         disabled={isProcessing}
                         title="Bind & Activate"
                         className="w-full py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
@@ -352,31 +323,29 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             </div>
         )}
 
-        {/* WORKFLOW ACTION CARD (Active - Termination) */}
+        {/* EARLY TERMINATION BUTTON */}
         {policy.status === PolicyStatus.ACTIVE && (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6 shadow-sm flex justify-between items-center relative z-20">
-                <div className="text-sm text-gray-600">
-                    <span className="font-bold text-gray-800">Policy is Active.</span> Need to terminate early?
+            <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm flex justify-between items-center relative z-20">
+                <div className="text-sm text-gray-600 flex items-center gap-2">
+                    <CheckCircle className="text-green-600" size={18} />
+                    <span className="font-bold text-gray-800">Policy is Active.</span>
                 </div>
-                <div>
-                    <button 
-                        type="button"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setShowTerminationConfirm(true);
-                        }}
-                        disabled={isProcessing}
-                        title="Early Termination"
-                        className="px-4 py-2 bg-white border border-orange-200 text-orange-600 font-bold rounded-lg hover:bg-orange-50 transition-colors shadow-sm text-sm flex items-center gap-2 cursor-pointer relative"
-                    >
-                        <XCircle size={16} /> Early Termination
-                    </button>
-                </div>
+                <button 
+                    type="button"
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowTerminationConfirm(true);
+                    }}
+                    disabled={isProcessing}
+                    className="px-4 py-2 bg-white border border-orange-200 text-orange-600 font-bold rounded-lg hover:bg-orange-50 transition-colors shadow-sm text-sm flex items-center gap-2"
+                >
+                    <XCircle size={16} /> Early Termination
+                </button>
             </div>
         )}
 
-        {/* TERMINATION DETAILS (Read Only - if applicable) */}
+        {/* TERMINATION INFO */}
         {policy.status === PolicyStatus.EARLY_TERMINATION && policy.terminationDetails && (
              <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 shadow-sm relative z-20">
                 <div className="flex items-center gap-2 font-bold text-orange-800 mb-3 border-b border-orange-200 pb-2">
@@ -399,11 +368,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             </div>
         )}
 
-        {/* Signed Document Section (Read Only) */}
+        {/* Signed Document */}
         {policy.signedDocument && (
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-center justify-between">
+            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg border border-blue-100 text-red-500 shadow-sm">
+                    <div className="p-2 bg-white rounded-lg border border-blue-100 text-blue-600 shadow-sm">
                         <FileText size={20} />
                     </div>
                     <div>
@@ -432,6 +401,21 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         <div className="text-gray-500">Policy Number</div>
                         <div className="font-medium text-gray-900 font-mono">{policy.policyNumber}</div>
                     </div>
+                    
+                    {/* Add Cedant Info if Inward */}
+                    {policy.channel === 'Inward' && (
+                        <div className="col-span-2 bg-purple-50 p-2 rounded border border-purple-100">
+                            <div className="text-purple-800 text-xs uppercase font-bold">Cedant (Reinsured)</div>
+                            <div className="font-medium text-purple-900">{policy.cedantName || '-'}</div>
+                        </div>
+                    )}
+
+                    {/* Intermediary Info */}
+                    <div className="col-span-2 bg-gray-50 p-2 rounded border border-gray-200">
+                        <div className="text-gray-500 text-xs uppercase">Intermediary ({policy.intermediaryType})</div>
+                        <div className="font-medium text-gray-900">{policy.intermediaryName || 'Direct'}</div>
+                    </div>
+
                      <div>
                         <div className="text-gray-500">Industry</div>
                         <div className="font-medium text-gray-900">{policy.industry || '-'}</div>
@@ -452,7 +436,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             </div>
 
             <div className="space-y-4">
-                 <h4 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2"><Calendar size={16}/> Dates</h4>
+                 <h4 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2"><Calendar size={16}/> Dates & Terms</h4>
                  <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                         <div className="text-gray-500">Inception</div>
@@ -462,6 +446,12 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         <div className="text-gray-500">Expiry</div>
                         <div className="font-medium text-gray-900">{policy.expiryDate}</div>
                     </div>
+                    
+                    <div className="col-span-2">
+                        <div className="text-gray-500">Deductible</div>
+                        <div className="font-medium text-gray-900 bg-gray-50 p-2 rounded text-xs">{policy.deductible || 'N/A'}</div>
+                    </div>
+
                     {policy.dateOfSlip && (
                         <div>
                             <div className="text-gray-500">Date of Slip</div>
@@ -507,15 +497,15 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 <h4 className="font-bold text-amber-900 mb-4 flex items-center gap-2"><ArrowRightLeft size={16}/> Reinsurance Details</h4>
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
                     <div>
-                         <div className="text-amber-700 opacity-70">Reinsurer/Cedent</div>
+                         <div className="text-amber-700 opacity-70">Reinsurer</div>
                          <div className="font-medium text-amber-900">{policy.reinsurerName || policy.cedantName || '-'}</div>
                     </div>
                     <div>
-                         <div className="text-amber-700 opacity-70">Share %</div>
+                         <div className="text-amber-700 opacity-70">Our Share %</div>
                          <div className="font-bold text-amber-900">{policy.ourShare}%</div>
                     </div>
                     <div>
-                         <div className="text-amber-700 opacity-70">Commission</div>
+                         <div className="text-amber-700 opacity-70">Reins Comm %</div>
                          <div className="font-bold text-amber-900">{policy.reinsuranceCommission}%</div>
                     </div>
                      <div>
@@ -581,7 +571,6 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   );
 
   const renderContent = () => {
-    // Type guards or duck typing
     if ('channel' in item) return renderPolicyDetail(item as Policy);
     if ('slipNumber' in item && !('channel' in item)) return renderSlipDetail(item as ReinsuranceSlip);
     if ('content' in item) return renderClauseDetail(item as Clause);
