@@ -258,7 +258,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                     policy.channel === 'Inward' ? 'bg-purple-100 text-purple-700' :
                     'bg-amber-100 text-amber-700'
                 }`}>
-                    {policy.channel} Insurance
+                    {policy.channel || policy.channel} Insurance
                 </span>
                 <span className={`px-3 py-1 rounded-full text-sm font-bold ${
                     policy.status === PolicyStatus.ACTIVE ? 'bg-green-100 text-green-700' : 
@@ -571,7 +571,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   );
 
   const renderContent = () => {
-    if ('channel' in item) return renderPolicyDetail(item as Policy);
+    // Robust detection of type
+    if ('channel' in item || 'policyNumber' in item) return renderPolicyDetail(item as Policy);
     if ('slipNumber' in item && !('channel' in item)) return renderSlipDetail(item as ReinsuranceSlip);
     if ('content' in item) return renderClauseDetail(item as Clause);
     return <div className="text-red-500">Unknown item type</div>;

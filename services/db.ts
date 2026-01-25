@@ -15,8 +15,6 @@ const isSupabaseEnabled = () => {
 };
 
 // --- DATA ADAPTERS ---
-// These map the new Frontend types (Channel, Intermediary) to the potentially old Database Schema (recordType)
-// ensuring backward compatibility and preventing save errors.
 
 const toAppPolicy = (dbRecord: any): Policy => {
   // If the record already has 'channel', use it. Otherwise, derive from 'recordType'.
@@ -39,16 +37,26 @@ const toAppPolicy = (dbRecord: any): Policy => {
 };
 
 const toDbPolicy = (policy: Policy): any => {
-  return {
-    ...policy,
-    // Map new fields BACK to old fields to satisfy DB constraints (NOT NULL columns)
-    recordType: policy.channel, 
-    brokerName: policy.intermediaryName, // Sync intermediary name to legacy broker column
-    
-    // Explicitly ensure numeric fields are safe
-    sumInsured: policy.sumInsured || 0,
-    grossPremium: policy.grossPremium || 0
-  };
+  // 1. Create a clone to avoid mutating the app state
+  const payload: any = { ...policy };
+
+  // 2. Map new architecture fields to Legacy DB Schema columns
+  // This ensures that even if you haven't run the migration, key data is saved.
+  payload.recordType = policy.channel; 
+  payload.brokerName = policy.intermediaryName;
+
+  // 3. Sanitize Payload: Remove fields that might not exist in the DB yet
+  // This prevents "column does not exist" errors during INSERT/UPDATE
+  delete payload.channel;
+  delete payload.intermediaryType;
+  delete payload.intermediaryName;
+
+  // 4. Ensure numeric fields are safe (Postgres numeric types don't like NaNs or empty strings)
+  payload.sumInsured = policy.sumInsured || 0;
+  payload.grossPremium = policy.grossPremium || 0;
+  payload.ourShare = policy.ourShare || 100;
+  
+  return payload;
 };
 
 export const DB = {

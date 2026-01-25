@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -270,7 +271,10 @@ const PolicyForm: React.FC = () => {
         }
         await DB.savePolicy(updatedData);
         navigate('/');
-    } catch (error) { console.error(error); alert("Failed."); } finally { setProcessingAction(null); }
+    } catch (error: any) { 
+        console.error(error); 
+        alert(`Failed to activate: ${error.message || 'Unknown error'}`);
+    } finally { setProcessingAction(null); }
   };
 
   const handleNTU = async (e: React.MouseEvent) => {
@@ -279,7 +283,7 @@ const PolicyForm: React.FC = () => {
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.NTU });
         navigate('/');
-    } catch (error) { console.error(error); } finally { setProcessingAction(null); }
+    } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
   const handleCancel = async (e: React.MouseEvent) => {
@@ -288,7 +292,7 @@ const PolicyForm: React.FC = () => {
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.CANCELLED });
         navigate('/');
-    } catch (error) { console.error(error); } finally { setProcessingAction(null); }
+    } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -297,7 +301,10 @@ const PolicyForm: React.FC = () => {
     try {
         await DB.savePolicy(formData);
         navigate('/');
-    } catch (error) { console.error(error); alert("Failed to save."); } finally { setProcessingAction(null); }
+    } catch (error: any) { 
+        console.error(error); 
+        alert(`Failed to save: ${error.message || 'Check console for details.'}`); 
+    } finally { setProcessingAction(null); }
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
