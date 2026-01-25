@@ -67,31 +67,69 @@ export const ExcelService = {
     const sheet = workbook.addWorksheet(`Policy_Register`);
 
     const columns: ColumnDef[] = [
+        // Identifiers
         { header: 'Channel', key: 'channel', width: 15, fill: COLORS.headerGray },
-        { header: 'Ref No', key: 'policyNumber', width: 25 },
+        { header: 'Ref No', key: 'policyNumber', width: 20 },
+        { header: 'Secondary Ref', key: 'secondaryPolicyNumber', width: 20 },
+        { header: 'Agreement No', key: 'agreementNumber', width: 20 },
+        { header: 'Bordereau No', key: 'bordereauNo', width: 15 },
+        { header: 'Status', key: 'status', width: 15 },
+
+        // Dates
+        { header: 'Inception', key: 'inceptionDate', width: 15, align: 'center' },
+        { header: 'Expiry', key: 'expiryDate', width: 15, align: 'center' },
+        { header: 'Date of Slip', key: 'dateOfSlip', width: 15, align: 'center' },
+        { header: 'Accounting Date', key: 'accountingDate', width: 15, align: 'center' },
+        { header: 'Payment Date', key: 'paymentDate', width: 15, align: 'center' },
+        { header: 'Warranty (Days)', key: 'warrantyPeriod', width: 10 },
+
+        // Parties
         { header: 'Insured Name', key: 'insuredName', width: 30 },
+        { header: 'Insured Address', key: 'insuredAddress', width: 30 },
         { header: 'Cedant', key: 'cedantName', width: 25 },
         { header: 'Intermediary Type', key: 'intermediaryType', width: 15 },
         { header: 'Intermediary Name', key: 'intermediaryName', width: 25 },
+        { header: 'Borrower', key: 'borrower', width: 20 },
+        { header: 'Retrocedent', key: 'retrocedent', width: 20 },
+        { header: 'Performer', key: 'performer', width: 20 },
         
-        { header: 'Status', key: 'status', width: 15 },
+        // Risk
         { header: 'Class', key: 'classOfInsurance', width: 15 },
+        { header: 'Risk Code', key: 'riskCode', width: 10 },
         { header: 'Territory', key: 'territory', width: 15 },
+        { header: 'City', key: 'city', width: 15 },
+        { header: 'Insured Risk', key: 'insuredRisk', width: 30 },
         
+        // Financials
         { header: 'Currency', key: 'currency', width: 8, align: 'center' },
         { header: 'Sum Insured', key: 'sumInsured', width: 20, fill: COLORS.blue, format: '#,##0.00' },
+        { header: 'Sum Insured (Nat)', key: 'sumInsuredNational', width: 20, fill: COLORS.blue, format: '#,##0.00' },
         { header: 'Gross Premium', key: 'grossPremium', width: 20, fill: COLORS.green, format: '#,##0.00' },
+        { header: 'Premium (Nat)', key: 'premiumNationalCurrency', width: 20, fill: COLORS.green, format: '#,##0.00' },
+        { header: 'Exchange Rate', key: 'exchangeRate', width: 12, format: '0.00' },
+        { header: 'Equivalent USD', key: 'equivalentUSD', width: 18, format: '#,##0.00' },
         
-        { header: 'Inception', key: 'inceptionDate', width: 15, align: 'center' },
-        { header: 'Expiry', key: 'expiryDate', width: 15, align: 'center' },
+        // Limits
+        { header: 'Limit (FC)', key: 'limitForeignCurrency', width: 18, format: '#,##0.00' },
+        { header: 'Excess (FC)', key: 'excessForeignCurrency', width: 18, format: '#,##0.00' },
         
+        // Our Share
         { header: 'Our Share %', key: 'ourShare', width: 12, format: '0.00' },
+        { header: 'Net Premium', key: 'netPremium', width: 18, format: '#,##0.00' },
+        { header: 'Commission %', key: 'commissionPercent', width: 12, format: '0.00' },
         
         // Outward Details
         { header: 'Reinsured Out?', key: 'hasOutwardReinsurance', width: 12 },
-        { header: 'Ceded Share %', key: 'cededShare', width: 12, fill: COLORS.amber, format: '0.00' },
         { header: 'Reinsurer', key: 'reinsurerName', width: 25, fill: COLORS.amber },
-        { header: 'Ceded Prem', key: 'cededPremiumForeign', width: 18, fill: COLORS.amber, format: '#,##0.00' },
+        { header: 'Ceded Share %', key: 'cededShare', width: 12, fill: COLORS.amber, format: '0.00' },
+        { header: 'Ceded Prem (FC)', key: 'cededPremiumForeign', width: 18, fill: COLORS.amber, format: '#,##0.00' },
+        { header: 'Reins Comm %', key: 'reinsuranceCommission', width: 12, fill: COLORS.amber, format: '0.00' },
+        { header: 'Net Payable', key: 'netReinsurancePremium', width: 18, fill: COLORS.amber, format: '#,##0.00' },
+        
+        // Treaty / Inward
+        { header: 'Treaty Placement', key: 'treatyPlacement', width: 20 },
+        { header: 'Treaty Prem', key: 'treatyPremium', width: 18, format: '#,##0.00' },
+        { header: 'AIC Commission', key: 'aicCommission', width: 18, format: '#,##0.00' },
       ];
 
     setupSheet(sheet, columns);
@@ -112,7 +150,7 @@ export const ExcelService = {
         styleRow(row, columns);
     });
 
-    await saveWorkbook(workbook, `InsurTech_Policy_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+    await saveWorkbook(workbook, `InsurTech_Full_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 };
 

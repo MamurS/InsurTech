@@ -4,7 +4,8 @@ import { Policy, ReinsuranceSlip, Clause, PolicyStatus, TerminationDetails } fro
 import { DB } from '../services/db';
 import { 
   X, Building2, Calendar, DollarSign, ArrowRightLeft, 
-  FileSpreadsheet, Code, CheckCircle, ShieldAlert, FileText, Download, Upload, AlertCircle, Trash2, XCircle, AlertTriangle, Briefcase, Info
+  FileSpreadsheet, Code, CheckCircle, ShieldAlert, FileText, Download, Upload, AlertCircle, Trash2, XCircle, AlertTriangle, Briefcase, Info,
+  Globe
 } from 'lucide-react';
 
 interface DetailModalProps {
@@ -44,16 +45,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
   const handleStatusChange = async (newStatus: PolicyStatus, policy: Policy, additionalData?: any) => {
     setIsProcessing(true);
-    
     try {
         const updatedPolicy = { ...policy, status: newStatus };
-        
-        // Handle additional data (like termination details)
         if (newStatus === PolicyStatus.EARLY_TERMINATION && additionalData) {
             updatedPolicy.terminationDetails = additionalData;
         }
-
-        // Simulate file upload if file selected
         if (uploadFile) {
             updatedPolicy.signedDocument = {
                 fileName: uploadFile.name,
@@ -85,63 +81,28 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                   <div className="bg-orange-100 p-2 rounded-full text-orange-600"><AlertTriangle size={20}/></div>
                   <h3 className="font-bold text-gray-800">Early Policy Termination</h3>
               </div>
-              
               <div className="p-6 space-y-4">
                   <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Termination Date</label>
-                      <input 
-                        type="date" 
-                        value={terminationData.terminationDate}
-                        onChange={(e) => setTerminationData({...terminationData, terminationDate: e.target.value})}
-                        className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900"
-                      />
+                      <input type="date" value={terminationData.terminationDate} onChange={(e) => setTerminationData({...terminationData, terminationDate: e.target.value})} className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900"/>
                   </div>
-                  
                   <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Initiated By</label>
-                      <select 
-                        value={terminationData.initiator}
-                        onChange={(e) => setTerminationData({...terminationData, initiator: e.target.value as any})}
-                        className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900"
-                      >
+                      <select value={terminationData.initiator} onChange={(e) => setTerminationData({...terminationData, initiator: e.target.value as any})} className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900">
                           <option value="Us">Us (Insurer)</option>
                           <option value="Broker">Broker</option>
                           <option value="Cedant">Cedant / Client</option>
                           <option value="Other">Other</option>
                       </select>
                   </div>
-
                   <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason for Termination</label>
-                      <textarea 
-                        rows={3}
-                        value={terminationData.reason}
-                        onChange={(e) => setTerminationData({...terminationData, reason: e.target.value})}
-                        placeholder="e.g. Non-payment of premium..."
-                        className="w-full p-2 bg-white border rounded-lg text-sm resize-none text-gray-900"
-                      />
+                      <textarea rows={3} value={terminationData.reason} onChange={(e) => setTerminationData({...terminationData, reason: e.target.value})} className="w-full p-2 bg-white border rounded-lg text-sm resize-none text-gray-900"/>
                   </div>
               </div>
-
               <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                  <button 
-                    onClick={() => setShowTerminationConfirm(false)}
-                    className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm"
-                  >
-                      Cancel
-                  </button>
-                  <button 
-                    onClick={() => {
-                        if (!terminationData.reason.trim()) {
-                            alert("Please provide a reason.");
-                            return;
-                        }
-                        handleStatusChange(PolicyStatus.EARLY_TERMINATION, item as Policy, terminationData);
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 text-sm shadow-sm"
-                  >
-                      Terminate Policy
-                  </button>
+                  <button onClick={() => setShowTerminationConfirm(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm">Cancel</button>
+                  <button onClick={() => handleStatusChange(PolicyStatus.EARLY_TERMINATION, item as Policy, terminationData)} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 text-sm shadow-sm">Terminate Policy</button>
               </div>
           </div>
       </div>
@@ -151,38 +112,15 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
       <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-gray-200 overflow-hidden">
             <div className="bg-gray-100 p-4 border-b flex items-center gap-3">
-                <div className="bg-gray-200 p-2 rounded-full text-gray-600">
-                    <XCircle size={20}/>
-                </div>
+                <div className="bg-gray-200 p-2 rounded-full text-gray-600"><XCircle size={20}/></div>
                 <h3 className="font-bold text-gray-800">Confirm "Not Taken Up"</h3>
             </div>
-            
             <div className="p-6">
-                <p className="text-gray-600 text-sm">
-                    This means the deal was cancelled by the client/broker before inception. 
-                    The record will be preserved for history.
-                </p>
+                <p className="text-gray-600 text-sm">This means the deal was cancelled by the client/broker before inception.</p>
             </div>
-
             <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                <button 
-                    type="button"
-                    onClick={() => setShowNTUConfirm(false)}
-                    className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm"
-                >
-                    Go Back
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => {
-                        setShowNTUConfirm(false);
-                        handleStatusChange(PolicyStatus.NTU, item as Policy);
-                    }}
-                    disabled={isProcessing}
-                    className="px-4 py-2 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-800 text-sm shadow-sm"
-                >
-                    {isProcessing ? "Processing..." : "Confirm NTU"}
-                </button>
+                <button type="button" onClick={() => setShowNTUConfirm(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm">Go Back</button>
+                <button type="button" onClick={() => { setShowNTUConfirm(false); handleStatusChange(PolicyStatus.NTU, item as Policy); }} disabled={isProcessing} className="px-4 py-2 bg-gray-700 text-white font-bold rounded-lg hover:bg-gray-800 text-sm shadow-sm">Confirm NTU</button>
             </div>
         </div>
     </div>
@@ -192,56 +130,24 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
     <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
         <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-gray-200 overflow-hidden">
             <div className="bg-green-50 p-4 border-b border-green-100 flex items-center gap-3">
-                <div className="bg-green-100 p-2 rounded-full text-green-600">
-                    <CheckCircle size={20}/>
-                </div>
+                <div className="bg-green-100 p-2 rounded-full text-green-600"><CheckCircle size={20}/></div>
                 <h3 className="font-bold text-gray-800">Bind & Activate Policy</h3>
             </div>
-            
             <div className="p-6">
                 {!uploadFile && !(item as Policy)?.signedDocument ? (
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
-                        <p className="text-amber-800 text-sm font-medium flex items-center gap-2">
-                            <AlertCircle size={16} />
-                            No signed document uploaded
-                        </p>
-                        <p className="text-amber-600 text-xs mt-1">
-                            You are activating this policy without a signed slip.
-                        </p>
+                        <p className="text-amber-800 text-sm font-medium flex items-center gap-2"><AlertCircle size={16} /> No signed document uploaded</p>
                     </div>
                 ) : (
                     <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
-                        <p className="text-green-800 text-sm font-medium flex items-center gap-2">
-                            <CheckCircle size={16} />
-                            {uploadFile ? `Document ready: ${uploadFile.name}` : 'Signed document on file'}
-                        </p>
+                        <p className="text-green-800 text-sm font-medium flex items-center gap-2"><CheckCircle size={16} /> {uploadFile ? `Document ready: ${uploadFile.name}` : 'Signed document on file'}</p>
                     </div>
                 )}
-                
-                <p className="text-gray-600 text-sm">
-                    This will bind the risk and mark the policy as <strong>Active</strong>.
-                </p>
+                <p className="text-gray-600 text-sm">This will bind the risk and mark the policy as <strong>Active</strong>.</p>
             </div>
-
             <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
-                <button 
-                    type="button"
-                    onClick={() => setShowActivateConfirm(false)}
-                    className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm"
-                >
-                    Go Back
-                </button>
-                <button 
-                    type="button"
-                    onClick={() => {
-                        setShowActivateConfirm(false);
-                        handleStatusChange(PolicyStatus.ACTIVE, item as Policy);
-                    }}
-                    disabled={isProcessing}
-                    className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 text-sm shadow-sm flex items-center gap-2"
-                >
-                    {isProcessing ? "Processing..." : <><CheckCircle size={16}/> Activate Policy</>}
-                </button>
+                <button type="button" onClick={() => setShowActivateConfirm(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm">Go Back</button>
+                <button type="button" onClick={() => { setShowActivateConfirm(false); handleStatusChange(PolicyStatus.ACTIVE, item as Policy); }} disabled={isProcessing} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 text-sm shadow-sm flex items-center gap-2">Activate Policy</button>
             </div>
         </div>
     </div>
@@ -253,23 +159,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         {/* Header Badge */}
         <div className="flex flex-wrap items-center gap-3 mb-4 justify-between">
             <div className="flex gap-3">
-                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    policy.channel === 'Direct' ? 'bg-blue-100 text-blue-700' :
-                    policy.channel === 'Inward' ? 'bg-purple-100 text-purple-700' :
-                    'bg-amber-100 text-amber-700'
-                }`}>
-                    {policy.channel || policy.channel} Insurance
-                </span>
-                <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                    policy.status === PolicyStatus.ACTIVE ? 'bg-green-100 text-green-700' : 
-                    policy.status === PolicyStatus.PENDING ? 'bg-amber-100 text-amber-700' :
-                    policy.status === PolicyStatus.NTU ? 'bg-red-100 text-red-700 border border-red-200' :
-                    policy.status === PolicyStatus.CANCELLED ? 'bg-red-100 text-red-700' :
-                    policy.status === PolicyStatus.EARLY_TERMINATION ? 'bg-orange-100 text-orange-700' :
-                    'bg-gray-100 text-gray-700'
-                }`}>
-                    {policy.status}
-                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-bold ${policy.channel === 'Direct' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{policy.channel} Insurance</span>
+                <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-bold">{policy.status}</span>
                 {policy.isDeleted && <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold animate-pulse">DELETED</span>}
             </div>
         </div>
@@ -277,48 +168,13 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         {/* WORKFLOW ACTIONS */}
         {policy.status === PolicyStatus.PENDING && (
             <div className="bg-orange-50 border border-orange-200 rounded-xl p-5 mb-6 shadow-sm">
-                <h4 className="font-bold text-orange-900 flex items-center gap-2 mb-3">
-                    <AlertCircle size={18} /> Underwriting Workflow
-                </h4>
-                
-                <div className="bg-white p-4 rounded-lg border border-orange-100 mb-4">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        1. Upload Signed Slip
-                    </label>
-                    <div className="flex items-center gap-3">
-                        <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors">
-                            <Upload size={16} /> 
-                            {uploadFile ? uploadFile.name : "Choose PDF..."}
-                            <input type="file" accept=".pdf" className="hidden" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
-                        </label>
-                        {uploadFile && (
-                            <button onClick={() => setUploadFile(null)} className="text-red-500 hover:text-red-700 p-1">
-                                <X size={16} />
-                            </button>
-                        )}
-                    </div>
+                <h4 className="font-bold text-orange-900 flex items-center gap-2 mb-3"><AlertCircle size={18} /> Underwriting Workflow</h4>
+                <div className="bg-white p-4 rounded-lg border border-orange-100 mb-4 flex items-center gap-3">
+                    <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2"><Upload size={16} /> {uploadFile ? uploadFile.name : "Choose PDF..."}<input type="file" accept=".pdf" className="hidden" onChange={(e) => setUploadFile(e.target.files?.[0] || null)} /></label>
                 </div>
-
                 <div className="grid grid-cols-2 gap-4">
-                    <button 
-                        type="button"
-                        onClick={() => setShowNTUConfirm(true)}
-                        disabled={isProcessing}
-                        title="Mark as NTU"
-                        className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-red-50 hover:text-red-700 hover:border-red-200 transition-colors shadow-sm text-sm"
-                    >
-                        Mark as NTU
-                    </button>
-
-                    <button 
-                        type="button"
-                        onClick={() => setShowActivateConfirm(true)}
-                        disabled={isProcessing}
-                        title="Bind & Activate"
-                        className="w-full py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center gap-2 text-sm"
-                    >
-                        {isProcessing ? "Processing..." : <><CheckCircle size={16}/> Bind & Activate</>}
-                    </button>
+                    <button onClick={() => setShowNTUConfirm(true)} className="w-full py-2.5 bg-white border border-gray-300 text-gray-700 font-bold rounded-lg hover:bg-red-50 text-sm">Mark as NTU</button>
+                    <button onClick={() => setShowActivateConfirm(true)} className="w-full py-2.5 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 text-sm">Bind & Activate</button>
                 </div>
             </div>
         )}
@@ -326,65 +182,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         {/* EARLY TERMINATION BUTTON */}
         {policy.status === PolicyStatus.ACTIVE && (
             <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 shadow-sm flex justify-between items-center relative z-20">
-                <div className="text-sm text-gray-600 flex items-center gap-2">
-                    <CheckCircle className="text-green-600" size={18} />
-                    <span className="font-bold text-gray-800">Policy is Active.</span>
-                </div>
-                <button 
-                    type="button"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowTerminationConfirm(true);
-                    }}
-                    disabled={isProcessing}
-                    className="px-4 py-2 bg-white border border-orange-200 text-orange-600 font-bold rounded-lg hover:bg-orange-50 transition-colors shadow-sm text-sm flex items-center gap-2"
-                >
-                    <XCircle size={16} /> Early Termination
-                </button>
-            </div>
-        )}
-
-        {/* TERMINATION INFO */}
-        {policy.status === PolicyStatus.EARLY_TERMINATION && policy.terminationDetails && (
-             <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6 shadow-sm relative z-20">
-                <div className="flex items-center gap-2 font-bold text-orange-800 mb-3 border-b border-orange-200 pb-2">
-                    <AlertTriangle size={18} /> Terminated Early
-                </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <span className="text-gray-500 text-xs uppercase">Date</span>
-                        <div className="font-medium">{policy.terminationDetails.terminationDate}</div>
-                    </div>
-                    <div>
-                        <span className="text-gray-500 text-xs uppercase">Initiated By</span>
-                        <div className="font-medium">{policy.terminationDetails.initiator}</div>
-                    </div>
-                    <div className="col-span-2">
-                        <span className="text-gray-500 text-xs uppercase">Reason</span>
-                        <div className="font-medium text-gray-800 bg-white p-2 rounded border border-orange-100">{policy.terminationDetails.reason}</div>
-                    </div>
-                </div>
-            </div>
-        )}
-
-        {/* Signed Document */}
-        {policy.signedDocument && (
-            <div className="bg-blue-50 p-4 rounded-xl border border-blue-200 flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white rounded-lg border border-blue-100 text-blue-600 shadow-sm">
-                        <FileText size={20} />
-                    </div>
-                    <div>
-                        <div className="font-bold text-blue-900 text-sm">Signed Policy / Slip</div>
-                        <div className="text-xs text-blue-600">
-                            {policy.signedDocument.fileName} • Uploaded {new Date(policy.signedDocument.uploadDate).toLocaleDateString()}
-                        </div>
-                    </div>
-                </div>
-                <button className="px-3 py-1.5 bg-white text-blue-700 text-xs font-bold rounded-lg border border-blue-200 hover:bg-blue-50 flex items-center gap-1 shadow-sm cursor-pointer">
-                    <Download size={14} /> Download
-                </button>
+                <div className="text-sm text-gray-600 flex items-center gap-2"><CheckCircle className="text-green-600" size={18} /><span className="font-bold text-gray-800">Policy is Active.</span></div>
+                <button onClick={() => setShowTerminationConfirm(true)} className="px-4 py-2 bg-white border border-orange-200 text-orange-600 font-bold rounded-lg hover:bg-orange-50 text-sm flex items-center gap-2"><XCircle size={16} /> Early Termination</button>
             </div>
         )}
 
@@ -393,125 +192,75 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             <div className="space-y-4">
                 <h4 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2"><Building2 size={16}/> Core Information</h4>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <div className="text-gray-500">Insured Name</div>
-                        <div className="font-medium text-gray-900">{policy.insuredName}</div>
-                    </div>
-                    <div>
-                        <div className="text-gray-500">Policy Number</div>
-                        <div className="font-medium text-gray-900 font-mono">{policy.policyNumber}</div>
-                    </div>
+                    <div><div className="text-gray-500">Insured Name</div><div className="font-medium text-gray-900">{policy.insuredName}</div></div>
+                    <div><div className="text-gray-500">Ref / Policy No</div><div className="font-medium text-gray-900 font-mono">{policy.policyNumber}</div></div>
+                    {policy.secondaryPolicyNumber && <div><div className="text-gray-500">Secondary Ref</div><div className="font-medium text-gray-900">{policy.secondaryPolicyNumber}</div></div>}
+                    {policy.agreementNumber && <div><div className="text-gray-500">Agreement No</div><div className="font-medium text-gray-900">{policy.agreementNumber}</div></div>}
                     
-                    {/* Add Cedant Info if Inward */}
-                    {policy.channel === 'Inward' && (
-                        <div className="col-span-2 bg-purple-50 p-2 rounded border border-purple-100">
-                            <div className="text-purple-800 text-xs uppercase font-bold">Cedant (Reinsured)</div>
-                            <div className="font-medium text-purple-900">{policy.cedantName || '-'}</div>
-                        </div>
-                    )}
+                    {policy.channel === 'Inward' && <div className="col-span-2 bg-purple-50 p-2 rounded border border-purple-100"><div className="text-purple-800 text-xs uppercase font-bold">Cedant</div><div className="font-medium text-purple-900">{policy.cedantName || '-'}</div></div>}
+                    <div className="col-span-2 bg-gray-50 p-2 rounded border border-gray-200"><div className="text-gray-500 text-xs uppercase">Intermediary ({policy.intermediaryType})</div><div className="font-medium text-gray-900">{policy.intermediaryName || 'Direct'}</div></div>
 
-                    {/* Intermediary Info */}
-                    <div className="col-span-2 bg-gray-50 p-2 rounded border border-gray-200">
-                        <div className="text-gray-500 text-xs uppercase">Intermediary ({policy.intermediaryType})</div>
-                        <div className="font-medium text-gray-900">{policy.intermediaryName || 'Direct'}</div>
-                    </div>
+                    {policy.borrower && <div><div className="text-gray-500">Borrower</div><div className="font-medium text-gray-900">{policy.borrower}</div></div>}
+                    {policy.insuredAddress && <div className="col-span-2"><div className="text-gray-500">Insured Address</div><div className="font-medium text-gray-900 truncate">{policy.insuredAddress}</div></div>}
 
-                     <div>
-                        <div className="text-gray-500">Industry</div>
-                        <div className="font-medium text-gray-900">{policy.industry || '-'}</div>
-                    </div>
-                     <div>
-                        <div className="text-gray-500">Territory</div>
-                        <div className="font-medium text-gray-900">{policy.territory}</div>
-                    </div>
-                    <div>
-                        <div className="text-gray-500">Class</div>
-                        <div className="font-medium text-gray-900">{policy.classOfInsurance}</div>
-                    </div>
-                    <div>
-                        <div className="text-gray-500">Type</div>
-                        <div className="font-medium text-gray-900">{policy.typeOfInsurance}</div>
-                    </div>
+                     <div><div className="text-gray-500">Industry</div><div className="font-medium text-gray-900">{policy.industry || '-'}</div></div>
+                     <div><div className="text-gray-500">Territory</div><div className="font-medium text-gray-900">{policy.territory}</div></div>
+                     <div><div className="text-gray-500">Class</div><div className="font-medium text-gray-900">{policy.classOfInsurance}</div></div>
+                     <div><div className="text-gray-500">Risk Code</div><div className="font-medium text-gray-900">{policy.riskCode || '-'}</div></div>
                 </div>
             </div>
 
             <div className="space-y-4">
                  <h4 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2"><Calendar size={16}/> Dates & Terms</h4>
                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                        <div className="text-gray-500">Inception</div>
-                        <div className="font-medium text-gray-900">{policy.inceptionDate}</div>
-                    </div>
-                    <div>
-                        <div className="text-gray-500">Expiry</div>
-                        <div className="font-medium text-gray-900">{policy.expiryDate}</div>
-                    </div>
+                    <div><div className="text-gray-500">Inception</div><div className="font-medium text-gray-900">{policy.inceptionDate}</div></div>
+                    <div><div className="text-gray-500">Expiry</div><div className="font-medium text-gray-900">{policy.expiryDate}</div></div>
                     
-                    <div className="col-span-2">
-                        <div className="text-gray-500">Deductible</div>
-                        <div className="font-medium text-gray-900 bg-gray-50 p-2 rounded text-xs">{policy.deductible || 'N/A'}</div>
-                    </div>
-
-                    {policy.dateOfSlip && (
-                        <div>
-                            <div className="text-gray-500">Date of Slip</div>
-                            <div className="font-medium text-gray-900">{policy.dateOfSlip}</div>
-                        </div>
-                    )}
-                    {policy.activationDate && (
-                        <div className="col-span-2 mt-2 pt-2 border-t border-dashed">
-                            <div className="text-gray-500 text-xs uppercase tracking-wide">Bound / Activated On</div>
-                            <div className="font-medium text-green-700">{new Date(policy.activationDate).toLocaleString()}</div>
-                        </div>
-                    )}
+                    {policy.dateOfSlip && <div><div className="text-gray-500">Date of Slip</div><div className="font-medium text-gray-900">{policy.dateOfSlip}</div></div>}
+                    {policy.accountingDate && <div><div className="text-gray-500">Accounting Date</div><div className="font-medium text-gray-900">{policy.accountingDate}</div></div>}
+                    
+                    <div className="col-span-2"><div className="text-gray-500">Deductible</div><div className="font-medium text-gray-900 bg-gray-50 p-2 rounded text-xs">{policy.deductible || 'N/A'}</div></div>
                  </div>
             </div>
         </div>
 
         {/* Financials */}
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-             <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><DollarSign size={16}/> Financials</h4>
+             <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><DollarSign size={16}/> Financials ({policy.currency})</h4>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-                 <div>
-                    <div className="text-gray-500">Sum Insured</div>
-                    <div className="font-bold text-lg text-gray-900">{formatMoney(policy.sumInsured, policy.currency)}</div>
-                 </div>
-                 <div>
-                    <div className="text-gray-500">Gross Premium</div>
-                    <div className="font-bold text-lg text-green-700">{formatMoney(policy.grossPremium, policy.currency)}</div>
-                 </div>
-                  <div>
-                    <div className="text-gray-500">Exchange Rate</div>
-                    <div className="font-mono font-medium">{policy.exchangeRate}</div>
-                 </div>
-                  <div>
-                    <div className="text-gray-500">Payment Status</div>
-                    <div className="font-medium">{policy.paymentStatus}</div>
-                 </div>
+                 <div><div className="text-gray-500">Sum Insured</div><div className="font-bold text-lg text-gray-900">{formatMoney(policy.sumInsured, policy.currency)}</div></div>
+                 <div><div className="text-gray-500">Gross Premium</div><div className="font-bold text-lg text-green-700">{formatMoney(policy.grossPremium, policy.currency)}</div></div>
+                 <div><div className="text-gray-500">Sum Insured (Nat)</div><div className="font-mono font-medium">{formatMoney(policy.sumInsuredNational, 'UZS')}</div></div>
+                 <div><div className="text-gray-500">Exchange Rate</div><div className="font-mono font-medium">{policy.exchangeRate}</div></div>
+                 
+                 <div><div className="text-gray-500">Limit (FC)</div><div className="font-medium">{formatMoney(policy.limitForeignCurrency, policy.currency)}</div></div>
+                 <div><div className="text-gray-500">Limit (Nat)</div><div className="font-medium">{formatMoney(policy.limitNationalCurrency, 'UZS')}</div></div>
+                 
+                 <div><div className="text-gray-500">Premium Rate</div><div className="font-medium">{policy.premiumRate}%</div></div>
              </div>
         </div>
 
-        {/* Reinsurance Specifics */}
-        {(policy.channel !== 'Direct' || policy.hasOutwardReinsurance) && (
+        {/* Treaty / Reinsurance */}
+        {policy.channel === 'Inward' && (
+             <div className="bg-purple-50 p-6 rounded-xl border border-purple-100">
+                <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2"><Globe size={16}/> Treaty Details</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div><div className="text-purple-700 opacity-70">Treaty Placement</div><div className="font-medium text-purple-900">{policy.treatyPlacement || '-'}</div></div>
+                    <div><div className="text-purple-700 opacity-70">Treaty Premium</div><div className="font-medium text-purple-900">{formatMoney(policy.treatyPremium, policy.currency)}</div></div>
+                    <div><div className="text-purple-700 opacity-70">AIC Commission</div><div className="font-medium text-purple-900">{formatMoney(policy.aicCommission, policy.currency)}</div></div>
+                </div>
+            </div>
+        )}
+
+        {/* Outward Reinsurance */}
+        {policy.hasOutwardReinsurance && (
             <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
-                <h4 className="font-bold text-amber-900 mb-4 flex items-center gap-2"><ArrowRightLeft size={16}/> Reinsurance Details</h4>
+                <h4 className="font-bold text-amber-900 mb-4 flex items-center gap-2"><ArrowRightLeft size={16}/> Outward Reinsurance</h4>
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-                    <div>
-                         <div className="text-amber-700 opacity-70">Reinsurer</div>
-                         <div className="font-medium text-amber-900">{policy.reinsurerName || policy.cedantName || '-'}</div>
-                    </div>
-                    <div>
-                         <div className="text-amber-700 opacity-70">Our Share %</div>
-                         <div className="font-bold text-amber-900">{policy.ourShare}%</div>
-                    </div>
-                    <div>
-                         <div className="text-amber-700 opacity-70">Reins Comm %</div>
-                         <div className="font-bold text-amber-900">{policy.reinsuranceCommission}%</div>
-                    </div>
-                     <div>
-                         <div className="text-amber-700 opacity-70">Net Due</div>
-                         <div className="font-bold text-amber-900">{formatMoney(policy.netReinsurancePremium, policy.currency)}</div>
-                    </div>
+                    <div><div className="text-amber-700 opacity-70">Reinsurer</div><div className="font-medium text-amber-900">{policy.reinsurerName || '-'}</div></div>
+                    <div><div className="text-amber-700 opacity-70">Ceded Share %</div><div className="font-bold text-amber-900">{policy.cededShare}%</div></div>
+                    <div><div className="text-amber-700 opacity-70">Reins Comm %</div><div className="font-bold text-amber-900">{policy.reinsuranceCommission}%</div></div>
+                     <div><div className="text-amber-700 opacity-70">Net Due</div><div className="font-bold text-amber-900">{formatMoney(policy.netReinsurancePremium, policy.currency)}</div></div>
                  </div>
             </div>
         )}
@@ -520,13 +269,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
   const renderSlipDetail = (slip: ReinsuranceSlip) => (
      <div className="space-y-6">
-        <div className="flex items-center gap-3 mb-4">
-             <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2">
-                <FileSpreadsheet size={14}/> Reinsurance Slip
-             </span>
-             {slip.isDeleted && <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold">DELETED</span>}
-        </div>
-
+        <div className="flex items-center gap-3 mb-4"><span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold flex items-center gap-2"><FileSpreadsheet size={14}/> Reinsurance Slip</span></div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                 <div className="text-gray-500 mb-1">Slip Number</div>
@@ -550,28 +293,13 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
   const renderClauseDetail = (clause: Clause) => (
       <div className="space-y-6">
-         <div className="flex items-center gap-3 mb-4">
-             <span className={`px-3 py-1 rounded-full text-sm font-bold ${
-                  clause.category === 'Exclusion' ? 'bg-red-100 text-red-700' :
-                  clause.category === 'Warranty' ? 'bg-amber-100 text-amber-700' :
-                  'bg-blue-100 text-blue-700'
-                }`}>
-                  {clause.category}
-             </span>
-             {clause.isStandard && <span className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm font-bold">Standard</span>}
-             {clause.isDeleted && <span className="bg-red-600 text-white px-3 py-1 rounded-full text-sm font-bold">DELETED</span>}
-        </div>
-
+         <div className="flex items-center gap-3 mb-4"><span className={`px-3 py-1 rounded-full text-sm font-bold ${clause.category === 'Exclusion' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>{clause.category}</span></div>
         <h3 className="text-2xl font-bold text-gray-900">{clause.title}</h3>
-        
-        <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 font-serif text-gray-800 leading-relaxed whitespace-pre-wrap">
-            {clause.content}
-        </div>
+        <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 font-serif text-gray-800 leading-relaxed whitespace-pre-wrap">{clause.content}</div>
       </div>
   );
 
   const renderContent = () => {
-    // Robust detection of type
     if ('channel' in item || 'policyNumber' in item) return renderPolicyDetail(item as Policy);
     if ('slipNumber' in item && !('channel' in item)) return renderSlipDetail(item as ReinsuranceSlip);
     if ('content' in item) return renderClauseDetail(item as Clause);
@@ -581,46 +309,24 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
         <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
-            
             {showTerminationConfirm && renderTerminationModal()}
             {showNTUConfirm && renderNTUModal()}
             {showActivateConfirm && renderActivateModal()}
-
-            {/* Modal Header */}
             <div className="p-4 border-b flex justify-between items-center bg-gray-50">
                 <div className="flex items-center gap-4">
                     {title && <h3 className="font-bold text-gray-700">{title}</h3>}
                     {allowJsonView && (
                         <div className="flex gap-2 bg-white rounded-md p-1 border">
-                            <button 
-                                onClick={() => setViewMode('details')}
-                                className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${viewMode === 'details' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                            >
-                                Card
-                            </button>
-                            <button 
-                                onClick={() => setViewMode('json')}
-                                className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${viewMode === 'json' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                            >
-                                JSON
-                            </button>
+                            <button onClick={() => setViewMode('details')} className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${viewMode === 'details' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>Card</button>
+                            <button onClick={() => setViewMode('json')} className={`px-4 py-1.5 text-sm font-medium rounded transition-colors ${viewMode === 'json' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>JSON</button>
                         </div>
                     )}
                 </div>
                 <button onClick={onClose} className="text-gray-500 hover:text-gray-800 p-1 hover:bg-gray-200 rounded"><X size={20}/></button>
             </div>
-
-            {/* Modal Content */}
             <div className="flex-1 overflow-auto p-6 bg-white">
-                {viewMode === 'json' && allowJsonView ? (
-                        <div className="bg-slate-900 text-emerald-400 font-mono text-xs p-4 rounded-lg overflow-auto h-full">
-                        <pre>{JSON.stringify(item, null, 2)}</pre>
-                    </div>
-                ) : (
-                    renderContent()
-                )}
+                {viewMode === 'json' && allowJsonView ? (<div className="bg-slate-900 text-emerald-400 font-mono text-xs p-4 rounded-lg overflow-auto h-full"><pre>{JSON.stringify(item, null, 2)}</pre></div>) : (renderContent())}
             </div>
-
             <div className="p-3 border-t bg-gray-50 text-right flex justify-between items-center">
                 <div className="text-xs text-gray-400 font-mono">ID: {item.id}</div>
                 <button onClick={onClose} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded text-gray-800 font-medium text-sm">Close</button>

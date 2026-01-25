@@ -29,10 +29,48 @@ const toAppPolicy = (dbRecord: any): Policy => {
     channel: derivedChannel,
     intermediaryType: derivedIntermediaryType,
     intermediaryName: derivedIntermediaryName,
+    
     // Ensure numeric values are numbers
     sumInsured: Number(dbRecord.sumInsured || 0),
     grossPremium: Number(dbRecord.grossPremium || 0),
     ourShare: Number(dbRecord.ourShare || 100),
+    
+    // Extended Financials
+    sumInsuredNational: Number(dbRecord.sumInsuredNational || 0),
+    limitForeignCurrency: Number(dbRecord.limitForeignCurrency || 0),
+    limitNationalCurrency: Number(dbRecord.limitNationalCurrency || 0),
+    excessForeignCurrency: Number(dbRecord.excessForeignCurrency || 0),
+    prioritySum: Number(dbRecord.prioritySum || 0),
+    
+    premiumRate: Number(dbRecord.premiumRate || 0),
+    premiumNationalCurrency: Number(dbRecord.premiumNationalCurrency || 0),
+    exchangeRate: Number(dbRecord.exchangeRate || 1),
+    equivalentUSD: Number(dbRecord.equivalentUSD || 0),
+    
+    // Reinsurance / Treaty
+    cededShare: Number(dbRecord.cededShare || 0),
+    cededPremiumForeign: Number(dbRecord.cededPremiumForeign || 0),
+    reinsuranceCommission: Number(dbRecord.reinsuranceCommission || 0),
+    netReinsurancePremium: Number(dbRecord.netReinsurancePremium || 0),
+    
+    sumReinsuredForeign: Number(dbRecord.sumReinsuredForeign || 0),
+    sumReinsuredNational: Number(dbRecord.sumReinsuredNational || 0),
+    receivedPremiumForeign: Number(dbRecord.receivedPremiumForeign || 0),
+    receivedPremiumNational: Number(dbRecord.receivedPremiumNational || 0),
+    
+    treatyPremium: Number(dbRecord.treatyPremium || 0),
+    aicCommission: Number(dbRecord.aicCommission || 0),
+    aicRetention: Number(dbRecord.aicRetention || 0),
+    aicPremium: Number(dbRecord.aicPremium || 0),
+    maxRetentionPerRisk: Number(dbRecord.maxRetentionPerRisk || 0),
+
+    netPremium: Number(dbRecord.netPremium || 0),
+    commissionPercent: Number(dbRecord.commissionPercent || 0),
+    taxPercent: Number(dbRecord.taxPercent || 0),
+    
+    warrantyPeriod: Number(dbRecord.warrantyPeriod || 0),
+    numberOfSlips: Number(dbRecord.numberOfSlips || 0),
+
   } as Policy;
 };
 
@@ -41,20 +79,28 @@ const toDbPolicy = (policy: Policy): any => {
   const payload: any = { ...policy };
 
   // 2. Map new architecture fields to Legacy DB Schema columns
-  // This ensures that even if you haven't run the migration, key data is saved.
   payload.recordType = policy.channel; 
   payload.brokerName = policy.intermediaryName;
 
-  // 3. Sanitize Payload: Remove fields that might not exist in the DB yet
-  // This prevents "column does not exist" errors during INSERT/UPDATE
+  // 3. Sanitize Payload
   delete payload.channel;
   delete payload.intermediaryType;
   delete payload.intermediaryName;
 
   // 4. Ensure numeric fields are safe (Postgres numeric types don't like NaNs or empty strings)
-  payload.sumInsured = policy.sumInsured || 0;
-  payload.grossPremium = policy.grossPremium || 0;
-  payload.ourShare = policy.ourShare || 100;
+  const numericFields = [
+      'sumInsured', 'grossPremium', 'ourShare', 'sumInsuredNational', 
+      'limitForeignCurrency', 'limitNationalCurrency', 'excessForeignCurrency', 'prioritySum',
+      'premiumRate', 'premiumNationalCurrency', 'exchangeRate', 'equivalentUSD',
+      'cededShare', 'cededPremiumForeign', 'reinsuranceCommission', 'netReinsurancePremium',
+      'sumReinsuredForeign', 'sumReinsuredNational', 'receivedPremiumForeign', 'receivedPremiumNational',
+      'treatyPremium', 'aicCommission', 'aicRetention', 'aicPremium', 'maxRetentionPerRisk',
+      'netPremium', 'commissionPercent', 'taxPercent', 'warrantyPeriod', 'numberOfSlips'
+  ];
+
+  numericFields.forEach(field => {
+      payload[field] = policy[field as keyof Policy] || 0;
+  });
   
   return payload;
 };
