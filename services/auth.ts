@@ -1,7 +1,7 @@
 
 import { supabase } from './supabase';
 import { User, UserRole, DEFAULT_PERMISSIONS, UserPermissions } from '../types';
-import { DB } from './db';
+import { DB, SEED_USERS } from './db';
 
 const USER_STORAGE_KEY = 'insurtech_user_session';
 
@@ -44,7 +44,8 @@ export const AuthService = {
       }
     }
 
-    // 2. Fallback to Local Mock Storage (Only if Supabase is NOT configured at all)
+    // 2. Fallback to Local Mock Storage
+    // This allows hybrid mode where admin2026 works via local storage even if Supabase is configured
     const stored = localStorage.getItem(USER_STORAGE_KEY);
     if (stored) {
       return JSON.parse(stored);
@@ -57,31 +58,50 @@ export const AuthService = {
    * Performs authentication. 
    */
   login: async (email: string, password?: string): Promise<User | null> => {
+    // 0. IMMEDIATE LOCAL BACKDOOR: Check Hardcoded Seed Users
+    // This allows the default 'admin2026' user to work even if Supabase is enabled but not set up with this user.
+    const seedUser = SEED_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+    if (seedUser && seedUser.password === password) {
+         const safeUser = {
+             ...seedUser,
+             lastLogin: new Date().toISOString(),
+             permissions: seedUser.permissions || DEFAULT_PERMISSIONS[seedUser.role]
+         };
+         // We do not store the password in the session
+         const { password: _, ...sessionUser } = safeUser;
+         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
+         return sessionUser as User;
+    }
+
     // 1. Supabase Logic
     if (isSupabaseEnabled()) {
-      const { data, error } = await supabase!.auth.signInWithPassword({ email, password: password || '' });
-      if (error || !data.session) throw error;
-      
-      // Fetch Profile to get Role
-      const { data: profile } = await supabase!
-        .from('users')
-        .select('*')
-        .eq('id', data.user.id)
-        .single();
+      // Only attempt Supabase login if it looks like a real email. 
+      // This prevents sending non-email usernames (like 'admin2026') to Supabase.
+      if (email.includes('@')) {
+          const { data, error } = await supabase!.auth.signInWithPassword({ email, password: password || '' });
+          if (error || !data.session) throw error;
+          
+          // Fetch Profile to get Role
+          const { data: profile } = await supabase!
+            .from('users')
+            .select('*')
+            .eq('id', data.user.id)
+            .single();
 
-      // Fallback if profile row is missing
-      const role: UserRole = profile?.role || 'Underwriter';
-      const permissions: UserPermissions = profile?.permissions || DEFAULT_PERMISSIONS[role];
+          // Fallback if profile row is missing
+          const role: UserRole = profile?.role || 'Underwriter';
+          const permissions: UserPermissions = profile?.permissions || DEFAULT_PERMISSIONS[role];
 
-      return {
-          id: data.user.id,
-          email: data.user.email || '',
-          name: profile?.name || data.user.user_metadata.full_name || 'User',
-          role: role,
-          avatarUrl: profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
-          lastLogin: new Date().toISOString(),
-          permissions: permissions
-      };
+          return {
+              id: data.user.id,
+              email: data.user.email || '',
+              name: profile?.name || data.user.user_metadata.full_name || 'User',
+              role: role,
+              avatarUrl: profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
+              lastLogin: new Date().toISOString(),
+              permissions: permissions
+          };
+      }
     }
 
     // 2. Persistent Local Storage Logic (Fallback for Dev without Supabase)

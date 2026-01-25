@@ -105,6 +105,28 @@ const toDbPolicy = (policy: Policy): any => {
   return payload;
 };
 
+export const SEED_USERS: User[] = [
+  {
+    id: 'user_admin_001',
+    email: 'admin2026',
+    password: 'X7#k9@mP2$vL5nQ!', 
+    name: 'Super Administrator',
+    role: 'Super Admin',
+    avatarUrl: 'SA',
+    lastLogin: new Date().toISOString(),
+    permissions: DEFAULT_PERMISSIONS['Super Admin']
+  }
+];
+
+const getLocal = <T>(key: string, seed: T): T => {
+  const stored = localStorage.getItem(key);
+  if (!stored) {
+    localStorage.setItem(key, JSON.stringify(seed));
+    return seed;
+  }
+  return JSON.parse(stored);
+};
+
 export const DB = {
   // --- Policies ---
   getPolicies: async (): Promise<Policy[]> => {
@@ -422,26 +444,4 @@ export const DB = {
     users = users.filter((u: User) => u.id !== id);
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
   }
-};
-
-const SEED_USERS: User[] = [
-  {
-    id: 'user_admin_001',
-    email: 'admin2026',
-    password: 'X7#k9@mP2$vL5nQ!', 
-    name: 'Super Administrator',
-    role: 'Super Admin',
-    avatarUrl: 'SA',
-    lastLogin: new Date().toISOString(),
-    permissions: DEFAULT_PERMISSIONS['Super Admin']
-  }
-];
-
-const getLocal = <T>(key: string, seed: T): T => {
-  const stored = localStorage.getItem(key);
-  if (!stored) {
-    localStorage.setItem(key, JSON.stringify(seed));
-    return seed;
-  }
-  return JSON.parse(stored);
 };
