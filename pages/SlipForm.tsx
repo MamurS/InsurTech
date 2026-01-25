@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
-import { ReinsuranceSlip } from '../types';
-import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash } from 'lucide-react';
+import { ReinsuranceSlip, PolicyStatus } from '../types';
+import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash, Activity } from 'lucide-react';
 
 const SlipForm: React.FC = () => {
   const { id } = useParams();
@@ -16,7 +16,8 @@ const SlipForm: React.FC = () => {
     slipNumber: '',
     date: new Date().toISOString().split('T')[0],
     insuredName: '',
-    brokerReinsurer: ''
+    brokerReinsurer: '',
+    status: PolicyStatus.ACTIVE // Default
   });
 
   useEffect(() => {
@@ -24,7 +25,10 @@ const SlipForm: React.FC = () => {
       if (isEdit && id) {
         const slip = await DB.getSlip(id);
         if (slip) {
-          setFormData(slip);
+          setFormData({
+              ...slip,
+              status: slip.status || PolicyStatus.ACTIVE // Backward compat
+          });
         } else {
           alert('Slip not found');
           navigate('/slips');
@@ -35,7 +39,7 @@ const SlipForm: React.FC = () => {
     loadData();
   }, [id, isEdit, navigate]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
@@ -133,6 +137,20 @@ const SlipForm: React.FC = () => {
                                 onChange={handleChange}
                                 className={inputClass}
                             />
+                        </div>
+                        <div>
+                            <label className={labelClass}><span className="flex items-center gap-2"><Activity size={14}/> Status</span></label>
+                            <select 
+                                name="status" 
+                                value={formData.status || PolicyStatus.ACTIVE} 
+                                onChange={handleChange} 
+                                className={inputClass}
+                            >
+                                <option value={PolicyStatus.ACTIVE}>Active</option>
+                                <option value={PolicyStatus.PENDING}>Pending</option>
+                                <option value={PolicyStatus.CANCELLED}>Cancelled</option>
+                                <option value={PolicyStatus.NTU}>NTU</option>
+                            </select>
                         </div>
                     </div>
 

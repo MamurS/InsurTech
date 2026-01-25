@@ -96,6 +96,7 @@ export interface ReinsuranceSlip {
   date: string; // Date
   insuredName: string; // Insured
   brokerReinsurer: string; // Broker/Reinsurer
+  status?: PolicyStatus; 
   isDeleted?: boolean;
 }
 
