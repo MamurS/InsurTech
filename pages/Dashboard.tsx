@@ -528,8 +528,11 @@ const Dashboard: React.FC = () => {
                                         <div className="flex justify-center gap-1">
                                             {!p.isDeleted && (
                                                 <>
-                                                    <button onClick={(e) => handleEdit(e, p.id)} className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
-                                                    <button onClick={(e) => initiateDelete(e, p.id)} className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                                    <button onClick={(e) => handleWording(e, p.id)} title="Wording" className="p-1 text-purple-600 hover:bg-purple-100 rounded">
+                                                        <FileText size={14}/>
+                                                    </button>
+                                                    <button onClick={(e) => handleEdit(e, p.id)} title="Edit" className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                    <button onClick={(e) => initiateDelete(e, p.id)} title="Delete" className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
                                                 </>
                                             )}
                                         </div>

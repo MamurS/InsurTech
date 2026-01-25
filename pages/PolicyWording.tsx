@@ -1,9 +1,67 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate } from '../types';
 import { MosaicLogo } from '../components/MosaicLogo';
 import { Printer, ArrowLeft, Settings2, FileText } from 'lucide-react';
+
+const DEFAULT_TEMPLATE: PolicyTemplate = {
+  id: 'default_sys',
+  name: 'System Default Template',
+  description: 'Fallback template',
+  content: `
+    <div style="font-family: serif; color: #1a202c;">
+        <h1 style="text-align: center; text-transform: uppercase; font-size: 24px; margin-bottom: 40px; border-bottom: 2px solid #000; padding-bottom: 20px;">Policy Schedule</h1>
+        
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 14px;">
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="font-weight: bold; padding: 12px 0; width: 30%; color: #4a5568;">Policy Number</td>
+                <td style="padding: 12px 0; font-family: monospace; font-size: 16px;">{{policyNumber}}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="font-weight: bold; padding: 12px 0; color: #4a5568;">Insured Name</td>
+                <td style="padding: 12px 0; font-weight: bold;">{{insuredName}}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="font-weight: bold; padding: 12px 0; color: #4a5568;">Address</td>
+                <td style="padding: 12px 0;">{{insuredAddress}}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="font-weight: bold; padding: 12px 0; color: #4a5568;">Period of Insurance</td>
+                <td style="padding: 12px 0;">From {{inceptionDate}} to {{expiryDate}}</td>
+            </tr>
+            <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="font-weight: bold; padding: 12px 0; color: #4a5568;">Business / Interest</td>
+                <td style="padding: 12px 0;">{{industry}}</td>
+            </tr>
+        </table>
+
+        <div style="background-color: #f7fafc; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+            <h3 style="margin-top: 0; margin-bottom: 15px; font-size: 16px; text-transform: uppercase; color: #2d3748;">Coverage Details</h3>
+            <p style="margin: 5px 0;"><strong>Class of Insurance:</strong> {{classOfInsurance}}</p>
+            <p style="margin: 5px 0;"><strong>Territory:</strong> {{territory}}</p>
+            <p style="margin: 5px 0;"><strong>Sum Insured:</strong> {{sumInsured}}</p>
+             <p style="margin: 5px 0;"><strong>Deductible:</strong> {{deductible}}</p>
+        </div>
+
+        <div style="margin-bottom: 40px;">
+             <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background-color: #ebf8ff;">
+                    <td style="padding: 15px; font-weight: bold; color: #2c5282;">Total Gross Premium</td>
+                    <td style="padding: 15px; font-weight: bold; text-align: right; color: #2c5282;">{{grossPremium}}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #cbd5e0;">
+            <p style="margin-bottom: 40px;">Signed for and on behalf of <strong>InsurTech Solutions</strong></p>
+            <div style="width: 200px; border-bottom: 1px solid #000; margin-bottom: 10px;"></div>
+            <p style="font-size: 12px; color: #718096;">Authorized Signatory<br/>Date: {{issueDate}}</p>
+        </div>
+    </div>
+  `
+};
 
 const PolicyWording: React.FC = () => {
   const { id } = useParams();
@@ -22,8 +80,14 @@ const PolicyWording: React.FC = () => {
           setItem(p);
           // If policy, fetch templates and clauses
           const t = await DB.getTemplates();
-          setTemplates(t);
-          if (t.length > 0) setSelectedTemplateId(t[0].id);
+          
+          if (t.length === 0) {
+              setTemplates([DEFAULT_TEMPLATE]);
+              setSelectedTemplateId(DEFAULT_TEMPLATE.id);
+          } else {
+              setTemplates(t);
+              setSelectedTemplateId(t[0].id);
+          }
 
           if (p.selectedClauseIds && p.selectedClauseIds.length > 0) {
               const allClauses = await DB.getClauses();

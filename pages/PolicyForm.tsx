@@ -679,7 +679,7 @@ const PolicyForm: React.FC = () => {
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-amber-50 p-4 rounded-lg">
                                  <div>
-                                    <label className={labelClass}>Premium Ceded (Foreign)</label>
+                                    <label className={labelClass}>Premium Ceded ({formData.currency})</label>
                                     <input type="number" name="cededPremiumForeign" value={formData.cededPremiumForeign || ''} onChange={handleChange} className={inputClass}/>
                                  </div>
                                  <div className="md:col-span-2">
@@ -690,19 +690,19 @@ const PolicyForm: React.FC = () => {
 
                             <div className="grid grid-cols-2 gap-5 text-xs text-gray-600 border-t pt-4">
                                 <div>
-                                     <label className="block mb-1">Sum Reinsured (Foreign)</label>
+                                     <label className="block mb-1">Sum Reinsured ({formData.currency})</label>
                                      <input type="number" name="sumReinsuredForeign" value={formData.sumReinsuredForeign || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                                 </div>
                                 <div>
-                                     <label className="block mb-1">Sum Reinsured (National)</label>
+                                     <label className="block mb-1">Sum Reinsured (UZS)</label>
                                      <input type="number" name="sumReinsuredNational" value={formData.sumReinsuredNational || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                                 </div>
                                  <div>
-                                     <label className="block mb-1">Received Premium (Foreign)</label>
+                                     <label className="block mb-1">Received Premium ({formData.currency})</label>
                                      <input type="number" name="receivedPremiumForeign" value={formData.receivedPremiumForeign || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                                 </div>
                                  <div>
-                                     <label className="block mb-1">Received Premium (National)</label>
+                                     <label className="block mb-1">Received Premium (UZS)</label>
                                      <input type="number" name="receivedPremiumNational" value={formData.receivedPremiumNational || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
                                 </div>
                             </div>
