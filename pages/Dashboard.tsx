@@ -315,7 +315,7 @@ const Dashboard: React.FC = () => {
                 <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                     {viewMode === 'compact' ? (
                         <tr>
-                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs">Status</th>
+                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs">STATUS</th>
                             <SortableHeader label="Channel" sortKey="channel" />
                             <SortableHeader label="Policy Ref" sortKey="policyNumber" />
                             <SortableHeader label="Insured / Cedant" sortKey="insuredName" />
@@ -330,8 +330,9 @@ const Dashboard: React.FC = () => {
                         </tr>
                     ) : (
                         <tr>
-                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
-                            <th className="px-3 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs bg-gray-50 sticky left-24 z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Status</th>
+                            {/* STATUS Sticky Left */}
+                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">STATUS</th>
+                            
                             <SortableHeader label="Channel" sortKey="channel" />
                             <SortableHeader label="Ref No" sortKey="policyNumber" />
                             <SortableHeader label="Sec Ref" sortKey="secondaryPolicyNumber" />
@@ -377,6 +378,9 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Treaty Place" sortKey="treatyPlacement" />
                             <SortableHeader label="Treaty Prem" sortKey="treatyPremium" className="text-right" />
                             <SortableHeader label="AIC Comm" sortKey="aicCommission" className="text-right" />
+                            
+                            {/* Actions Sticky Right */}
+                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
                         </tr>
                     )}
                 </thead>
@@ -458,18 +462,8 @@ const Dashboard: React.FC = () => {
                                 </>
                             ) : (
                                 <>
-                                    {/* EXTENDED VIEW ACTIONS & STATUS sticky */}
-                                    <td className="px-3 py-2 text-center bg-white sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-blue-50/30 transition-colors" onClick={e => e.stopPropagation()}>
-                                        <div className="flex justify-center gap-1">
-                                            {!p.isDeleted && (
-                                                <>
-                                                    <button onClick={(e) => handleEdit(e, p.id)} className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
-                                                    <button onClick={(e) => initiateDelete(e, p.id)} className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
-                                                </>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="px-3 py-2 text-center bg-white sticky left-24 z-10 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-blue-50/30 transition-colors">
+                                    {/* EXTENDED VIEW - STATUS (Sticky Left) */}
+                                    <td className="px-3 py-2 text-center bg-white sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-blue-50/30 transition-colors">
                                         <StatusBadge status={p.status} isDeleted={p.isDeleted} />
                                     </td>
                                     
@@ -528,6 +522,18 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs">{p.treatyPlacement}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.treatyPremium)}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.aicCommission)}</td>
+
+                                    {/* EXTENDED VIEW ACTIONS - Sticky Right */}
+                                    <td className="px-3 py-2 text-center bg-white sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-blue-50/30 transition-colors" onClick={e => e.stopPropagation()}>
+                                        <div className="flex justify-center gap-1">
+                                            {!p.isDeleted && (
+                                                <>
+                                                    <button onClick={(e) => handleEdit(e, p.id)} className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                    <button onClick={(e) => initiateDelete(e, p.id)} className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                                </>
+                                            )}
+                                        </div>
+                                    </td>
                                 </>
                             )}
                         </tr>
