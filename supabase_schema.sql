@@ -21,13 +21,21 @@ alter table public.users enable row level security;
 create policy "Public profiles are viewable by everyone" on public.users for select using (true);
 create policy "Users can insert their own profile" on public.users for insert with check (auth.uid() = id);
 create policy "Users can update own profile" on public.users for update using (auth.uid() = id);
--- Note: For a real app, you'd want strict RLS (e.g., only Admins can update roles), 
--- but for this starter, we allow updates to facilitate the AdminConsole functioning.
 
 -- 2. Policies Table
 create table public.policies (
   id uuid default uuid_generate_v4() primary key,
-  "recordType" text not null,
+  
+  -- Core Architecture (New)
+  "channel" text, -- Direct / Inward
+  "intermediaryType" text, -- Broker / Agent / Direct
+  "intermediaryName" text, -- Name of the intermediary
+  
+  -- Legacy Architecture (Backwards Compat)
+  "recordType" text, 
+  "brokerName" text,
+
+  -- Identifiers
   "policyNumber" text,
   "secondaryPolicyNumber" text,
   "slipNumber" text,
@@ -36,6 +44,7 @@ create table public.policies (
   "invoiceIssued" boolean,
   "coverNote" text,
   
+  -- Dates
   "dateOfSlip" date,
   "accountingDate" date,
   "inceptionDate" date,
@@ -47,15 +56,16 @@ create table public.policies (
   "warrantyPeriod" integer,
   "activationDate" timestamp with time zone,
 
+  -- Parties
   "insuredName" text,
   "insuredAddress" text,
   "borrower" text,
   "cedantName" text,
   "retrocedent" text,
   "reinsurerName" text,
-  "brokerName" text,
   "performer" text,
   
+  -- Risk Details
   industry text,
   territory text,
   city text,
@@ -65,36 +75,51 @@ create table public.policies (
   "riskCode" text,
   "insuredRisk" text,
   
+  -- Financials (Base)
   currency text,
   "sumInsured" numeric,
+  "grossPremium" numeric,
+  "exchangeRate" numeric,
+  "equivalentUSD" numeric,
+
+  -- Financials (Extended / National Currency)
   "sumInsuredNational" numeric,
+  "premiumNationalCurrency" numeric,
   
+  -- Limits & Excess
   "limitForeignCurrency" numeric,
   "limitNationalCurrency" numeric,
   "excessForeignCurrency" numeric,
   "prioritySum" numeric,
   
   "premiumRate" numeric,
-  "grossPremium" numeric,
-  "premiumNationalCurrency" numeric,
-  "exchangeRate" numeric,
-  "equivalentUSD" numeric,
 
+  -- Our Share / Net
   "ourShare" numeric,
+  "netPremium" numeric,
+  "commissionPercent" numeric,
+  "taxPercent" numeric,
+  deductible text,
+  conditions text,
+
+  -- Outward Reinsurance
+  "hasOutwardReinsurance" boolean default false,
   "reinsuranceCommission" numeric,
   "netReinsurancePremium" numeric,
-  
-  "sumReinsuredForeign" numeric,
-  "sumReinsuredNational" numeric,
+  "cededShare" numeric,
   
   "cededPremiumForeign" numeric,
   "cededPremiumNational" numeric,
 
+  "sumReinsuredForeign" numeric,
+  "sumReinsuredNational" numeric,
+  
   "receivedPremiumForeign" numeric,
   "receivedPremiumNational" numeric,
   
   "numberOfSlips" integer,
 
+  -- Treaty / Inward Specifics
   "treatyPlacement" text,
   "treatyPremium" numeric,
   "aicCommission" numeric,
@@ -103,12 +128,7 @@ create table public.policies (
   "maxRetentionPerRisk" numeric,
   "reinsurerRating" text,
 
-  "netPremium" numeric,
-  "commissionPercent" numeric,
-  "taxPercent" numeric,
-  deductible text,
-  conditions text,
-
+  -- Status & Tracking
   status text,
   "paymentStatus" text,
   installments jsonb default '[]'::jsonb,
@@ -158,7 +178,7 @@ create policy "Enable all access for authenticated users" on public.slips for al
 
 -- 5. Templates Table
 create table public.templates (
-  id text primary key, -- Keeping text ID to support custom IDs like 'tpl_standard_01'
+  id text primary key, 
   name text,
   description text,
   content text,
