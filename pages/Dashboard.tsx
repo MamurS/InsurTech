@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
-import { Policy, Currency, PolicyStatus } from '../types';
+import { Policy, Currency, PolicyStatus, LegalEntity } from '../types';
 import { ExcelService } from '../services/excel';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
+import { EntityDetailModal } from '../components/EntityDetailModal'; // Import New Modal
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -23,6 +24,7 @@ const Dashboard: React.FC = () => {
   
   // Selection State
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+  const [selectedEntity, setSelectedEntity] = useState<LegalEntity | null>(null); // State for Entity Modal
 
   // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -99,6 +101,21 @@ const Dashboard: React.FC = () => {
         setDeleteId(null);
       }
     }
+  };
+
+  // Helper to find and open entity
+  const handleEntityClick = async (e: React.MouseEvent, name?: string) => {
+      e.stopPropagation();
+      if (!name) return;
+      const entity = await DB.findLegalEntityByName(name);
+      if (entity) {
+          setSelectedEntity(entity);
+      } else {
+          // Optional: Prompt to create?
+          if(confirm(`Entity "${name}" not found in database. Create it?`)) {
+              navigate('/entities/new');
+          }
+      }
   };
 
   const handleSort = (key: keyof Policy | string) => {
@@ -222,7 +239,13 @@ const Dashboard: React.FC = () => {
       return (
           <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-700 uppercase">{type}</span>
-              <span className="text-[10px] text-slate-500 truncate max-w-[100px]" title={name}>{name}</span>
+              <span 
+                className="text-[10px] text-blue-600 truncate max-w-[100px] hover:underline cursor-pointer" 
+                title={name}
+                onClick={(e) => { e.stopPropagation(); handleEntityClick(e, name); }} // Clickable
+              >
+                  {name}
+              </span>
           </div>
       )
   };
@@ -407,11 +430,29 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-3 font-medium text-gray-900">
                                         {p.channel === 'Inward' ? (
                                             <div className="flex flex-col">
-                                                <span>{p.cedantName}</span>
-                                                <span className="text-[10px] text-gray-500">Orig: {p.insuredName}</span>
+                                                <span 
+                                                    className="hover:text-blue-600 hover:underline cursor-pointer"
+                                                    onClick={(e) => handleEntityClick(e, p.cedantName)}
+                                                >
+                                                    {p.cedantName}
+                                                </span>
+                                                <span className="text-[10px] text-gray-500 flex gap-1">
+                                                    Orig: 
+                                                    <span 
+                                                        className="hover:text-blue-600 hover:underline cursor-pointer"
+                                                        onClick={(e) => handleEntityClick(e, p.insuredName)}
+                                                    >
+                                                        {p.insuredName}
+                                                    </span>
+                                                </span>
                                             </div>
                                         ) : (
-                                            p.insuredName
+                                            <span 
+                                                className="hover:text-blue-600 hover:underline cursor-pointer"
+                                                onClick={(e) => handleEntityClick(e, p.insuredName)}
+                                            >
+                                                {p.insuredName}
+                                            </span>
                                         )}
                                     </td>
                                     <td className="px-3 py-3">
@@ -474,12 +515,27 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.agreementNumber}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.bordereauNo}</td>
                                     
-                                    <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-900">{p.insuredName}</td>
+                                    <td 
+                                        className="px-3 py-2 whitespace-nowrap font-medium text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
+                                        onClick={(e) => handleEntityClick(e, p.insuredName)}
+                                    >
+                                        {p.insuredName}
+                                    </td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate max-w-[150px]" title={p.insuredAddress}>{p.insuredAddress}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-700">{p.cedantName}</td>
+                                    <td 
+                                        className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 hover:text-blue-600 hover:underline cursor-pointer"
+                                        onClick={(e) => handleEntityClick(e, p.cedantName)}
+                                    >
+                                        {p.cedantName}
+                                    </td>
                                     
                                     <td className="px-3 py-2 whitespace-nowrap text-xs">{p.intermediaryType}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.intermediaryName}</td>
+                                    <td 
+                                        className="px-3 py-2 whitespace-nowrap text-xs hover:text-blue-600 hover:underline cursor-pointer"
+                                        onClick={(e) => handleEntityClick(e, p.intermediaryName)}
+                                    >
+                                        {p.intermediaryName}
+                                    </td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.borrower}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.retrocedent}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.performer}</td>
@@ -513,7 +569,12 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{p.commissionPercent}%</td>
                                     
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{p.hasOutwardReinsurance ? 'Yes' : 'No'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs bg-amber-50/30">{p.reinsurerName}</td>
+                                    <td 
+                                        className="px-3 py-2 whitespace-nowrap text-xs bg-amber-50/30 hover:text-blue-600 hover:underline cursor-pointer"
+                                        onClick={(e) => handleEntityClick(e, p.reinsurerName)}
+                                    >
+                                        {p.reinsurerName}
+                                    </td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{p.cededShare ? `${p.cededShare}%` : '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{formatNumber(p.cededPremiumForeign)}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{p.reinsuranceCommission ? `${p.reinsuranceCommission}%` : '-'}</td>
@@ -575,6 +636,13 @@ const Dashboard: React.FC = () => {
             title="Policy Details"
           />
       )}
+
+      {/* New Entity Detail Modal */}
+      <EntityDetailModal 
+        entity={selectedEntity} 
+        onClose={() => setSelectedEntity(null)} 
+        onEdit={(id) => { setSelectedEntity(null); navigate(`/entities/edit/${id}`); }}
+      />
     </div>
   );
 };

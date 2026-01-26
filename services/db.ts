@@ -1,6 +1,7 @@
 
-import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS } from '../types';
+import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus } from '../types';
 import { supabase } from './supabase';
+import { AuthService } from './auth';
 
 // Local storage keys (Fallback for when no API keys are provided)
 const POLICIES_KEY = 'insurtech_policies_v2';
@@ -8,6 +9,8 @@ const CLAUSES_KEY = 'insurtech_clauses_v2';
 const SLIPS_KEY = 'insurtech_slips_v2';
 const TEMPLATES_KEY = 'insurtech_templates_v2';
 const USERS_KEY = 'insurtech_users_v2';
+const ENTITIES_KEY = 'insurtech_legal_entities_v1';
+const ENTITY_LOGS_KEY = 'insurtech_entity_logs_v1';
 
 // Helper to check connection status
 const isSupabaseEnabled = () => {
@@ -125,6 +128,28 @@ const getLocal = <T>(key: string, seed: T): T => {
     return seed;
   }
   return JSON.parse(stored);
+};
+
+// Helper for Logs
+const createLog = async (entityId: string, action: 'CREATE' | 'UPDATE' | 'DELETE', changes: any) => {
+    const user = await AuthService.getSession();
+    const log: EntityLog = {
+        id: crypto.randomUUID(),
+        entityId,
+        userId: user?.id || 'system',
+        userName: user?.name || 'System',
+        action,
+        changes: JSON.stringify(changes),
+        timestamp: new Date().toISOString()
+    };
+
+    if (isSupabaseEnabled()) {
+        await supabase!.from('entity_logs').insert(log);
+    } else {
+        const logs = getLocal<EntityLog[]>(ENTITY_LOGS_KEY, []);
+        logs.push(log);
+        localStorage.setItem(ENTITY_LOGS_KEY, JSON.stringify(logs));
+    }
 };
 
 export const DB = {
@@ -443,5 +468,131 @@ export const DB = {
     let users = getLocal(USERS_KEY, SEED_USERS);
     users = users.filter((u: User) => u.id !== id);
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
+  },
+
+  // --- LEGAL ENTITIES (NEW) ---
+  
+  getLegalEntities: async (): Promise<LegalEntity[]> => {
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('legal_entities').select('*').order('fullName', { ascending: true });
+          return data as LegalEntity[] || [];
+      }
+      const entities = getLocal<LegalEntity[]>(ENTITIES_KEY, []);
+      return entities.filter(e => !e.isDeleted).sort((a,b) => a.fullName.localeCompare(b.fullName));
+  },
+
+  getLegalEntity: async (id: string): Promise<LegalEntity | undefined> => {
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('legal_entities').select('*').eq('id', id).single();
+          return data as LegalEntity;
+      }
+      const entities = getLocal<LegalEntity[]>(ENTITIES_KEY, []);
+      return entities.find(e => e.id === id);
+  },
+
+  findLegalEntityByName: async (name: string): Promise<LegalEntity | undefined> => {
+       if (isSupabaseEnabled()) {
+          // Try exact match first, then case insensitive
+          const { data } = await supabase!.from('legal_entities').select('*').ilike('fullName', name).single();
+          return data as LegalEntity;
+       }
+       const entities = getLocal<LegalEntity[]>(ENTITIES_KEY, []);
+       return entities.find(e => e.fullName.trim().toLowerCase() === name.trim().toLowerCase() && !e.isDeleted);
+  },
+
+  saveLegalEntity: async (entity: LegalEntity): Promise<void> => {
+      // 1. Fetch old version for logging
+      let oldEntity: LegalEntity | undefined;
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('legal_entities').select('*').eq('id', entity.id).single();
+          oldEntity = data;
+      } else {
+          const entities = getLocal<LegalEntity[]>(ENTITIES_KEY, []);
+          oldEntity = entities.find(e => e.id === entity.id);
+      }
+
+      const action = oldEntity ? 'UPDATE' : 'CREATE';
+      let changes: any = { action: 'New Record Created' };
+      
+      if (oldEntity) {
+          changes = {};
+          // Simple Diff
+          (Object.keys(entity) as Array<keyof LegalEntity>).forEach(key => {
+              if (JSON.stringify(entity[key]) !== JSON.stringify(oldEntity![key])) {
+                  changes[key] = { from: oldEntity![key], to: entity[key] };
+              }
+          });
+      }
+
+      // 2. Save
+      if (isSupabaseEnabled()) {
+          await supabase!.from('legal_entities').upsert({
+              ...entity,
+              updatedAt: new Date().toISOString()
+          });
+      } else {
+          const entities = getLocal<LegalEntity[]>(ENTITIES_KEY, []);
+          const index = entities.findIndex(e => e.id === entity.id);
+          const entityToSave = { ...entity, updatedAt: new Date().toISOString() };
+          if (index >= 0) entities[index] = entityToSave;
+          else entities.push(entityToSave);
+          localStorage.setItem(ENTITIES_KEY, JSON.stringify(entities));
+      }
+
+      // 3. Log
+      if (Object.keys(changes).length > 0) {
+        await createLog(entity.id, action, changes);
+      }
+  },
+
+  deleteLegalEntity: async (id: string): Promise<void> => {
+      // Log Before Delete
+      await createLog(id, 'DELETE', { status: 'Marked as Deleted' });
+
+      if (isSupabaseEnabled()) {
+          await supabase!.from('legal_entities').update({ isDeleted: true }).eq('id', id);
+          return;
+      }
+      const entities = getLocal<LegalEntity[]>(ENTITIES_KEY, []);
+      const entity = entities.find(e => e.id === id);
+      if (entity) {
+          entity.isDeleted = true;
+          localStorage.setItem(ENTITIES_KEY, JSON.stringify(entities));
+      }
+  },
+
+  getEntityLogs: async (entityId: string): Promise<EntityLog[]> => {
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('entity_logs').select('*').eq('entityId', entityId).order('timestamp', { ascending: false });
+          return data as EntityLog[] || [];
+      }
+      const logs = getLocal<EntityLog[]>(ENTITY_LOGS_KEY, []);
+      return logs.filter(l => l.entityId === entityId).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  },
+
+  // --- External API Search Simulation ---
+  searchExternalRegistry: async (query: string, type: 'INN' | 'NAME'): Promise<Partial<LegalEntity> | null> => {
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Mock Data for "Ihamkor"
+      if (query === '309730232' || query.toLowerCase().includes('uzbek')) {
+          return {
+              fullName: "Uzbek General Insurance LLC",
+              shortName: "UGI",
+              regCodeType: "INN",
+              regCodeValue: "309730232",
+              country: "Uzbekistan",
+              city: "Tashkent",
+              address: "Amir Temur Avenue, 108",
+              shareholders: "State Assets Management Agency (100%)",
+              lineOfBusiness: "General Insurance Activities",
+              directorName: "Aliev Valijon",
+              phone: "+998 71 200 00 00",
+              status: PolicyStatus.ACTIVE // Reusing status enum for convenience but strictly it's an entity
+          } as any;
+      }
+      
+      return null;
   }
 };

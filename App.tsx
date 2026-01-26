@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
@@ -11,6 +12,8 @@ import SlipForm from './pages/SlipForm';
 import Settings from './pages/Settings';
 import AdminConsole from './pages/AdminConsole';
 import Login from './pages/Login';
+import EntityManager from './pages/EntityManager';
+import EntityForm from './pages/EntityForm';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -70,6 +73,11 @@ const AppRoutes = () => {
               <Route path="/slips" element={<SlipsDashboard />} />
               <Route path="/slips/new" element={<SlipForm />} />
               <Route path="/slips/edit/:id" element={<SlipForm />} />
+
+              {/* Legal Entities Routes */}
+              <Route path="/entities" element={<EntityManager />} />
+              <Route path="/entities/new" element={<EntityForm />} />
+              <Route path="/entities/edit/:id" element={<EntityForm />} />
               
               <Route path="/settings" element={<Settings />} />
               

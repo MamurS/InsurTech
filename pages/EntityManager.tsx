@@ -1,0 +1,131 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { DB } from '../services/db';
+import { LegalEntity } from '../types';
+import { EntityDetailModal } from '../components/EntityDetailModal';
+import { Plus, Search, Building2, MapPin, Eye, Edit, Trash2 } from 'lucide-react';
+
+const EntityManager: React.FC = () => {
+  const [entities, setEntities] = useState<LegalEntity[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [selectedEntity, setSelectedEntity] = useState<LegalEntity | null>(null);
+  const navigate = useNavigate();
+
+  const loadData = async () => {
+    setLoading(true);
+    const data = await DB.getLegalEntities();
+    setEntities(data);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if(confirm("Are you sure you want to delete this legal entity? It will be moved to the Admin Recycle Bin.")) {
+        await DB.deleteLegalEntity(id);
+        loadData();
+    }
+  };
+
+  const filteredEntities = entities.filter(e => 
+    e.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    e.regCodeValue.includes(searchTerm) ||
+    e.shortName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-6">
+       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Legal Entities</h2>
+          <p className="text-gray-500 text-sm">Manage company registry, counterparties, and insureds.</p>
+        </div>
+        <button 
+          onClick={() => navigate('/entities/new')}
+          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm"
+        >
+          <Plus size={18} /> Add Entity
+        </button>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="p-4 border-b bg-gray-50 flex gap-4 items-center">
+            <div className="relative flex-1 max-w-md">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                <input 
+                    type="text" 
+                    placeholder="Search by name, INN, or code..." 
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="text-xs text-gray-500 font-medium">
+                {filteredEntities.length} Records found
+            </div>
+        </div>
+
+        <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+                <thead className="bg-gray-100 text-gray-700 font-semibold border-b">
+                    <tr>
+                        <th className="px-6 py-4">Entity Name</th>
+                        <th className="px-6 py-4">Type</th>
+                        <th className="px-6 py-4">Reg Code (INN)</th>
+                        <th className="px-6 py-4">Location</th>
+                        <th className="px-6 py-4 text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                    {filteredEntities.map(entity => (
+                        <tr key={entity.id} onClick={() => setSelectedEntity(entity)} className="hover:bg-blue-50 cursor-pointer transition-colors group">
+                            <td className="px-6 py-4">
+                                <div className="font-bold text-gray-900">{entity.fullName}</div>
+                                <div className="text-xs text-gray-500">{entity.shortName}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                                <span className="px-2 py-1 bg-gray-100 rounded text-xs font-medium border border-gray-200 text-gray-600">{entity.type}</span>
+                            </td>
+                            <td className="px-6 py-4 font-mono text-gray-600">
+                                {entity.regCodeValue}
+                            </td>
+                            <td className="px-6 py-4 text-gray-600">
+                                <div className="flex items-center gap-1"><MapPin size={12}/> {entity.city}, {entity.country}</div>
+                            </td>
+                            <td className="px-6 py-4 text-center">
+                                <div className="flex justify-center gap-2">
+                                    <button onClick={(e) => { e.stopPropagation(); setSelectedEntity(entity); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="View"><Eye size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); navigate(`/entities/edit/${entity.id}`); }} className="p-1.5 text-amber-600 hover:bg-amber-100 rounded" title="Edit"><Edit size={16}/></button>
+                                    <button onClick={(e) => handleDelete(e, entity.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Delete"><Trash2 size={16}/></button>
+                                </div>
+                            </td>
+                        </tr>
+                    ))}
+                    {filteredEntities.length === 0 && (
+                        <tr>
+                            <td colSpan={5} className="py-12 text-center text-gray-400">
+                                <Building2 size={48} className="mx-auto mb-4 opacity-20"/>
+                                No entities found.
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+      </div>
+
+      <EntityDetailModal 
+        entity={selectedEntity} 
+        onClose={() => setSelectedEntity(null)} 
+        onEdit={(id) => { setSelectedEntity(null); navigate(`/entities/edit/${id}`); }}
+      />
+    </div>
+  );
+};
+
+export default EntityManager;

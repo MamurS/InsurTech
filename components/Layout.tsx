@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -5,7 +6,7 @@ import { MosaicLogo } from './MosaicLogo';
 import { 
   LayoutDashboard, FileText, Settings, PlusCircle, 
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen, 
-  LogOut, User as UserIcon, Shield
+  LogOut, User as UserIcon, Shield, Building2
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -79,6 +80,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
             Configuration
           </div>
+
+          <NavLink 
+            to="/entities" 
+            className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+            }
+             title="Legal Entities"
+          >
+            <Building2 size={20} className="flex-shrink-0" />
+            <span>Legal Entities</span>
+          </NavLink>
 
           <NavLink 
             to="/clauses" 

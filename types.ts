@@ -106,6 +106,56 @@ export interface TerminationDetails {
   reason: string;
 }
 
+// --- NEW LEGAL ENTITY TYPES ---
+
+export interface EntityLog {
+  id: string;
+  entityId: string;
+  userId: string;
+  userName: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  changes: string; // JSON string of changes
+  timestamp: string;
+}
+
+export interface LegalEntity {
+  id: string;
+  // Identity
+  fullName: string;
+  shortName: string;
+  type: 'Insured' | 'Reinsurer' | 'Broker' | 'Agent' | 'MGA' | 'Other';
+  
+  // Registration
+  regCodeType: 'INN' | 'Company No' | 'Tax ID' | 'Other';
+  regCodeValue: string;
+  
+  // Location
+  country: string;
+  city?: string;
+  address?: string;
+  
+  // Contact
+  phone?: string;
+  email?: string;
+  website?: string;
+  
+  // Corporate
+  shareholders?: string; // Text field describing shareholders
+  lineOfBusiness?: string;
+  directorName?: string;
+  
+  // Banking
+  bankName?: string;
+  bankAccount?: string;
+  bankMFO?: string; // SWIFT/MFO
+  bankAddress?: string;
+  
+  // Meta
+  isDeleted?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Policy {
   id: string;
   
