@@ -1,7 +1,11 @@
 
-import { Claim, ClaimLiabilityType, ClaimTransaction, Policy } from '../types';
+import { Claim, ClaimLiabilityType, ClaimTransaction, Policy, ClaimFilters } from '../types';
 import { supabase } from './supabase';
-import { DB } from './db';
+
+interface ClaimsResponse {
+    data: Claim[];
+    count: number | null;
+}
 
 // --- LIABILITY LOGIC (Pure Function) ---
 export const determineLiability = (
@@ -45,39 +49,91 @@ export const determineLiability = (
 // --- DATA ACCESS ---
 
 export const ClaimsService = {
-    // Get all claims (Dashboard)
-    getAllClaims: async (): Promise<Claim[]> => {
-        if (!supabase) return [];
-        const { data, error } = await supabase
-            .from('claims')
-            .select(`
-                *,
-                policy:policies(policyNumber, insuredName)
-            `)
-            .order('report_date', { ascending: false });
-        
-        if (error) {
-            console.error("Error fetching claims", error);
-            return [];
-        }
+    // Get all claims with filtering and pagination
+    // NOTE: Switched to client-side filtering because Supabase RPC chaining is limited
+    getAllClaims: async (filters: ClaimFilters): Promise<ClaimsResponse> => {
+        if (!supabase) return { data: [], count: 0 };
 
-        return data.map((row: any) => ({
-            id: row.id,
-            policyId: row.policy_id,
-            claimNumber: row.claim_number,
-            liabilityType: row.liability_type,
-            status: row.status,
-            lossDate: row.loss_date,
-            reportDate: row.report_date,
-            description: row.description,
-            claimantName: row.claimant_name,
-            locationCountry: row.location_country,
-            importedTotalIncurred: row.imported_total_incurred,
+        try {
+            // 1. Fetch RAW data from RPC without filters
+            const { data: rawData, error } = await supabase.rpc('get_claims_with_totals');
             
-            // Join fields (handled loosely in type)
-            policyNumber: row.policy?.policyNumber,
-            insuredName: row.policy?.insuredName
-        } as unknown as Claim));
+            if (error) {
+                console.error("RPC Error:", error);
+                throw error;
+            }
+
+            if (!rawData) {
+                return { data: [], count: 0 };
+            }
+
+            console.log("RPC Raw Response:", rawData);
+
+            // 2. Filter Client-Side
+            let filtered = [...rawData];
+
+            if (filters.liabilityType !== 'ALL') {
+                filtered = filtered.filter((row: any) => row.liability_type === filters.liabilityType);
+            }
+
+            if (filters.status !== 'ALL') {
+                filtered = filtered.filter((row: any) => row.status === filters.status);
+            }
+
+            if (filters.searchTerm) {
+                const term = filters.searchTerm.toLowerCase();
+                filtered = filtered.filter((row: any) => 
+                    (row.claim_number && row.claim_number.toLowerCase().includes(term)) ||
+                    (row.policy_number && row.policy_number.toLowerCase().includes(term)) ||
+                    (row.insured_name && row.insured_name.toLowerCase().includes(term)) ||
+                    (row.claimant_name && row.claimant_name.toLowerCase().includes(term))
+                );
+            }
+
+            const totalCount = filtered.length;
+
+            // 3. Sort (Default: Report Date Descending)
+            filtered.sort((a: any, b: any) => 
+                new Date(b.report_date).getTime() - new Date(a.report_date).getTime()
+            );
+
+            // 4. Paginate Client-Side
+            const from = (filters.page - 1) * filters.pageSize;
+            const to = from + filters.pageSize;
+            const paginated = filtered.slice(from, to);
+
+            // 5. Map & Parse Numerics (Supabase returns NUMERIC as string)
+            const mappedData: Claim[] = paginated.map((row: any) => ({
+                id: row.id,
+                policyId: row.policy_id,
+                claimNumber: row.claim_number,
+                liabilityType: row.liability_type,
+                status: row.status,
+                lossDate: row.loss_date,
+                reportDate: row.report_date,
+                description: row.description,
+                claimantName: row.claimant_name,
+                locationCountry: row.location_country,
+                
+                // RPC Fields
+                policyNumber: row.policy_number || 'Unknown',
+                insuredName: row.insured_name || 'Unknown',
+                
+                // Explicit parseFloat for strings coming from Postgres NUMERIC
+                totalIncurred100: parseFloat(row.total_incurred_100) || 0,
+                totalIncurredOurShare: parseFloat(row.total_incurred_our_share) || 0,
+                totalPaidOurShare: parseFloat(row.total_paid_our_share) || 0,
+                outstandingOurShare: parseFloat(row.outstanding_our_share) || 0,
+            }));
+
+            console.log("Mapped Data:", mappedData);
+
+            return { data: mappedData, count: totalCount };
+
+        } catch (err) {
+            console.error("getAllClaims critical error:", err);
+            return { data: [], count: 0 };
+        }
     },
 
     // Get Single Claim with Transactions
@@ -109,12 +165,19 @@ export const ClaimsService = {
             locationCountry: data.location_country,
             importedTotalIncurred: data.imported_total_incurred,
             importedTotalPaid: data.imported_total_paid,
-            // Attach full policy object for context if needed
+            
+            // Explicitly map joined fields
+            policyNumber: data.policy?.policyNumber || 'Unknown',
+            insuredName: data.policy?.insuredName || 'Unknown',
+            
+            // Attach full policy object for context
             policyContext: data.policy ? {
                 policyNumber: data.policy.policyNumber,
                 currency: data.policy.currency,
-                insuredName: data.policy.insuredName
+                insuredName: data.policy.insuredName,
+                ourShare: data.policy.ourShare
             } : undefined,
+            
             transactions: data.transactions?.map((t: any) => ({
                 id: t.id,
                 transactionType: t.transaction_type,
@@ -127,7 +190,7 @@ export const ClaimsService = {
                 notes: t.notes,
                 payee: t.payee
             })).sort((a: any, b: any) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
-        } as unknown as Claim;
+        } as Claim;
     },
 
     createClaim: async (claim: Partial<Claim>): Promise<string | null> => {
@@ -163,11 +226,17 @@ export const ClaimsService = {
     addTransaction: async (txn: Partial<ClaimTransaction>) => {
         if (!supabase) return;
         
+        // Calculate amountOurShare securely
+        const amount100pct = txn.amount100pct || 0;
+        const share = txn.ourSharePercentage || 100;
+        const amountOurShare = amount100pct * (share / 100);
+
         const { error } = await supabase.from('claim_transactions').insert({
             claim_id: txn.claimId,
             transaction_type: txn.transactionType,
-            amount_100pct: txn.amount100pct,
-            our_share_percentage: txn.ourSharePercentage,
+            amount_100pct: amount100pct,
+            our_share_percentage: share,
+            amount_our_share: amountOurShare, // Explicitly inserting calculated value
             transaction_date: txn.transactionDate || new Date().toISOString(),
             currency: txn.currency,
             notes: txn.notes,

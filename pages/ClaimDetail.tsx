@@ -1,70 +1,93 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Claim, ClaimTransactionType } from '../types';
-import { ClaimsService } from '../services/claimsService';
+import { ClaimTransactionType } from '../types';
+import { useClaimDetail, useAddTransaction } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
-import { ArrowLeft, Building2, Calendar, FileText, Plus, DollarSign, Wallet } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Wallet, Loader2 } from 'lucide-react';
 
 const ClaimDetail: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [claim, setClaim] = useState<Claim | null>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // React Query Hooks
+  const { data: claim, isLoading: loading, error } = useClaimDetail(id);
+  const addTransactionMutation = useAddTransaction();
 
   // Transaction Form State
   const [showTransModal, setShowTransModal] = useState(false);
   const [newTrans, setNewTrans] = useState({
       type: 'RESERVE_SET' as ClaimTransactionType,
       amount: 0,
-      share: 100, // Default to 100% or pull from policy
+      share: 100,
       notes: ''
   });
 
-  const loadData = async () => {
-    if (!id) return;
-    const data = await ClaimsService.getClaimById(id);
-    if (data) {
-        setClaim(data);
-        // Default share to policy share if available, else 100
-        // We assume policy data is joined. 
-        // Note: Real implementation might need to fetch policy separately to get 'ourShare'
-    }
-    setLoading(false);
-  };
-
-  useEffect(() => {
-    loadData();
-  }, [id]);
-
-  const handleAddTransaction = async () => {
+  const handleAddTransaction = () => {
       if (!claim || !id) return;
-      try {
-          await ClaimsService.addTransaction({
-              claimId: id,
-              transactionType: newTrans.type,
-              amount100pct: newTrans.amount,
-              ourSharePercentage: newTrans.share,
-              currency: (claim as any).policyContext?.currency || 'USD',
-              notes: newTrans.notes,
-              transactionDate: new Date().toISOString()
-          });
-          setShowTransModal(false);
-          loadData(); // Refresh
-      } catch (e: any) {
-          alert("Error adding transaction: " + e.message);
-      }
+      
+      addTransactionMutation.mutate({
+          claimId: id,
+          transactionType: newTrans.type,
+          amount100pct: newTrans.amount,
+          ourSharePercentage: newTrans.share,
+          currency: claim.policyContext?.currency || 'USD',
+          notes: newTrans.notes,
+          transactionDate: new Date().toISOString()
+      }, {
+          onSuccess: () => {
+              setShowTransModal(false);
+              // Reset form
+              setNewTrans(prev => ({ ...prev, amount: 0, notes: '' }));
+          },
+          onError: (err) => {
+              alert("Error adding transaction: " + err.message);
+          }
+      });
   };
 
-  if (loading) return <div>Loading Claim...</div>;
-  if (!claim) return <div>Claim not found</div>;
+  if (loading) return (
+      <div className="flex items-center justify-center min-h-[400px]">
+          <Loader2 className="animate-spin text-blue-600" size={32} />
+      </div>
+  );
 
-  const policy = (claim as any).policyContext || {};
+  if (error || !claim) return (
+      <div className="p-8 text-center text-red-500">
+          Error loading claim details. <button onClick={() => window.location.reload()} className="underline">Retry</button>
+      </div>
+  );
+
+  const policy = claim.policyContext || { policyNumber: 'N/A', insuredName: 'N/A', currency: 'USD' };
   
-  // Calculate Totals for Display
-  const totalReserve = claim.transactions?.filter(t => t.transactionType === 'RESERVE_SET').reduce((acc, t) => acc + t.amount100pct, 0) || 0;
-  const totalPaid = claim.transactions?.filter(t => t.transactionType === 'PAYMENT').reduce((acc, t) => acc + t.amount100pct, 0) || 0;
-  const outstanding = totalReserve - totalPaid;
+  // Strict Financial Calculations based on transaction history
+  const transactions = claim.transactions || [];
+
+  // Incurred: RESERVE_SET, RESERVE_ADJUST, IMPORT_BALANCE
+  const totalIncurredTransactions = transactions.filter(t => 
+      ['RESERVE_SET', 'RESERVE_ADJUST', 'IMPORT_BALANCE'].includes(t.transactionType)
+  );
+  const totalIncurred = totalIncurredTransactions.reduce((acc, t) => acc + t.amount100pct, 0);
+  const totalIncurredOurShare = totalIncurredTransactions.reduce((acc, t) => acc + t.amountOurShare, 0);
+
+  // Paid: PAYMENT, LEGAL_FEE, ADJUSTER_FEE
+  const totalPaidTransactions = transactions.filter(t => 
+      ['PAYMENT', 'LEGAL_FEE', 'ADJUSTER_FEE'].includes(t.transactionType)
+  );
+  const totalPaid = totalPaidTransactions.reduce((acc, t) => acc + t.amount100pct, 0);
+  const totalPaidOurShare = totalPaidTransactions.reduce((acc, t) => acc + t.amountOurShare, 0);
+
+  // Recoveries
+  const totalRecoveryTransactions = transactions.filter(t => t.transactionType === 'RECOVERY');
+  const totalRecovery = totalRecoveryTransactions.reduce((acc, t) => acc + t.amount100pct, 0);
+  const totalRecoveryOurShare = totalRecoveryTransactions.reduce((acc, t) => acc + t.amountOurShare, 0);
+
+  // Outstanding Calculation: Incurred - Paid + Recoveries
+  const outstanding = totalIncurred - totalPaid + totalRecovery;
+  const outstandingOurShare = totalIncurredOurShare - totalPaidOurShare + totalRecoveryOurShare;
+
+  // Format Helper
+  const formatMoney = (val: number) => val.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-6 pb-20">
@@ -74,7 +97,9 @@ const ClaimDetail: React.FC = () => {
            <div>
                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                    {claim.claimNumber}
-                   <span className={`px-2 py-1 text-sm rounded-full ${claim.liabilityType === 'ACTIVE' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>{claim.liabilityType}</span>
+                   <span className={`px-2 py-1 text-sm rounded-full ${claim.liabilityType === 'ACTIVE' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
+                       {claim.liabilityType === 'ACTIVE' ? 'ACTIVE' : 'INFO'}
+                   </span>
                </h2>
                <p className="text-gray-500">Policy: <span className="font-mono font-bold text-blue-600">{policy.policyNumber}</span> • {policy.insuredName}</p>
            </div>
@@ -89,17 +114,18 @@ const ClaimDetail: React.FC = () => {
                         <div><div className="text-xs text-gray-500 uppercase">Status</div><div className="font-medium">{claim.status}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Loss Date</div><div className="font-medium">{formatDate(claim.lossDate)}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Report Date</div><div className="font-medium">{formatDate(claim.reportDate)}</div></div>
-                        <div><div className="text-xs text-gray-500 uppercase">Description</div><div className="font-medium">{claim.description}</div></div>
+                        <div><div className="text-xs text-gray-500 uppercase">Description</div><div className="font-medium">{claim.description || '-'}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Claimant</div><div className="font-medium">{claim.claimantName || '-'}</div></div>
+                        <div><div className="text-xs text-gray-500 uppercase">Country</div><div className="font-medium">{claim.locationCountry || '-'}</div></div>
                     </div>
                 </div>
 
                 {claim.liabilityType === 'INFORMATIONAL' && (
                     <div className="bg-amber-50 p-6 rounded-xl border border-amber-200 text-amber-900">
                         <h3 className="font-bold mb-2">Informational Only</h3>
-                        <p className="text-sm mb-2">This claim is tracked for record-keeping (Type 1). Financials are imported in bulk.</p>
-                        <div className="font-mono text-xl font-bold">{claim.importedTotalIncurred?.toLocaleString()} {policy.currency}</div>
-                        <div className="text-xs opacity-75">Imported Incurred</div>
+                        <p className="text-sm mb-2">This claim is tracked for record-keeping. Financials are imported in bulk.</p>
+                        <div className="font-mono text-xl font-bold">{formatMoney(claim.importedTotalIncurred || 0)} {policy.currency}</div>
+                        <div className="text-xs opacity-75">Imported Incurred Estimate</div>
                     </div>
                 )}
            </div>
@@ -122,55 +148,57 @@ const ClaimDetail: React.FC = () => {
                    {claim.liabilityType === 'ACTIVE' && (
                        <div className="grid grid-cols-3 bg-blue-50 border-b border-blue-100 p-4 text-center">
                            <div>
-                               <div className="text-xs text-blue-600 uppercase font-bold">Total Incurred</div>
-                               <div className="text-xl font-bold text-blue-900">{totalReserve.toLocaleString()} {policy.currency}</div>
+                               <div className="text-xs text-blue-600 uppercase font-bold">Incurred (Our Share)</div>
+                               <div className="text-xl font-bold text-blue-900">{formatMoney(totalIncurredOurShare)} {policy.currency}</div>
                            </div>
                            <div>
-                               <div className="text-xs text-green-600 uppercase font-bold">Paid to Date</div>
-                               <div className="text-xl font-bold text-green-900">{totalPaid.toLocaleString()} {policy.currency}</div>
+                               <div className="text-xs text-green-600 uppercase font-bold">Paid (Our Share)</div>
+                               <div className="text-xl font-bold text-green-900">{formatMoney(totalPaidOurShare)} {policy.currency}</div>
                            </div>
                            <div>
-                               <div className="text-xs text-gray-600 uppercase font-bold">Outstanding Reserve</div>
-                               <div className="text-xl font-bold text-gray-900">{outstanding.toLocaleString()} {policy.currency}</div>
+                               <div className="text-xs text-red-600 uppercase font-bold">Outstanding (Our Share)</div>
+                               <div className="text-xl font-bold text-red-900">{formatMoney(outstandingOurShare)} {policy.currency}</div>
                            </div>
                        </div>
                    )}
 
-                   <table className="w-full text-left text-sm">
-                       <thead className="bg-gray-100 text-gray-700 font-semibold border-b">
-                           <tr>
-                               <th className="px-6 py-3">Date</th>
-                               <th className="px-6 py-3">Type</th>
-                               <th className="px-6 py-3 text-right">Amount (100%)</th>
-                               <th className="px-6 py-3 text-right">Our Share</th>
-                               <th className="px-6 py-3">Notes</th>
-                           </tr>
-                       </thead>
-                       <tbody className="divide-y divide-gray-100">
-                           {claim.transactions?.map(t => (
-                               <tr key={t.id} className="hover:bg-gray-50">
-                                   <td className="px-6 py-3 text-gray-500">{formatDate(t.transactionDate)}</td>
-                                   <td className="px-6 py-3">
-                                       <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                                           t.transactionType === 'PAYMENT' ? 'bg-green-100 text-green-800' :
-                                           t.transactionType === 'RESERVE_SET' ? 'bg-blue-100 text-blue-800' :
-                                           'bg-gray-100 text-gray-800'
-                                       }`}>
-                                           {t.transactionType}
-                                       </span>
-                                   </td>
-                                   <td className="px-6 py-3 text-right font-mono">{t.amount100pct.toLocaleString()}</td>
-                                   <td className="px-6 py-3 text-right font-mono text-gray-600">{t.amountOurShare?.toLocaleString()}</td>
-                                   <td className="px-6 py-3 text-gray-500 italic truncate max-w-[200px]">{t.notes}</td>
-                               </tr>
-                           ))}
-                           {(!claim.transactions || claim.transactions.length === 0) && (
+                   <div className="overflow-x-auto">
+                       <table className="w-full text-left text-sm whitespace-nowrap">
+                           <thead className="bg-gray-100 text-gray-700 font-semibold border-b">
                                <tr>
-                                   <td colSpan={5} className="py-8 text-center text-gray-400 italic">No transactions recorded.</td>
+                                   <th className="px-6 py-3">Date</th>
+                                   <th className="px-6 py-3">Type</th>
+                                   <th className="px-6 py-3 text-right">Amount (100%)</th>
+                                   <th className="px-6 py-3 text-right">Our Share</th>
+                                   <th className="px-6 py-3">Notes</th>
                                </tr>
-                           )}
-                       </tbody>
-                   </table>
+                           </thead>
+                           <tbody className="divide-y divide-gray-100">
+                               {transactions.map(t => (
+                                   <tr key={t.id} className="hover:bg-gray-50">
+                                       <td className="px-6 py-3 text-gray-500">{formatDate(t.transactionDate)}</td>
+                                       <td className="px-6 py-3">
+                                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                               ['PAYMENT', 'LEGAL_FEE', 'ADJUSTER_FEE'].includes(t.transactionType) ? 'bg-green-100 text-green-800' :
+                                               ['RESERVE_SET', 'RESERVE_ADJUST'].includes(t.transactionType) ? 'bg-blue-100 text-blue-800' :
+                                               'bg-gray-100 text-gray-800'
+                                           }`}>
+                                               {t.transactionType}
+                                           </span>
+                                       </td>
+                                       <td className="px-6 py-3 text-right font-mono">{formatMoney(t.amount100pct)}</td>
+                                       <td className="px-6 py-3 text-right font-mono text-gray-600">{formatMoney(t.amountOurShare)}</td>
+                                       <td className="px-6 py-3 text-gray-500 italic truncate max-w-[200px]">{t.notes}</td>
+                                   </tr>
+                               ))}
+                               {transactions.length === 0 && (
+                                   <tr>
+                                       <td colSpan={5} className="py-8 text-center text-gray-400 italic">No transactions recorded.</td>
+                                   </tr>
+                               )}
+                           </tbody>
+                       </table>
+                   </div>
                </div>
            </div>
        </div>
@@ -186,12 +214,14 @@ const ClaimDetail: React.FC = () => {
                            <select 
                                 className="w-full p-2 border rounded"
                                 value={newTrans.type}
-                                onChange={e => setNewTrans({...newTrans, type: e.target.value as any})}
+                                onChange={e => setNewTrans({...newTrans, type: e.target.value as ClaimTransactionType})}
                            >
-                               <option value="RESERVE_SET">Reserve / Incurred Adjustment</option>
+                               <option value="RESERVE_SET">Set Reserve (Incurred)</option>
+                               <option value="RESERVE_ADJUST">Adjust Reserve (+/-)</option>
                                <option value="PAYMENT">Indemnity Payment</option>
                                <option value="LEGAL_FEE">Legal Fee Payment</option>
                                <option value="ADJUSTER_FEE">Adjuster Fee Payment</option>
+                               <option value="RECOVERY">Recovery / Subrogation</option>
                            </select>
                        </div>
                        <div>
@@ -221,8 +251,21 @@ const ClaimDetail: React.FC = () => {
                            />
                        </div>
                        <div className="flex justify-end gap-2 pt-4">
-                           <button onClick={() => setShowTransModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">Cancel</button>
-                           <button onClick={handleAddTransaction} className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">Save</button>
+                           <button 
+                                onClick={() => setShowTransModal(false)} 
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+                                disabled={addTransactionMutation.isPending}
+                            >
+                                Cancel
+                            </button>
+                           <button 
+                                onClick={handleAddTransaction} 
+                                disabled={addTransactionMutation.isPending}
+                                className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 flex items-center gap-2"
+                            >
+                                {addTransactionMutation.isPending && <Loader2 className="animate-spin" size={16}/>}
+                                Save
+                            </button>
                        </div>
                    </div>
                </div>

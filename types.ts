@@ -19,12 +19,12 @@ export enum Currency {
 
 export enum PolicyStatus {
   DRAFT = 'Draft',
-  PENDING = 'Pending Confirmation', // Firm Order received, waiting for signed slip
-  ACTIVE = 'Active', // Bound / Signed
-  NTU = 'Not Taken Up', // Deal failed before signing
+  PENDING = 'Pending Confirmation',
+  ACTIVE = 'Active',
+  NTU = 'Not Taken Up',
   EXPIRED = 'Expired',
-  CANCELLED = 'Cancelled', // Cancelled after being active
-  EARLY_TERMINATION = 'Early Termination', // Terminated early with reason
+  CANCELLED = 'Cancelled',
+  EARLY_TERMINATION = 'Early Termination',
 }
 
 export enum PaymentStatus {
@@ -34,10 +34,8 @@ export enum PaymentStatus {
   PARTIAL = 'Partial',
 }
 
-// Restructured Architecture types
 export type Channel = 'Direct' | 'Inward';
 export type IntermediaryType = 'Direct' | 'Broker' | 'Agent' | 'MGA';
-
 export type UserRole = 'Super Admin' | 'Admin' | 'Underwriter' | 'Viewer';
 
 export interface UserPermissions {
@@ -45,9 +43,9 @@ export interface UserPermissions {
   canCreate: boolean;
   canEdit: boolean;
   canDelete: boolean;
-  canBind: boolean; // Activate policies
-  canCancel: boolean; // NTU or Early Termination
-  canManageUsers: boolean; // Admin Console Access
+  canBind: boolean;
+  canCancel: boolean;
+  canManageUsers: boolean;
 }
 
 export const DEFAULT_PERMISSIONS: Record<UserRole, UserPermissions> = {
@@ -60,7 +58,7 @@ export const DEFAULT_PERMISSIONS: Record<UserRole, UserPermissions> = {
 export interface User {
   id: string;
   email: string;
-  password?: string; // Added for internal auth
+  password?: string;
   name: string;
   role: UserRole;
   avatarUrl?: string;
@@ -77,7 +75,7 @@ export interface Installment {
   notes?: string;
 }
 
-export interface ClaimDeprecated { // Renamed legacy Claim interface if it existed
+export interface ClaimDeprecated { 
   id: string;
   dateOfLoss: string;
   description: string;
@@ -99,38 +97,33 @@ export interface PolicyTemplate {
   id: string;
   name: string;
   description?: string;
-  content: string; // HTML or Markdown content with {{placeholders}}
+  content: string;
   isDeleted?: boolean;
 }
-
-// --- NEW REINSURANCE TYPES ---
 
 export interface PolicyReinsurer {
   id: string;
   name: string;
-  share: number; // %
-  commission: number; // %
+  share: number;
+  commission: number;
 }
 
 export interface ExchangeRate {
   id: string;
   currency: Currency;
-  rate: number; // Rate to Base Currency (e.g., UZS)
-  date: string; // Effective Date
+  rate: number;
+  date: string;
 }
 
 export interface ReinsuranceSlip {
   id: string;
-  slipNumber: string; // No Slip
-  date: string; // Date
-  insuredName: string; // Insured
-  brokerReinsurer: string; // Lead Broker/Reinsurer (Legacy)
-  reinsurers?: PolicyReinsurer[]; // New Multi-Reinsurer Support
-  
-  // Financials
+  slipNumber: string;
+  date: string;
+  insuredName: string;
+  brokerReinsurer: string;
+  reinsurers?: PolicyReinsurer[];
   currency?: Currency | string;
   limitOfLiability?: number;
-
   status?: PolicyStatus; 
   isDeleted?: boolean;
 }
@@ -141,61 +134,46 @@ export interface TerminationDetails {
   reason: string;
 }
 
-// --- NEW LEGAL ENTITY TYPES ---
-
 export interface EntityLog {
   id: string;
   entityId: string;
   userId: string;
   userName: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE';
-  changes: string; // JSON string of changes
+  changes: string;
   timestamp: string;
 }
 
 export interface LegalEntity {
   id: string;
-  // Identity
   fullName: string;
   shortName: string;
   type: 'Insured' | 'Reinsurer' | 'Broker' | 'Agent' | 'MGA' | 'Other';
-  
-  // Registration
   regCodeType: 'INN' | 'Company No' | 'Tax ID' | 'Other';
   regCodeValue: string;
-  
-  // Location
   country: string;
   city?: string;
   address?: string;
-  
-  // Contact
   phone?: string;
   email?: string;
   website?: string;
-  
-  // Corporate
-  shareholders?: string; // Text field describing shareholders
+  shareholders?: string;
   lineOfBusiness?: string;
   directorName?: string;
-  
-  // Banking
   bankName?: string;
   bankAccount?: string;
-  bankMFO?: string; // SWIFT/MFO
+  bankMFO?: string;
   bankAddress?: string;
-  
-  // Meta
   isDeleted?: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-// --- NEW CLAIMS MODULE TYPES ---
+// --- CLAIMS MODULE TYPES ---
 
 export type ClaimLiabilityType = 'INFORMATIONAL' | 'ACTIVE';
-export type ClaimStatus = 'OPEN' | 'CLOSED' | 'REOPENED' | 'DENIED';
-export type ClaimTransactionType = 'RESERVE_SET' | 'PAYMENT' | 'RECOVERY' | 'LEGAL_FEE' | 'ADJUSTER_FEE';
+export type ClaimStatus = 'OPEN' | 'CLOSED' | 'REOPENED' | 'RESERVED' | 'DENIED';
+export type ClaimTransactionType = 'RESERVE_SET' | 'RESERVE_ADJUST' | 'PAYMENT' | 'LEGAL_FEE' | 'ADJUSTER_FEE' | 'RECOVERY' | 'IMPORT_BALANCE';
 
 export interface ClaimTransaction {
     id: string;
@@ -206,7 +184,7 @@ export interface ClaimTransaction {
     currency: string;
     exchangeRate: number;
     ourSharePercentage: number;
-    amountOurShare: number; // Calculated
+    amountOurShare: number;
     payee?: string;
     notes?: string;
     createdBy?: string;
@@ -232,129 +210,112 @@ export interface Claim {
     importedTotalIncurred?: number;
     importedTotalPaid?: number;
     
-    transactions?: ClaimTransaction[]; // For Type 2
+    // Joined Fields (Strictly typed now)
+    policyNumber: string;
+    insuredName: string;
+    policyCurrency?: string;
+    policyContext?: Partial<Policy>; // For detail view context
+
+    // Computed Fields (from RPC)
+    totalIncurred100?: number;
+    totalIncurredOurShare?: number;
+    totalPaidOurShare?: number;
+    outstandingOurShare?: number;
+    
+    transactions?: ClaimTransaction[];
 }
 
+export interface ClaimFilters {
+    liabilityType: 'ALL' | ClaimLiabilityType;
+    status: 'ALL' | ClaimStatus;
+    searchTerm: string;
+    page: number;
+    pageSize: number;
+}
 
 export interface Policy {
   id: string;
-  
-  // --- Architecture ---
-  channel: Channel; // Direct Insurance or Inward Reinsurance
-  intermediaryType: IntermediaryType; // Broker, Agent, MGA, or Direct
-  intermediaryName?: string; // Name of the Broker/Agent/MGA
-
-  // --- Identifiers & Reference ---
-  policyNumber: string; // Internal Policy No / Reference Link
-  secondaryPolicyNumber?: string; // Secondary Policy No (often empty in Direct)
-  slipNumber?: string; // Number of Reinsurance Slip
-  agreementNumber?: string; // No of Insurance Agreement
-  bordereauNo?: string; // Bordereau No
-  invoiceIssued?: boolean; // Invoice (Yes/No)
-  coverNote?: string; // Cover Note reference
-  
-  // --- Dates ---
-  dateOfSlip?: string; // Date of Slip
-  accountingDate?: string; // Accounting Date / Дата бухг. начисления
-  inceptionDate: string; // Insurance Period Start
-  expiryDate: string; // Insurance Period End
+  channel: Channel;
+  intermediaryType: IntermediaryType;
+  intermediaryName?: string;
+  policyNumber: string;
+  secondaryPolicyNumber?: string;
+  slipNumber?: string;
+  agreementNumber?: string;
+  bordereauNo?: string;
+  invoiceIssued?: boolean;
+  coverNote?: string;
+  dateOfSlip?: string;
+  accountingDate?: string;
+  inceptionDate: string;
+  expiryDate: string;
   issueDate: string;
-  reinsuranceInceptionDate?: string; // Reinsurance Period Start
-  reinsuranceExpiryDate?: string; // Reinsurance Period End
-  paymentDate?: string; // Date of Payment (Received) - Legacy (Use Installments now)
-  warrantyPeriod?: number; // Warranty Period (days) / Гарантийный период
-  activationDate?: string; // Date when policy was officially bound/validated
-
-  // --- Parties ---
-  insuredName: string; // Original Insured
+  reinsuranceInceptionDate?: string;
+  reinsuranceExpiryDate?: string;
+  paymentDate?: string;
+  warrantyPeriod?: number;
+  activationDate?: string;
+  insuredName: string;
   insuredAddress?: string;
-  borrower?: string; // 1c / Borrower / Заемщик
-  cedantName?: string; // Reinsured / Cedant (For Inward)
-  retrocedent?: string; // Retrocedent / Ретроцедент
-  performer?: string; // Performer / Исполнитель
-  
-  // --- Risk Details ---
+  borrower?: string;
+  cedantName?: string;
+  retrocedent?: string;
+  performer?: string;
   industry: string;
-  territory: string; // Country / Страна
-  city?: string; // City / Город
+  territory: string;
+  city?: string;
   jurisdiction: string;
-  classOfInsurance: string; // Class (e.g., "8,9" or name)
-  typeOfInsurance?: string; // Type of Insurance / Вид страхования
-  riskCode?: string; // Code / Код
-  insuredRisk?: string; // Insured Risks / Объект страхования
-  
-  // --- Financials (Sums & Limits) ---
+  classOfInsurance: string;
+  typeOfInsurance?: string;
+  riskCode?: string;
+  insuredRisk?: string;
   currency: Currency;
-  sumInsured: number; // Sum Insured in FC (100%)
-  sumInsuredNational?: number; // Sum Insured in Sums (National)
-  
-  limitForeignCurrency?: number; // Limit in FC
-  limitNationalCurrency?: number; // Limit in National Currency
-  excessForeignCurrency?: number; // In excess of in FC
-  prioritySum?: number; // Priority in Sums
-  
-  // --- Financials (Premiums) ---
-  premiumRate?: number; // Rate / Ставка (%)
-  grossPremium: number; // Premium in FC / Gross Reinsurance Premium (100%)
-  premiumNationalCurrency?: number; // Premium in National Currency
+  sumInsured: number;
+  sumInsuredNational?: number;
+  limitForeignCurrency?: number;
+  limitNationalCurrency?: number;
+  excessForeignCurrency?: number;
+  prioritySum?: number;
+  premiumRate?: number;
+  grossPremium: number;
+  premiumNationalCurrency?: number;
   exchangeRate: number; 
-  equivalentUSD?: number; // Equivalent in USD
-
-  // --- Our Share (Inward/Direct) ---
-  ourShare: number; // Percentage of risk we accept
-  
-  // --- Outward Reinsurance / Retrocession (Ceding) ---
+  equivalentUSD?: number;
+  ourShare: number;
   hasOutwardReinsurance?: boolean;
-  reinsurers?: PolicyReinsurer[]; // Array of Reinsurers
-  
-  // Deprecated single fields (kept for backward compatibility display)
+  reinsurers?: PolicyReinsurer[];
   reinsurerName?: string; 
-  
-  cededShare?: number; // Total Ceded Percentage
-  cededPremiumForeign?: number; // Total Premium we pay to reinsurer
-  reinsuranceCommission?: number; // Average or Total Commission we receive
-  netReinsurancePremium?: number; // Net Payable to Reinsurer
-  
-  sumReinsuredForeign?: number; // Sum Reinsured / Обязательства перестраховщика (FC)
-  sumReinsuredNational?: number; // Sum Reinsured (Sums)
-  
-  receivedPremiumForeign?: number; // Received Premium in FC
-  receivedPremiumNational?: number; // Received Premium in National Currency
-  
-  numberOfSlips?: number; // Number of slips
-
-  // --- AIC / Treaty Specifics (Inward) ---
-  treatyPlacement?: string; // Treaty Placement
-  treatyPremium?: number; // Treaty Premium
-  aicCommission?: number; // AIC Commission
-  aicRetention?: number; // AIC Retention
-  aicPremium?: number; // AIC Premium
-  maxRetentionPerRisk?: number; // Maximum Retention per risk
-  reinsurerRating?: string; // Reinsurer Rating
-
-  // --- Standard Fields ---
-  netPremium: number; // Calculated net
-  commissionPercent: number; // Acquisition Cost / Commission to Intermediary
+  cededShare?: number;
+  cededPremiumForeign?: number;
+  reinsuranceCommission?: number;
+  netReinsurancePremium?: number;
+  sumReinsuredForeign?: number;
+  sumReinsuredNational?: number;
+  receivedPremiumForeign?: number;
+  receivedPremiumNational?: number;
+  numberOfSlips?: number;
+  treatyPlacement?: string;
+  treatyPremium?: number;
+  aicCommission?: number;
+  aicRetention?: number;
+  aicPremium?: number;
+  maxRetentionPerRisk?: number;
+  reinsurerRating?: string;
+  netPremium: number;
+  commissionPercent: number;
   taxPercent?: number;
   deductible?: string;
   conditions?: string;
-
-  // --- Tracking ---
   status: PolicyStatus;
   paymentStatus: PaymentStatus;
   installments: Installment[];
-  claims: ClaimDeprecated[]; // Renamed to avoid conflict
+  claims: ClaimDeprecated[];
   selectedClauseIds: string[];
   isDeleted?: boolean;
-
-  // --- Documents ---
   signedDocument?: {
     fileName: string;
     uploadDate: string;
-    // In a real app, this would be a blob URL or storage path
     url?: string; 
   };
-  
-  // --- Early Termination ---
   terminationDetails?: TerminationDetails;
 }
