@@ -1,5 +1,5 @@
 
-import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus } from '../types';
+import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus, ExchangeRate, Currency } from '../types';
 import { supabase } from './supabase';
 import { AuthService } from './auth';
 
@@ -11,6 +11,7 @@ const TEMPLATES_KEY = 'insurtech_templates_v2';
 const USERS_KEY = 'insurtech_users_v2';
 const ENTITIES_KEY = 'insurtech_legal_entities_v1';
 const ENTITY_LOGS_KEY = 'insurtech_entity_logs_v1';
+const FX_RATES_KEY = 'insurtech_fx_rates_v1';
 
 // Helper to check connection status
 const isSupabaseEnabled = () => {
@@ -27,11 +28,18 @@ const toAppPolicy = (dbRecord: any): Policy => {
   const derivedIntermediaryType = dbRecord.intermediaryType || (dbRecord.brokerName ? 'Broker' : 'Direct');
   const derivedIntermediaryName = dbRecord.intermediaryName || dbRecord.brokerName;
 
+  // Handle Reinsurers JSONB
+  let reinsurers = [];
+  if (dbRecord.reinsurers) {
+      reinsurers = typeof dbRecord.reinsurers === 'string' ? JSON.parse(dbRecord.reinsurers) : dbRecord.reinsurers;
+  }
+
   return {
     ...dbRecord,
     channel: derivedChannel,
     intermediaryType: derivedIntermediaryType,
     intermediaryName: derivedIntermediaryName,
+    reinsurers: reinsurers,
     
     // Ensure numeric values are numbers
     sumInsured: Number(dbRecord.sumInsured || 0),
@@ -90,7 +98,7 @@ const toDbPolicy = (policy: Policy): any => {
   delete payload.intermediaryType;
   delete payload.intermediaryName;
 
-  // 4. Ensure numeric fields are safe (Postgres numeric types don't like NaNs or empty strings)
+  // 4. Ensure numeric fields are safe
   const numericFields = [
       'sumInsured', 'grossPremium', 'ourShare', 'sumInsuredNational', 
       'limitForeignCurrency', 'limitNationalCurrency', 'excessForeignCurrency', 'prioritySum',
@@ -430,6 +438,56 @@ export const DB = {
     localStorage.setItem(SLIPS_KEY, JSON.stringify(slips));
   },
 
+  // --- FX RATES ---
+
+  getExchangeRates: async (): Promise<ExchangeRate[]> => {
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('fx_rates').select('*').order('date', { ascending: false });
+          return data as ExchangeRate[] || [];
+      }
+      return getLocal(FX_RATES_KEY, []);
+  },
+
+  getLatestExchangeRate: async (currency: string): Promise<number> => {
+      if (currency === 'UZS') return 1; // Base
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('fx_rates')
+            .select('rate')
+            .eq('currency', currency)
+            .order('date', { ascending: false })
+            .limit(1)
+            .single();
+          return data?.rate || 1;
+      }
+      const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
+      const rate = rates
+        .filter(r => r.currency === currency)
+        .sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+      return rate?.rate || 1;
+  },
+
+  saveExchangeRate: async (rate: ExchangeRate): Promise<void> => {
+      if (isSupabaseEnabled()) {
+          await supabase!.from('fx_rates').upsert(rate);
+          return;
+      }
+      const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
+      const index = rates.findIndex(r => r.id === rate.id);
+      if (index >= 0) rates[index] = rate;
+      else rates.push(rate);
+      localStorage.setItem(FX_RATES_KEY, JSON.stringify(rates));
+  },
+
+  deleteExchangeRate: async (id: string): Promise<void> => {
+      if (isSupabaseEnabled()) {
+          await supabase!.from('fx_rates').delete().eq('id', id);
+          return;
+      }
+      let rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
+      rates = rates.filter(r => r.id !== id);
+      localStorage.setItem(FX_RATES_KEY, JSON.stringify(rates));
+  },
+
   // --- User Management ---
   getUsers: async (): Promise<User[]> => {
     if (isSupabaseEnabled()) {
@@ -470,8 +528,7 @@ export const DB = {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
   },
 
-  // --- LEGAL ENTITIES (NEW) ---
-  
+  // --- LEGAL ENTITIES ---
   getLegalEntities: async (): Promise<LegalEntity[]> => {
       if (isSupabaseEnabled()) {
           const { data } = await supabase!.from('legal_entities').select('*').order('fullName', { ascending: true });
@@ -492,7 +549,6 @@ export const DB = {
 
   findLegalEntityByName: async (name: string): Promise<LegalEntity | undefined> => {
        if (isSupabaseEnabled()) {
-          // Try exact match first, then case insensitive
           const { data } = await supabase!.from('legal_entities').select('*').ilike('fullName', name).single();
           return data as LegalEntity;
        }
@@ -501,7 +557,6 @@ export const DB = {
   },
 
   saveLegalEntity: async (entity: LegalEntity): Promise<void> => {
-      // 1. Fetch old version for logging
       let oldEntity: LegalEntity | undefined;
       if (isSupabaseEnabled()) {
           const { data } = await supabase!.from('legal_entities').select('*').eq('id', entity.id).single();
@@ -516,7 +571,6 @@ export const DB = {
       
       if (oldEntity) {
           changes = {};
-          // Simple Diff
           (Object.keys(entity) as Array<keyof LegalEntity>).forEach(key => {
               if (JSON.stringify(entity[key]) !== JSON.stringify(oldEntity![key])) {
                   changes[key] = { from: oldEntity![key], to: entity[key] };
@@ -524,7 +578,6 @@ export const DB = {
           });
       }
 
-      // 2. Save
       if (isSupabaseEnabled()) {
           await supabase!.from('legal_entities').upsert({
               ...entity,
@@ -539,14 +592,12 @@ export const DB = {
           localStorage.setItem(ENTITIES_KEY, JSON.stringify(entities));
       }
 
-      // 3. Log
       if (Object.keys(changes).length > 0) {
         await createLog(entity.id, action, changes);
       }
   },
 
   deleteLegalEntity: async (id: string): Promise<void> => {
-      // Log Before Delete
       await createLog(id, 'DELETE', { status: 'Marked as Deleted' });
 
       if (isSupabaseEnabled()) {
@@ -572,10 +623,7 @@ export const DB = {
 
   // --- External API Search Simulation ---
   searchExternalRegistry: async (query: string, type: 'INN' | 'NAME'): Promise<Partial<LegalEntity> | null> => {
-      // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1500));
-
-      // Mock Data for "Ihamkor"
       if (query === '309730232' || query.toLowerCase().includes('uzbek')) {
           return {
               fullName: "Uzbek General Insurance LLC",
@@ -589,10 +637,9 @@ export const DB = {
               lineOfBusiness: "General Insurance Activities",
               directorName: "Aliev Valijon",
               phone: "+998 71 200 00 00",
-              status: PolicyStatus.ACTIVE // Reusing status enum for convenience but strictly it's an entity
+              status: PolicyStatus.ACTIVE 
           } as any;
       }
-      
       return null;
   }
 };

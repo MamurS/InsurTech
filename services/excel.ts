@@ -47,7 +47,7 @@ export const ExcelService = {
 
     const columns: ColumnDef[] = [
       { header: 'Slip Number', key: 'slipNumber', width: 25 },
-      { header: 'Date', key: 'date', width: 15, align: 'center' },
+      { header: 'Date', key: 'date', width: 15, align: 'center', format: 'dd.mm.yyyy' },
       { header: 'Insured', key: 'insuredName', width: 30 },
       { header: 'Broker / Reinsurer', key: 'brokerReinsurer', width: 30 },
     ];
@@ -75,12 +75,12 @@ export const ExcelService = {
         { header: 'Bordereau No', key: 'bordereauNo', width: 15 },
         { header: 'Status', key: 'status', width: 15 },
 
-        // Dates
-        { header: 'Inception', key: 'inceptionDate', width: 15, align: 'center' },
-        { header: 'Expiry', key: 'expiryDate', width: 15, align: 'center' },
-        { header: 'Date of Slip', key: 'dateOfSlip', width: 15, align: 'center' },
-        { header: 'Accounting Date', key: 'accountingDate', width: 15, align: 'center' },
-        { header: 'Payment Date', key: 'paymentDate', width: 15, align: 'center' },
+        // Dates (Formatted as dd.mm.yyyy)
+        { header: 'Inception', key: 'inceptionDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
+        { header: 'Expiry', key: 'expiryDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
+        { header: 'Date of Slip', key: 'dateOfSlip', width: 15, align: 'center', format: 'dd.mm.yyyy' },
+        { header: 'Accounting Date', key: 'accountingDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
+        { header: 'Payment Date', key: 'paymentDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
         { header: 'Warranty (Days)', key: 'warrantyPeriod', width: 10 },
 
         // Parties

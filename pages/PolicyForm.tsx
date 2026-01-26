@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
-import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryType } from '../types';
-import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Shield, Percent, Briefcase, Calendar, Globe } from 'lucide-react';
+import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryType, PolicyReinsurer, Installment } from '../types';
+import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Briefcase, Globe, Plus, Trash2, RefreshCw, CreditCard, Calendar } from 'lucide-react';
 
 // --- DATASETS FOR AUTOCOMPLETE ---
 const UZBEK_REGIONS = [
@@ -35,7 +35,80 @@ const INTERMEDIARIES = [
   "Marsh", "Aon", "Willis Towers Watson", "Arthur J. Gallagher", "Local Broker LLC", "Uzbek Insurance Broker", "Silk Road Broking"
 ];
 
-// --- REUSABLE SEARCHABLE INPUT COMPONENT ---
+// --- REUSABLE COMPONENTS ---
+
+interface CurrencyInputProps {
+    label: string;
+    originalValue: number;
+    nationalValue: number;
+    currency: string;
+    exchangeRate: number;
+    onValueChange: (original: number, national: number) => void;
+    disabled?: boolean;
+}
+
+const CurrencyInput: React.FC<CurrencyInputProps> = ({ label, originalValue, nationalValue, currency, exchangeRate, onValueChange, disabled }) => {
+    // Determine the initial view mode. 
+    const [viewCurrency, setViewCurrency] = useState(currency);
+
+    // Sync local view mode with the parent Policy Currency if it changes (and we aren't explicitly viewing UZS)
+    useEffect(() => {
+        if (viewCurrency !== 'UZS') {
+            setViewCurrency(currency);
+        }
+    }, [currency]);
+
+    const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const val = e.target.value === '' ? 0 : Number(e.target.value);
+        
+        if (viewCurrency === 'UZS') {
+            // User is editing in UZS (National)
+            // Calculate Original (Policy Currency) based on rate
+            const calcOriginal = exchangeRate > 0 ? val / exchangeRate : 0;
+            onValueChange(calcOriginal, val);
+        } else {
+            // User is editing in Foreign Currency (Policy/USD/EUR)
+            // Calculate National (UZS) based on rate
+            // Note: We use the single Policy Exchange Rate for this calculation.
+            const calcNational = val * exchangeRate;
+            onValueChange(val, calcNational);
+        }
+    };
+
+    // Which value to show in the input box
+    const displayValue = viewCurrency === 'UZS' ? nationalValue : originalValue;
+
+    // Richer currency options: Policy Currency + UZS + Major Currencies (USD, EUR)
+    // We use a Set to automatically deduplicate if Policy Currency is already USD or EUR
+    const currencyOptions = Array.from(new Set([currency, 'UZS', 'USD', 'EUR']));
+
+    return (
+        <div>
+            <label className="block text-sm font-medium text-gray-600 mb-1.5">{label}</label>
+            <div className="flex rounded-lg shadow-sm">
+                <select
+                    value={viewCurrency}
+                    onChange={(e) => setViewCurrency(e.target.value)}
+                    disabled={disabled}
+                    className="inline-flex items-center px-3 py-2 border border-r-0 border-gray-300 rounded-l-lg bg-gray-50 text-gray-600 sm:text-sm focus:ring-blue-500 focus:border-blue-500 outline-none font-bold min-w-[80px]"
+                >
+                    {currencyOptions.map(opt => (
+                        <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                </select>
+                <input
+                    type="number"
+                    value={displayValue || ''}
+                    onChange={handleAmountChange}
+                    disabled={disabled}
+                    onWheel={(e) => e.currentTarget.blur()} // Prevent accidental scroll changes
+                    className="flex-1 min-w-0 block w-full px-3 py-2.5 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-gray-900 disabled:bg-gray-100"
+                />
+            </div>
+        </div>
+    );
+};
+
 interface SearchableInputProps {
   label: string;
   name: string;
@@ -149,8 +222,16 @@ const PolicyForm: React.FC = () => {
     
     // Outward Defaults
     hasOutwardReinsurance: false,
+    reinsurers: [],
+    
+    // Installments
+    installments: [],
+
+    // Calculated aggregates
     cededShare: 0,
     cededPremiumForeign: 0,
+    netReinsurancePremium: 0,
+    reinsuranceCommission: 0, // Weighted Avg
     
     deductible: '',
     inceptionDate: new Date().toISOString().split('T')[0],
@@ -159,7 +240,6 @@ const PolicyForm: React.FC = () => {
     status: PolicyStatus.PENDING,
     paymentStatus: PaymentStatus.PENDING,
     selectedClauseIds: [],
-    installments: [],
     claims: []
   });
 
@@ -168,11 +248,29 @@ const PolicyForm: React.FC = () => {
       if (isEdit && id) {
         const policy = await DB.getPolicy(id);
         if (policy) {
-          // Backward compatibility check for recordType -> channel
+          // Backward compatibility
           const loadedData = { ...policy };
           if ((policy as any).recordType) {
               if ((policy as any).recordType === 'Inward') loadedData.channel = 'Inward';
               else loadedData.channel = 'Direct'; 
+          }
+          // Ensure reinsurers array exists if singular fields exist
+          if (!loadedData.reinsurers || loadedData.reinsurers.length === 0) {
+              if (loadedData.reinsurerName && loadedData.hasOutwardReinsurance) {
+                  loadedData.reinsurers = [{
+                      id: crypto.randomUUID(),
+                      name: loadedData.reinsurerName,
+                      share: loadedData.cededShare || 0,
+                      commission: loadedData.reinsuranceCommission || 0
+                  }];
+              } else {
+                  loadedData.reinsurers = [];
+              }
+          }
+          
+          // Ensure installments array exists
+          if (!loadedData.installments) {
+              loadedData.installments = [];
           }
 
           setFormData({
@@ -195,23 +293,52 @@ const PolicyForm: React.FC = () => {
     loadData();
   }, [id, isEdit, navigate]);
 
-  // Reactive Calculations
+  // Reactive Calculations (Premium & Reinsurance)
   useEffect(() => {
     const gross = formData.grossPremium || 0;
     const comm = formData.commissionPercent || 0; 
     const tax = formData.taxPercent || 0;
     const net = gross - (gross * comm / 100) - (gross * tax / 100);
     
-    const cededPrem = formData.cededPremiumForeign || 0;
-    const reinsComm = formData.reinsuranceCommission || 0; 
-    const netReinsPayable = cededPrem - (cededPrem * reinsComm / 100);
+    // Reinsurance Aggregations
+    let totalCededShare = 0;
+    let totalCededPremium = 0;
+    let totalCommissionAmount = 0;
+
+    if (formData.reinsurers && formData.reinsurers.length > 0) {
+        formData.reinsurers.forEach(r => {
+            const rShare = r.share || 0;
+            const rComm = r.commission || 0;
+            const rPrem = gross * (rShare / 100);
+            
+            totalCededShare += rShare;
+            totalCededPremium += rPrem;
+            totalCommissionAmount += rPrem * (rComm / 100);
+        });
+    }
+
+    const netReinsPayable = totalCededPremium - totalCommissionAmount;
+    const avgComm = totalCededPremium > 0 ? (totalCommissionAmount / totalCededPremium) * 100 : 0;
 
     setFormData(prev => ({ 
         ...prev, 
         netPremium: net,
-        netReinsurancePremium: netReinsPayable
+        cededShare: totalCededShare,
+        cededPremiumForeign: totalCededPremium,
+        netReinsurancePremium: netReinsPayable,
+        reinsuranceCommission: parseFloat(avgComm.toFixed(2))
     }));
-  }, [formData.grossPremium, formData.commissionPercent, formData.taxPercent, formData.cededPremiumForeign, formData.reinsuranceCommission]);
+  }, [formData.grossPremium, formData.commissionPercent, formData.taxPercent, formData.reinsurers]);
+
+  // FX Rate Fetcher
+  const handleFetchRate = async () => {
+      if (formData.currency === 'UZS') {
+          setFormData(prev => ({ ...prev, exchangeRate: 1 }));
+          return;
+      }
+      const rate = await DB.getLatestExchangeRate(formData.currency);
+      setFormData(prev => ({ ...prev, exchangeRate: rate }));
+  };
 
   const handleChange = (e: { target: { name: string; value: string | boolean | number } }) => {
     const { name, value } = e.target;
@@ -220,7 +347,6 @@ const PolicyForm: React.FC = () => {
         'sumInsured', 'sumInsuredNational', 'grossPremium', 'premiumNationalCurrency', 
         'exchangeRate', 'commissionPercent', 'taxPercent', 'ourShare', 
         'limitForeignCurrency', 'limitNationalCurrency', 'excessForeignCurrency', 'prioritySum',
-        'cededShare', 'cededPremiumForeign', 'reinsuranceCommission', 
         'premiumRate', 'warrantyPeriod', 'numberOfSlips',
         'treatyPremium', 'aicCommission', 'aicRetention', 'aicPremium', 'maxRetentionPerRisk',
         'sumReinsuredForeign', 'sumReinsuredNational', 'receivedPremiumForeign', 'receivedPremiumNational'
@@ -230,6 +356,15 @@ const PolicyForm: React.FC = () => {
       ...prev,
       [name]: numericFields.includes(name) ? (value === '' ? 0 : Number(value)) : value
     }));
+  };
+
+  // Helper for CurrencyInput updates
+  const updateCurrencyField = (keyOriginal: keyof Policy, keyNational: keyof Policy, original: number, national: number) => {
+      setFormData(prev => ({
+          ...prev,
+          [keyOriginal]: original,
+          [keyNational]: national
+      }));
   };
 
   const handleChannelChange = (newChannel: Channel) => {
@@ -242,6 +377,51 @@ const PolicyForm: React.FC = () => {
 
   const handleIntermediaryChange = (type: IntermediaryType) => {
       setFormData(prev => ({ ...prev, intermediaryType: type }));
+  };
+
+  // Reinsurance Handlers
+  const handleReinsurerChange = (index: number, field: keyof PolicyReinsurer, value: any) => {
+      const updated = [...(formData.reinsurers || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      setFormData(prev => ({ ...prev, reinsurers: updated }));
+  };
+
+  const addReinsurer = () => {
+      setFormData(prev => ({
+          ...prev,
+          reinsurers: [...(prev.reinsurers || []), { id: crypto.randomUUID(), name: '', share: 0, commission: 0 }]
+      }));
+  };
+
+  const removeReinsurer = (index: number) => {
+      const updated = [...(formData.reinsurers || [])];
+      updated.splice(index, 1);
+      setFormData(prev => ({ ...prev, reinsurers: updated }));
+  };
+
+  // Installment Handlers
+  const handleInstallmentChange = (index: number, field: keyof Installment, value: any) => {
+      const updated = [...(formData.installments || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      setFormData(prev => ({ ...prev, installments: updated }));
+  };
+
+  const addInstallment = () => {
+      setFormData(prev => ({
+          ...prev,
+          installments: [...(prev.installments || []), { 
+              id: crypto.randomUUID(), 
+              dueDate: '', 
+              dueAmount: 0, 
+              paidAmount: 0 
+          }]
+      }));
+  };
+
+  const removeInstallment = (index: number) => {
+      const updated = [...(formData.installments || [])];
+      updated.splice(index, 1);
+      setFormData(prev => ({ ...prev, installments: updated }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -304,6 +484,10 @@ const PolicyForm: React.FC = () => {
     } finally { setProcessingAction(null); }
   };
 
+  // Helper calculation for Installment Summary
+  const totalInstallmentsDue = formData.installments?.reduce((acc, curr) => acc + (curr.dueAmount || 0), 0) || 0;
+  const totalInstallmentsPaid = formData.installments?.reduce((acc, curr) => acc + (curr.paidAmount || 0), 0) || 0;
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
 
   const sectionTitleClass = "text-lg font-bold text-gray-800 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2";
@@ -311,12 +495,32 @@ const PolicyForm: React.FC = () => {
   const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-gray-900";
   const selectClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-gray-900";
 
+  // Priority Currencies Sort
+  const priorityCurrencies = ['UZS', 'USD', 'EUR'];
+  const allCurrencies = Object.values(Currency);
+  const sortedCurrencies = [
+      ...priorityCurrencies,
+      ...allCurrencies.filter(c => !priorityCurrencies.includes(c)).sort()
+  ];
+
+  // --- DATE FORMATTER (dd.mm.yyyy) ---
+  const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+  };
+
   return (
     <div className="max-w-7xl mx-auto pb-20">
       <form onSubmit={handleSubmit}>
         
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-30 bg-gray-50/95 backdrop-blur border-b border-gray-200 py-4 mb-6 flex items-center justify-between -mx-4 px-4 md:-mx-8 md:px-8">
+        {/* Sticky Header - Use z-index 50 to ensure it is above other content and use negative margins to span width */}
+        <div className="sticky -mt-4 -mx-4 md:-mt-8 md:-mx-8 px-4 md:px-8 py-4 mb-6 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 flex items-center justify-between shadow-sm z-50 top-0">
             <div className="flex items-center gap-4">
                 <button type="button" onClick={() => navigate('/')} className="text-gray-500 hover:text-gray-800 transition-colors">
                     <ArrowLeft size={24} />
@@ -331,6 +535,7 @@ const PolicyForm: React.FC = () => {
                     </p>
                 </div>
             </div>
+            
             <div className="flex gap-3">
                 <button
                     type="submit"
@@ -504,20 +709,25 @@ const PolicyForm: React.FC = () => {
                     </div>
                 </div>
                 
-                {/* 4. Financials */}
+                {/* 4. Financials (NEW LAYOUT WITH PER-FIELD CURRENCY TOGGLE) */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <h3 className={sectionTitleClass}><DollarSign size={18} className="text-blue-500"/> Financials & Premiums</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
                         <div>
-                            <label className={labelClass}>Currency</label>
-                            <select name="currency" value={formData.currency} onChange={handleChange} className={selectClass}>
-                                {Object.values(Currency).map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
+                            <label className={labelClass}>Policy Currency</label>
+                            <div className="flex gap-1">
+                                <select name="currency" value={formData.currency} onChange={handleChange} className={selectClass}>
+                                    {sortedCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                                <button type="button" onClick={handleFetchRate} title="Fetch Latest Rate" className="px-3 bg-blue-50 text-blue-600 rounded border border-blue-200 hover:bg-blue-100">
+                                    <RefreshCw size={14}/>
+                                </button>
+                            </div>
                         </div>
                         <div>
-                            <label className={labelClass}>Exchange Rate</label>
-                            <input type="number" step="0.01" name="exchangeRate" value={formData.exchangeRate} onChange={handleChange} className={inputClass}/>
+                            <label className={labelClass}>Exchange Rate (to UZS)</label>
+                            <input type="number" step="0.01" name="exchangeRate" value={formData.exchangeRate || ''} onChange={handleChange} className={inputClass}/>
                         </div>
                          <div>
                             <label className={labelClass}>Equivalent in USD</label>
@@ -525,52 +735,46 @@ const PolicyForm: React.FC = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-                         {/* Foreign Currency */}
-                         <div className="space-y-4 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
-                             <h4 className="font-bold text-blue-800 text-xs uppercase tracking-wider mb-2">Values in {formData.currency}</h4>
-                             <div>
-                                <label className={labelClass}>Sum Insured (100%)</label>
-                                <input type="number" name="sumInsured" value={formData.sumInsured} onChange={handleChange} className={inputClass}/>
-                             </div>
-                             <div>
-                                <label className={labelClass}>Gross Premium (100%)</label>
-                                <input type="number" name="grossPremium" value={formData.grossPremium} onChange={handleChange} className={inputClass}/>
-                             </div>
-                         </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 mb-6">
+                         <CurrencyInput 
+                            label="Sum Insured (100%)"
+                            originalValue={formData.sumInsured}
+                            nationalValue={formData.sumInsuredNational || 0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o, n) => updateCurrencyField('sumInsured', 'sumInsuredNational', o, n)}
+                         />
+                         
+                         <CurrencyInput 
+                            label="Gross Premium (100%)"
+                            originalValue={formData.grossPremium}
+                            nationalValue={formData.premiumNationalCurrency || 0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o, n) => updateCurrencyField('grossPremium', 'premiumNationalCurrency', o, n)}
+                         />
 
-                         {/* National Currency */}
-                         <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                             <h4 className="font-bold text-gray-700 text-xs uppercase tracking-wider mb-2">Values in National Currency</h4>
-                             <div>
-                                <label className={labelClass}>Sum Insured (National)</label>
-                                <input type="number" name="sumInsuredNational" value={formData.sumInsuredNational || ''} onChange={handleChange} className={inputClass}/>
-                             </div>
-                             <div>
-                                <label className={labelClass}>Premium (National)</label>
-                                <input type="number" name="premiumNationalCurrency" value={formData.premiumNationalCurrency || ''} onChange={handleChange} className={inputClass}/>
-                             </div>
-                         </div>
+                         <CurrencyInput 
+                            label="Limit of Liability"
+                            originalValue={formData.limitForeignCurrency || 0}
+                            nationalValue={formData.limitNationalCurrency || 0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o, n) => updateCurrencyField('limitForeignCurrency', 'limitNationalCurrency', o, n)}
+                         />
+
+                         <CurrencyInput 
+                            label="Excess / Deductible Amount"
+                            originalValue={formData.excessForeignCurrency || 0}
+                            nationalValue={0} // We don't strictly store National Excess in legacy schema, but UI can calculate it for view
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o) => updateCurrencyField('excessForeignCurrency', 'excessForeignCurrency', o, 0)} // Hack: we only store FC for excess usually, but component handles view
+                         />
                     </div>
 
-                     {/* Detailed Limits */}
+                     {/* Additional Rates */}
                      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 border-t border-gray-100 pt-5">
-                         <div>
-                            <label className={labelClass}>Limit ({formData.currency})</label>
-                            <input type="number" name="limitForeignCurrency" value={formData.limitForeignCurrency || ''} onChange={handleChange} className={inputClass}/>
-                         </div>
-                         <div>
-                            <label className={labelClass}>Limit (National)</label>
-                            <input type="number" name="limitNationalCurrency" value={formData.limitNationalCurrency || ''} onChange={handleChange} className={inputClass}/>
-                         </div>
-                         <div>
-                            <label className={labelClass}>Excess ({formData.currency})</label>
-                            <input type="number" name="excessForeignCurrency" value={formData.excessForeignCurrency || ''} onChange={handleChange} className={inputClass}/>
-                         </div>
-                          <div>
-                            <label className={labelClass}>Priority Sum</label>
-                            <input type="number" name="prioritySum" value={formData.prioritySum || ''} onChange={handleChange} className={inputClass}/>
-                         </div>
                           <div>
                             <label className={labelClass}>Premium Rate (%)</label>
                             <input type="number" step="0.0001" name="premiumRate" value={formData.premiumRate || ''} onChange={handleChange} className={inputClass}/>
@@ -584,58 +788,179 @@ const PolicyForm: React.FC = () => {
                      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                          <div>
                              <label className={labelClass}>Our Share (%)</label>
-                             <input type="number" step="0.01" name="ourShare" value={formData.ourShare} onChange={handleChange} className={`${inputClass} font-bold text-blue-700`}/>
+                             <input type="number" step="0.01" name="ourShare" value={formData.ourShare || ''} onChange={handleChange} className={`${inputClass} font-bold text-blue-700`}/>
                          </div>
                          <div>
                              <label className={labelClass}>Commission %</label>
-                             <input type="number" step="0.01" name="commissionPercent" value={formData.commissionPercent} onChange={handleChange} className={inputClass}/>
+                             <input type="number" step="0.01" name="commissionPercent" value={formData.commissionPercent || ''} onChange={handleChange} className={inputClass}/>
                          </div>
                          <div>
                              <label className={labelClass}>Tax %</label>
-                             <input type="number" step="0.01" name="taxPercent" value={formData.taxPercent} onChange={handleChange} className={inputClass}/>
+                             <input type="number" step="0.01" name="taxPercent" value={formData.taxPercent || ''} onChange={handleChange} className={inputClass}/>
                          </div>
                          <div>
-                             <label className={labelClass}>Net Premium</label>
-                             <input type="number" readOnly value={formData.netPremium || 0} className={`${inputClass} bg-gray-100 font-bold`}/>
+                             <label className={labelClass}>Net Premium ({formData.currency})</label>
+                             <div className={`${inputClass} bg-gray-100 font-bold flex items-center`}>
+                                 {formData.netPremium?.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                             </div>
                          </div>
                      </div>
                 </div>
 
-                {/* 6. Treaty / Inward Specifics */}
+                {/* 6. INSTALLMENTS SECTION */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                    <h3 className={sectionTitleClass}><CreditCard size={18} className="text-blue-500"/> Payment Schedule & Collection</h3>
+                    
+                    <div className="mb-4 text-sm text-gray-500">
+                        Add installments below. The system tracks Due Date vs Actual Paid Date.
+                    </div>
+
+                    <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-gray-50 text-gray-700">
+                                <tr>
+                                    <th className="px-4 py-2 w-10 text-center">#</th>
+                                    <th className="px-4 py-2">Due Date</th>
+                                    <th className="px-4 py-2">Amount Due ({formData.currency})</th>
+                                    <th className="px-4 py-2">Paid Date</th>
+                                    <th className="px-4 py-2">Amount Paid ({formData.currency})</th>
+                                    <th className="px-4 py-2">Balance</th>
+                                    <th className="px-4 py-2 w-10"></th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100">
+                                {formData.installments?.map((inst, idx) => {
+                                    const balance = (inst.dueAmount || 0) - (inst.paidAmount || 0);
+                                    return (
+                                        <tr key={inst.id} className="bg-white">
+                                            <td className="px-4 py-2 text-center text-gray-400">{idx + 1}</td>
+                                            <td className="px-4 py-2">
+                                                <div className="relative">
+                                                    <input 
+                                                        type="date" 
+                                                        value={inst.dueDate} 
+                                                        onChange={(e) => handleInstallmentChange(idx, 'dueDate', e.target.value)}
+                                                        className="w-full border-none focus:ring-0 text-sm bg-transparent"
+                                                    />
+                                                    {inst.dueDate && <div className="text-[10px] text-gray-400 mt-0.5">{formatDate(inst.dueDate)}</div>}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <input 
+                                                    type="number" 
+                                                    value={inst.dueAmount || ''} 
+                                                    onChange={(e) => handleInstallmentChange(idx, 'dueAmount', Number(e.target.value))}
+                                                    className="w-full border-gray-200 rounded px-2 py-1 text-sm font-medium"
+                                                    placeholder="0.00"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <div className="relative">
+                                                    <input 
+                                                        type="date" 
+                                                        value={inst.paidDate || ''} 
+                                                        onChange={(e) => handleInstallmentChange(idx, 'paidDate', e.target.value)}
+                                                        className="w-full border-none focus:ring-0 text-sm bg-transparent"
+                                                    />
+                                                    {inst.paidDate && <div className="text-[10px] text-green-600 mt-0.5">{formatDate(inst.paidDate)}</div>}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <input 
+                                                    type="number" 
+                                                    value={inst.paidAmount || ''} 
+                                                    onChange={(e) => handleInstallmentChange(idx, 'paidAmount', Number(e.target.value))}
+                                                    className="w-full border-gray-200 rounded px-2 py-1 text-sm text-green-700 font-medium"
+                                                    placeholder="0.00"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-2">
+                                                <div className={`font-mono font-bold ${balance > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                                    {balance.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-2 text-center">
+                                                <button type="button" onClick={() => removeInstallment(idx)} className="text-red-400 hover:text-red-600">
+                                                    <Trash2 size={14}/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot className="bg-gray-50 font-bold text-gray-700">
+                                <tr>
+                                    <td colSpan={2} className="px-4 py-2 text-right">TOTAL:</td>
+                                    <td className="px-4 py-2">{totalInstallmentsDue.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                    <td className="px-4 py-2 text-right">PAID:</td>
+                                    <td className="px-4 py-2 text-green-700">{totalInstallmentsPaid.toLocaleString(undefined, {minimumFractionDigits: 2})}</td>
+                                    <td colSpan={2}></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <button type="button" onClick={addInstallment} className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:text-blue-800">
+                        <Plus size={12}/> Add Installment
+                    </button>
+                </div>
+
+                {/* 7. Treaty / Inward Specifics */}
                 {formData.channel === 'Inward' && (
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 border-l-4 border-l-purple-500">
                     <h3 className={sectionTitleClass}><Globe size={18} className="text-purple-500"/> Treaty & AIC Details</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
                         <div>
                              <label className={labelClass}>Treaty Placement</label>
                              <input type="text" name="treatyPlacement" value={formData.treatyPlacement || ''} onChange={handleChange} className={inputClass}/>
                         </div>
-                         <div>
-                             <label className={labelClass}>Treaty Premium</label>
-                             <input type="number" name="treatyPremium" value={formData.treatyPremium || ''} onChange={handleChange} className={inputClass}/>
-                        </div>
-                        <div>
-                             <label className={labelClass}>Max Retention / Risk</label>
-                             <input type="number" name="maxRetentionPerRisk" value={formData.maxRetentionPerRisk || ''} onChange={handleChange} className={inputClass}/>
-                        </div>
-
-                         <div>
-                             <label className={labelClass}>AIC Commission</label>
-                             <input type="number" name="aicCommission" value={formData.aicCommission || ''} onChange={handleChange} className={inputClass}/>
-                        </div>
-                         <div>
-                             <label className={labelClass}>AIC Retention</label>
-                             <input type="number" name="aicRetention" value={formData.aicRetention || ''} onChange={handleChange} className={inputClass}/>
-                        </div>
-                         <div>
-                             <label className={labelClass}>AIC Premium</label>
-                             <input type="number" name="aicPremium" value={formData.aicPremium || ''} onChange={handleChange} className={inputClass}/>
-                        </div>
+                        <CurrencyInput 
+                            label="Treaty Premium"
+                            originalValue={formData.treatyPremium || 0}
+                            nationalValue={0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o) => updateCurrencyField('treatyPremium', 'treatyPremium', o, 0)}
+                        />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <CurrencyInput 
+                            label="AIC Retention"
+                            originalValue={formData.aicRetention || 0}
+                            nationalValue={0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o) => updateCurrencyField('aicRetention', 'aicRetention', o, 0)}
+                        />
+                        <CurrencyInput 
+                            label="AIC Premium"
+                            originalValue={formData.aicPremium || 0}
+                            nationalValue={0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o) => updateCurrencyField('aicPremium', 'aicPremium', o, 0)}
+                        />
+                         <CurrencyInput 
+                            label="AIC Commission Amount"
+                            originalValue={formData.aicCommission || 0}
+                            nationalValue={0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o) => updateCurrencyField('aicCommission', 'aicCommission', o, 0)}
+                        />
+                        <CurrencyInput 
+                            label="Max Retention / Risk"
+                            originalValue={formData.maxRetentionPerRisk || 0}
+                            nationalValue={0}
+                            currency={formData.currency}
+                            exchangeRate={formData.exchangeRate}
+                            onValueChange={(o) => updateCurrencyField('maxRetentionPerRisk', 'maxRetentionPerRisk', o, 0)}
+                        />
                     </div>
                 </div>
                 )}
 
-                {/* 7. OUTWARD REINSURANCE */}
+                {/* 8. OUTWARD REINSURANCE (MULTI-ROW) */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 border-l-4 border-l-amber-400">
                      <div className="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
                          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -654,57 +979,105 @@ const PolicyForm: React.FC = () => {
                      
                      {formData.hasOutwardReinsurance ? (
                         <div className="animate-in fade-in slide-in-from-top-2 space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <label className={labelClass}>Reinsurer / Retrocessionaire Name</label>
-                                    <input type="text" name="reinsurerName" value={formData.reinsurerName || ''} onChange={handleChange} className={inputClass} placeholder="Who are we ceding to?"/>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div>
-                                        <label className={labelClass}>Ceded Share (%)</label>
-                                        <div className="relative">
-                                            <input type="number" name="cededShare" value={formData.cededShare || ''} onChange={handleChange} className={inputClass}/>
-                                            <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label className={labelClass}>Reins. Comm (%)</label>
-                                        <div className="relative">
-                                            <input type="number" name="reinsuranceCommission" value={formData.reinsuranceCommission || ''} onChange={handleChange} className={inputClass}/>
-                                            <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                        </div>
-                                    </div>
-                                </div>
+                            
+                            {/* Reinsurers Panel Table */}
+                            <div className="border border-gray-200 rounded-lg overflow-hidden">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="bg-amber-50 text-amber-900">
+                                        <tr>
+                                            <th className="px-4 py-2 w-1/2">Reinsurer Name</th>
+                                            <th className="px-4 py-2 w-20">Share %</th>
+                                            <th className="px-4 py-2 w-20">Comm %</th>
+                                            <th className="px-4 py-2 w-10"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {formData.reinsurers?.map((reinsurer, idx) => (
+                                            <tr key={reinsurer.id} className="bg-white">
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="text" 
+                                                        value={reinsurer.name}
+                                                        onChange={(e) => handleReinsurerChange(idx, 'name', e.target.value)}
+                                                        className="w-full border-none focus:ring-0 text-sm"
+                                                        placeholder="Reinsurer Name"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="number" 
+                                                        value={reinsurer.share || ''}
+                                                        onChange={(e) => handleReinsurerChange(idx, 'share', Number(e.target.value))}
+                                                        className="w-full border-none focus:ring-0 text-sm"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2">
+                                                    <input 
+                                                        type="number" 
+                                                        value={reinsurer.commission || ''}
+                                                        onChange={(e) => handleReinsurerChange(idx, 'commission', Number(e.target.value))}
+                                                        className="w-full border-none focus:ring-0 text-sm"
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-2 text-center">
+                                                    <button type="button" onClick={() => removeReinsurer(idx)} className="text-red-400 hover:text-red-600">
+                                                        <Trash2 size={14}/>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot className="bg-gray-50">
+                                        <tr>
+                                            <td colSpan={4} className="px-4 py-2">
+                                                <button type="button" onClick={addReinsurer} className="text-xs font-bold text-blue-600 flex items-center gap-1 hover:text-blue-800">
+                                                    <Plus size={12}/> Add Reinsurer
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
                             </div>
                             
+                            {/* Aggregates Display */}
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 bg-amber-50 p-4 rounded-lg">
                                  <div>
-                                    <label className={labelClass}>Premium Ceded ({formData.currency})</label>
-                                    <input type="number" name="cededPremiumForeign" value={formData.cededPremiumForeign || ''} onChange={handleChange} className={inputClass}/>
+                                    <label className={labelClass}>Total Premium Ceded ({formData.currency})</label>
+                                    <div className="font-bold text-gray-900 bg-white p-2 rounded border border-amber-200">
+                                        {formData.cededPremiumForeign?.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        Total Share: {formData.cededShare}%
+                                    </div>
                                  </div>
                                  <div className="md:col-span-2">
-                                    <label className={labelClass}>Net Payable to Reinsurer</label>
-                                    <input type="number" readOnly value={formData.netReinsurancePremium || ''} className={`${inputClass} bg-amber-100 font-bold text-amber-900`}/>
+                                    <label className={labelClass}>Net Payable to Reinsurers ({formData.currency})</label>
+                                    <div className="font-bold text-amber-900 bg-amber-100 p-2 rounded border border-amber-300">
+                                        {formData.netReinsurancePremium?.toLocaleString(undefined, {minimumFractionDigits: 2})}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">
+                                        Avg Commission: {formData.reinsuranceCommission}%
+                                    </div>
                                  </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-5 text-xs text-gray-600 border-t pt-4">
-                                <div>
-                                     <label className="block mb-1">Sum Reinsured ({formData.currency})</label>
-                                     <input type="number" name="sumReinsuredForeign" value={formData.sumReinsuredForeign || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
-                                </div>
-                                <div>
-                                     <label className="block mb-1">Sum Reinsured (UZS)</label>
-                                     <input type="number" name="sumReinsuredNational" value={formData.sumReinsuredNational || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
-                                </div>
-                                 <div>
-                                     <label className="block mb-1">Received Premium ({formData.currency})</label>
-                                     <input type="number" name="receivedPremiumForeign" value={formData.receivedPremiumForeign || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
-                                </div>
-                                 <div>
-                                     <label className="block mb-1">Received Premium (UZS)</label>
-                                     <input type="number" name="receivedPremiumNational" value={formData.receivedPremiumNational || ''} onChange={handleChange} className="w-full p-2 border rounded"/>
-                                </div>
+                                <CurrencyInput 
+                                    label="Sum Reinsured"
+                                    originalValue={formData.sumReinsuredForeign || 0}
+                                    nationalValue={formData.sumReinsuredNational || 0}
+                                    currency={formData.currency}
+                                    exchangeRate={formData.exchangeRate}
+                                    onValueChange={(o, n) => updateCurrencyField('sumReinsuredForeign', 'sumReinsuredNational', o, n)}
+                                />
+                                <CurrencyInput 
+                                    label="Received Premium"
+                                    originalValue={formData.receivedPremiumForeign || 0}
+                                    nationalValue={formData.receivedPremiumNational || 0}
+                                    currency={formData.currency}
+                                    exchangeRate={formData.exchangeRate}
+                                    onValueChange={(o, n) => updateCurrencyField('receivedPremiumForeign', 'receivedPremiumNational', o, n)}
+                                />
                             </div>
                         </div>
                      ) : (
@@ -782,6 +1155,27 @@ const PolicyForm: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                {/* Key Dates Summary (New) */}
+                <div className="bg-blue-50 rounded-xl shadow-sm border border-blue-100 p-6">
+                    <h3 className="text-lg font-bold text-blue-900 mb-4 pb-2 border-b border-blue-200 flex items-center gap-2">
+                        <Calendar size={18}/> Key Dates Summary
+                    </h3>
+                    <div className="space-y-3 text-sm">
+                        <div className="flex justify-between">
+                            <span className="text-blue-700">Inception:</span>
+                            <span className="font-mono font-bold text-blue-900">{formatDate(formData.inceptionDate)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-blue-700">Expiry:</span>
+                            <span className="font-mono font-bold text-blue-900">{formatDate(formData.expiryDate)}</span>
+                        </div>
+                        <div className="flex justify-between border-t border-blue-200 pt-2 mt-2">
+                            <span className="text-blue-700">Payment Due:</span>
+                            <span className="font-mono font-bold text-red-700">{formatDate(formData.paymentDate)}</span>
+                        </div>
+                    </div>
+                </div>
 
                 {/* References */}
                 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">

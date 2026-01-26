@@ -27,11 +27,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const canAccessAdmin = user?.role === 'Super Admin' || user?.role === 'Admin';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex relative overflow-hidden">
+    <div className="h-screen bg-gray-50 flex overflow-hidden">
       
       {/* Sidebar - RESTORED INSURTECH BRANDING */}
       <aside 
-        className={`bg-slate-900 text-white flex-shrink-0 flex flex-col fixed h-full z-20 transition-all duration-300 ease-in-out shadow-xl
+        className={`bg-slate-900 text-white flex-shrink-0 flex flex-col z-30 transition-all duration-300 ease-in-out shadow-xl relative
         ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden'}`}
       >
         <div className="p-6 border-b border-slate-700 flex items-center gap-3 whitespace-nowrap overflow-hidden h-20">
@@ -150,28 +150,34 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className={`flex-1 p-4 md:p-8 overflow-y-auto min-h-screen transition-all duration-300 ease-in-out relative z-10 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
-        <div className="w-full mx-auto">
-            {/* Header: Toggle & Mosaic Branding */}
-            <div className="mb-8 flex items-center justify-between">
-                 <button 
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    className="p-2 text-slate-500 hover:bg-gray-200 hover:text-slate-800 rounded-lg transition-colors focus:outline-none"
-                    title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-                >
-                    {isSidebarOpen ? <PanelLeftClose size={24} /> : <PanelLeftOpen size={24} />}
-                </button>
+      {/* Main Content Wrapper */}
+      <div className="flex-1 flex flex-col h-full min-w-0">
+          
+          {/* Global Header (Fixed at top of content area) */}
+          <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm z-20 flex-shrink-0">
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                        className="p-2 text-slate-500 hover:bg-gray-100 hover:text-slate-800 rounded-lg transition-colors focus:outline-none"
+                        title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
+                    >
+                        {isSidebarOpen ? <PanelLeftClose size={24} /> : <PanelLeftOpen size={24} />}
+                    </button>
+                </div>
 
                 {/* TOP RIGHT MOSAIC LOGO */}
                 <div className="flex items-center opacity-90 hover:opacity-100 transition-opacity">
-                    <MosaicLogo className="h-14 w-auto" variant="color" withText={true} />
+                    <MosaicLogo className="h-10 w-auto" variant="color" withText={true} />
                 </div>
-            </div>
+          </header>
 
-          {children}
-        </div>
-      </main>
+          {/* Scrollable Page Content */}
+          <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+             <div className="w-full mx-auto">
+                {children}
+             </div>
+          </main>
+      </div>
     </div>
   );
 };

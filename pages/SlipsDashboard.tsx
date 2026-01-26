@@ -86,6 +86,19 @@ const SlipsDashboard: React.FC = () => {
     setSortConfig({ key, direction });
   };
 
+  // --- DATE FORMATTER (dd.mm.yyyy) ---
+  const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return '-';
+      // Attempt to handle both ISO strings and YYYY-MM-DD
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+  };
+
   const filteredSlips = slips.filter(s => {
     // 1. Status Filter
     if (statusFilter === 'Deleted') {
@@ -242,7 +255,7 @@ const SlipsDashboard: React.FC = () => {
                         <td className="px-6 py-4 font-mono font-medium text-amber-700">
                             {slip.slipNumber}
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{slip.date}</td>
+                        <td className="px-6 py-4 text-gray-600">{formatDate(slip.date)}</td>
                         <td className="px-6 py-4 font-medium text-gray-800">{slip.insuredName}</td>
                         <td className="px-6 py-4 text-gray-600">{slip.brokerReinsurer}</td>
                         <td className="px-6 py-4 text-center">

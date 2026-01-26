@@ -5,7 +5,7 @@ import { DB } from '../services/db';
 import { 
   X, Building2, Calendar, DollarSign, ArrowRightLeft, 
   FileSpreadsheet, Code, CheckCircle, ShieldAlert, FileText, Download, Upload, AlertCircle, Trash2, XCircle, AlertTriangle, Briefcase, Info,
-  Globe
+  Globe, CreditCard, ShieldCheck
 } from 'lucide-react';
 
 interface DetailModalProps {
@@ -41,6 +41,17 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
     } catch {
       return `${currency} ${amount}`;
     }
+  };
+
+  const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
   };
 
   const handleStatusChange = async (newStatus: PolicyStatus, policy: Policy, additionalData?: any) => {
@@ -213,11 +224,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             <div className="space-y-4">
                  <h4 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2"><Calendar size={16}/> Dates & Terms</h4>
                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div><div className="text-gray-500">Inception</div><div className="font-medium text-gray-900">{policy.inceptionDate}</div></div>
-                    <div><div className="text-gray-500">Expiry</div><div className="font-medium text-gray-900">{policy.expiryDate}</div></div>
+                    <div><div className="text-gray-500">Inception</div><div className="font-medium text-gray-900">{formatDate(policy.inceptionDate)}</div></div>
+                    <div><div className="text-gray-500">Expiry</div><div className="font-medium text-gray-900">{formatDate(policy.expiryDate)}</div></div>
                     
-                    {policy.dateOfSlip && <div><div className="text-gray-500">Date of Slip</div><div className="font-medium text-gray-900">{policy.dateOfSlip}</div></div>}
-                    {policy.accountingDate && <div><div className="text-gray-500">Accounting Date</div><div className="font-medium text-gray-900">{policy.accountingDate}</div></div>}
+                    {policy.dateOfSlip && <div><div className="text-gray-500">Date of Slip</div><div className="font-medium text-gray-900">{formatDate(policy.dateOfSlip)}</div></div>}
+                    {policy.accountingDate && <div><div className="text-gray-500">Accounting Date</div><div className="font-medium text-gray-900">{formatDate(policy.accountingDate)}</div></div>}
                     
                     <div className="col-span-2"><div className="text-gray-500">Deductible</div><div className="font-medium text-gray-900 bg-gray-50 p-2 rounded text-xs">{policy.deductible || 'N/A'}</div></div>
                  </div>
@@ -237,8 +248,57 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                  <div><div className="text-gray-500">Limit (Nat)</div><div className="font-medium">{formatMoney(policy.limitNationalCurrency, 'UZS')}</div></div>
                  
                  <div><div className="text-gray-500">Premium Rate</div><div className="font-medium">{policy.premiumRate}%</div></div>
+                 <div><div className="text-gray-500">Commission %</div><div className="font-medium">{policy.commissionPercent}%</div></div>
+                 <div><div className="text-gray-500">Tax %</div><div className="font-medium">{policy.taxPercent || 0}%</div></div>
+                 <div><div className="text-gray-500">Net Premium</div><div className="font-bold text-blue-700">{formatMoney(policy.netPremium, policy.currency)}</div></div>
              </div>
         </div>
+
+        {/* Payment Schedule (Installments) */}
+        <div className="bg-white p-6 rounded-xl border border-gray-200">
+            <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><CreditCard size={16}/> Payment Schedule</h4>
+            {policy.installments && policy.installments.length > 0 ? (
+                <div className="overflow-hidden border border-gray-200 rounded-lg">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-50 text-gray-700">
+                            <tr>
+                                <th className="px-4 py-2">Due Date</th>
+                                <th className="px-4 py-2 text-right">Amount Due</th>
+                                <th className="px-4 py-2">Paid Date</th>
+                                <th className="px-4 py-2 text-right">Amount Paid</th>
+                                <th className="px-4 py-2 text-right">Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {policy.installments.map((inst, idx) => {
+                                const balance = (inst.dueAmount || 0) - (inst.paidAmount || 0);
+                                return (
+                                    <tr key={idx} className="hover:bg-gray-50">
+                                        <td className="px-4 py-2">{formatDate(inst.dueDate)}</td>
+                                        <td className="px-4 py-2 text-right">{formatMoney(inst.dueAmount, policy.currency)}</td>
+                                        <td className="px-4 py-2">{formatDate(inst.paidDate)}</td>
+                                        <td className="px-4 py-2 text-right text-green-700 font-medium">{formatMoney(inst.paidAmount, policy.currency)}</td>
+                                        <td className={`px-4 py-2 text-right font-bold ${balance > 0 ? 'text-red-500' : 'text-green-500'}`}>{formatMoney(balance, policy.currency)}</td>
+                                    </tr>
+                                )
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="text-gray-500 text-sm italic">
+                    Single Payment. Due: {formatDate(policy.paymentDate)}. Status: {policy.paymentStatus}.
+                </div>
+            )}
+        </div>
+
+        {/* Conditions & Details */}
+        {policy.conditions && (
+             <div className="bg-white p-6 rounded-xl border border-gray-200">
+                <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><ShieldCheck size={16}/> Conditions & Warranties</h4>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">{policy.conditions}</p>
+            </div>
+        )}
 
         {/* Treaty / Reinsurance */}
         {policy.channel === 'Inward' && (
@@ -252,15 +312,48 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             </div>
         )}
 
-        {/* Outward Reinsurance */}
+        {/* Outward Reinsurance Panel - ENHANCED */}
         {policy.hasOutwardReinsurance && (
             <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
-                <h4 className="font-bold text-amber-900 mb-4 flex items-center gap-2"><ArrowRightLeft size={16}/> Outward Reinsurance</h4>
-                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-                    <div><div className="text-amber-700 opacity-70">Reinsurer</div><div className="font-medium text-amber-900">{policy.reinsurerName || '-'}</div></div>
-                    <div><div className="text-amber-700 opacity-70">Ceded Share %</div><div className="font-bold text-amber-900">{policy.cededShare}%</div></div>
-                    <div><div className="text-amber-700 opacity-70">Reins Comm %</div><div className="font-bold text-amber-900">{policy.reinsuranceCommission}%</div></div>
-                     <div><div className="text-amber-700 opacity-70">Net Due</div><div className="font-bold text-amber-900">{formatMoney(policy.netReinsurancePremium, policy.currency)}</div></div>
+                <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-bold text-amber-900 flex items-center gap-2"><ArrowRightLeft size={16}/> Outward Reinsurance Panel</h4>
+                    <span className="text-xs font-bold bg-amber-100 text-amber-800 px-2 py-1 rounded border border-amber-200">
+                        {policy.reinsurers?.length || 0} Reinsurers
+                    </span>
+                </div>
+                
+                {/* Reinsurer List Table */}
+                {policy.reinsurers && policy.reinsurers.length > 0 ? (
+                    <div className="overflow-hidden border border-amber-200 rounded-lg bg-white mb-4">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-amber-100 text-amber-900 font-semibold">
+                                <tr>
+                                    <th className="px-4 py-2">Reinsurer / Market</th>
+                                    <th className="px-4 py-2 text-right">Share %</th>
+                                    <th className="px-4 py-2 text-right">Comm %</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-amber-50">
+                                {policy.reinsurers.map((r, i) => (
+                                    <tr key={i} className="hover:bg-amber-50/50">
+                                        <td className="px-4 py-2 font-medium text-gray-800">{r.name}</td>
+                                        <td className="px-4 py-2 text-right">{r.share}%</td>
+                                        <td className="px-4 py-2 text-right">{r.commission}%</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : (
+                    <div className="text-amber-700 text-sm italic mb-4">No reinsurers detailed.</div>
+                )}
+
+                 {/* Aggregates */}
+                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm border-t border-amber-200 pt-4">
+                    <div><div className="text-amber-700 opacity-70">Total Ceded Share</div><div className="font-bold text-amber-900">{policy.cededShare}%</div></div>
+                    <div><div className="text-amber-700 opacity-70">Avg Commission</div><div className="font-bold text-amber-900">{policy.reinsuranceCommission}%</div></div>
+                    <div><div className="text-amber-700 opacity-70">Ceded Premium</div><div className="font-bold text-amber-900">{formatMoney(policy.cededPremiumForeign, policy.currency)}</div></div>
+                    <div><div className="text-amber-700 opacity-70">Net Due</div><div className="font-bold text-amber-900">{formatMoney(policy.netReinsurancePremium, policy.currency)}</div></div>
                  </div>
             </div>
         )}
@@ -277,16 +370,43 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
              </div>
              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                 <div className="text-gray-500 mb-1">Date</div>
-                <div className="font-medium text-lg text-gray-900">{slip.date}</div>
+                <div className="font-medium text-lg text-gray-900">{formatDate(slip.date)}</div>
              </div>
              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
                 <div className="text-gray-500 mb-1">Insured Name</div>
                 <div className="font-medium text-lg text-gray-900">{slip.insuredName}</div>
              </div>
              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                <div className="text-gray-500 mb-1">Broker / Reinsurer</div>
+                <div className="text-gray-500 mb-1">Broker / Lead Reinsurer</div>
                 <div className="font-medium text-lg text-gray-900">{slip.brokerReinsurer}</div>
              </div>
+        </div>
+
+        {/* Detailed Market List for Slips */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm mt-4">
+            <div className="p-4 bg-gray-50 border-b border-gray-200 font-bold text-gray-700">Market Panel Details</div>
+            {slip.reinsurers && slip.reinsurers.length > 0 ? (
+                <table className="w-full text-sm text-left">
+                    <thead className="bg-gray-100 text-gray-600">
+                        <tr>
+                            <th className="px-6 py-3">Market / Reinsurer</th>
+                            <th className="px-6 py-3 text-right">Written Line (%)</th>
+                            <th className="px-6 py-3 text-right">Commission (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                        {slip.reinsurers.map((r, i) => (
+                            <tr key={i} className="hover:bg-gray-50">
+                                <td className="px-6 py-3 font-medium text-gray-900">{r.name}</td>
+                                <td className="px-6 py-3 text-right">{r.share}%</td>
+                                <td className="px-6 py-3 text-right">{r.commission}%</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            ) : (
+                <div className="p-6 text-gray-400 text-center italic">No market panel details available.</div>
+            )}
         </div>
      </div>
   );

@@ -27,6 +27,19 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({ entity, on
 
   if (!entity) return null;
 
+  // --- DATE FORMATTER (dd.mm.yyyy HH:mm) ---
+  const formatDateTime = (dateStr: string) => {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const mins = String(date.getMinutes()).padStart(2, '0');
+      return `${day}.${month}.${year} ${hours}:${mins}`;
+  };
+
   const renderDetails = () => (
     <div className="space-y-6">
       {/* Header Info */}
@@ -113,7 +126,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({ entity, on
                             log.action === 'UPDATE' ? 'bg-blue-100 text-blue-700' :
                             'bg-red-100 text-red-700'
                         }`}>{log.action}</span>
-                        <span className="text-gray-500 text-xs">{new Date(log.timestamp).toLocaleString()}</span>
+                        <span className="text-gray-500 text-xs">{formatDateTime(log.timestamp)}</span>
                     </div>
                     <div className="mb-2">
                         <span className="font-medium text-gray-900">{log.userName}</span> <span className="text-gray-500">performed this action.</span>

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { LegalEntity } from '../types';
-import { Save, ArrowLeft, Building2, Search, Globe, Landmark, MapPin, Users, Loader2, ExternalLink } from 'lucide-react';
+import { Save, ArrowLeft, Building2, Landmark, MapPin, Users } from 'lucide-react';
 
 const EntityForm: React.FC = () => {
   const { id } = useParams();
@@ -11,7 +11,6 @@ const EntityForm: React.FC = () => {
   const isEdit = Boolean(id);
   
   const [loading, setLoading] = useState(true);
-  const [searching, setSearching] = useState(false);
   
   const [formData, setFormData] = useState<LegalEntity>({
     id: crypto.randomUUID(),
@@ -52,35 +51,6 @@ const EntityForm: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleExternalSearch = async () => {
-      if (!formData.regCodeValue && !formData.fullName) {
-          alert("Please enter a Name or INN to search.");
-          return;
-      }
-      setSearching(true);
-      try {
-          const result = await DB.searchExternalRegistry(formData.regCodeValue || formData.fullName, formData.regCodeValue ? 'INN' : 'NAME');
-          if (result) {
-              if (confirm(`Found entity: ${result.fullName}\n\nDo you want to autofill the form?`)) {
-                  setFormData(prev => ({
-                      ...prev,
-                      ...result
-                  }));
-              }
-          } else {
-              alert("No records found in external registry.");
-          }
-      } catch (e) {
-          alert("Search failed.");
-      } finally {
-          setSearching(false);
-      }
-  };
-
-  const handleOpenRegistry = () => {
-      window.open('https://ihamkor.uz/ru', '_blank');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       await DB.saveLegalEntity(formData);
@@ -96,8 +66,8 @@ const EntityForm: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto pb-20">
       <form onSubmit={handleSubmit}>
-        {/* Header */}
-        <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur border-b border-gray-200 py-4 mb-6 flex items-center justify-between -mx-4 px-4 md:-mx-8 md:px-8">
+        {/* Sticky Header - Use negative margin to span full width over layout padding */}
+        <div className="sticky -mt-4 -mx-4 md:-mt-8 md:-mx-8 px-4 md:px-8 py-4 mb-6 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 flex items-center justify-between shadow-sm z-40">
             <div className="flex items-center gap-4">
                 <button type="button" onClick={() => navigate('/entities')} className="text-gray-500 hover:text-gray-800 transition-colors">
                     <ArrowLeft size={24} />
@@ -123,14 +93,6 @@ const EntityForm: React.FC = () => {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                 <div className="flex justify-between items-start mb-4 border-b border-gray-100 pb-2">
                     <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2"><Building2 size={18} className="text-blue-500"/> Corporate Identity</h3>
-                    <div className="flex gap-2">
-                        <button type="button" onClick={handleOpenRegistry} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded flex items-center gap-1">
-                            <ExternalLink size={12}/> Open ihamkor.uz
-                        </button>
-                        <button type="button" onClick={handleExternalSearch} disabled={searching} className="text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded flex items-center gap-1 font-bold">
-                            {searching ? <Loader2 size={12} className="animate-spin"/> : <Search size={12}/>} Simulate Auto-Fill
-                        </button>
-                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

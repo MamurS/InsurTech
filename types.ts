@@ -1,9 +1,20 @@
 
 export enum Currency {
+  UZS = 'UZS',
   USD = 'USD',
   EUR = 'EUR',
-  UZS = 'UZS',
   GBP = 'GBP',
+  RUB = 'RUB',
+  CNY = 'CNY',
+  JPY = 'JPY',
+  CHF = 'CHF',
+  KZT = 'KZT',
+  TRY = 'TRY',
+  AED = 'AED',
+  CAD = 'CAD',
+  AUD = 'AUD',
+  KRW = 'KRW',
+  INR = 'INR'
 }
 
 export enum PolicyStatus {
@@ -58,10 +69,12 @@ export interface User {
 }
 
 export interface Installment {
-  date: string;
-  amount: number;
-  currency: Currency;
-  isPaid: boolean;
+  id: string;
+  dueDate: string;
+  dueAmount: number;
+  paidDate?: string;
+  paidAmount?: number;
+  notes?: string;
 }
 
 export interface Claim {
@@ -90,12 +103,29 @@ export interface PolicyTemplate {
   isDeleted?: boolean;
 }
 
+// --- NEW REINSURANCE TYPES ---
+
+export interface PolicyReinsurer {
+  id: string;
+  name: string;
+  share: number; // %
+  commission: number; // %
+}
+
+export interface ExchangeRate {
+  id: string;
+  currency: Currency;
+  rate: number; // Rate to Base Currency (e.g., UZS)
+  date: string; // Effective Date
+}
+
 export interface ReinsuranceSlip {
   id: string;
   slipNumber: string; // No Slip
   date: string; // Date
   insuredName: string; // Insured
-  brokerReinsurer: string; // Broker/Reinsurer
+  brokerReinsurer: string; // Lead Broker/Reinsurer (Legacy)
+  reinsurers?: PolicyReinsurer[]; // New Multi-Reinsurer Support
   status?: PolicyStatus; 
   isDeleted?: boolean;
 }
@@ -181,7 +211,7 @@ export interface Policy {
   issueDate: string;
   reinsuranceInceptionDate?: string; // Reinsurance Period Start
   reinsuranceExpiryDate?: string; // Reinsurance Period End
-  paymentDate?: string; // Date of Payment (Received)
+  paymentDate?: string; // Date of Payment (Received) - Legacy (Use Installments now)
   warrantyPeriod?: number; // Warranty Period (days) / Гарантийный период
   activationDate?: string; // Date when policy was officially bound/validated
 
@@ -225,10 +255,14 @@ export interface Policy {
   
   // --- Outward Reinsurance / Retrocession (Ceding) ---
   hasOutwardReinsurance?: boolean;
-  reinsurerName?: string; // Who are we ceding to?
-  cededShare?: number; // Percentage we are ceding
-  cededPremiumForeign?: number; // Premium we pay to reinsurer
-  reinsuranceCommission?: number; // Commission we receive from reinsurer
+  reinsurers?: PolicyReinsurer[]; // Array of Reinsurers
+  
+  // Deprecated single fields (kept for backward compatibility display)
+  reinsurerName?: string; 
+  
+  cededShare?: number; // Total Ceded Percentage
+  cededPremiumForeign?: number; // Total Premium we pay to reinsurer
+  reinsuranceCommission?: number; // Average or Total Commission we receive
   netReinsurancePremium?: number; // Net Payable to Reinsurer
   
   sumReinsuredForeign?: number; // Sum Reinsured / Обязательства перестраховщика (FC)

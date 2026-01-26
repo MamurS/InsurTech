@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
-import { Policy, Currency, PolicyStatus, LegalEntity } from '../types';
+import { Policy, Currency, PolicyStatus, LegalEntity, Installment } from '../types';
 import { ExcelService } from '../services/excel';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
@@ -17,8 +17,16 @@ const Dashboard: React.FC = () => {
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
   
-  // View Mode State
-  const [viewMode, setViewMode] = useState<'compact' | 'extended'>('compact');
+  // View Mode State - Persistent
+  const [viewMode, setViewMode] = useState<'compact' | 'extended'>(() => {
+      const savedMode = localStorage.getItem('insurtech_dashboard_view');
+      return (savedMode === 'extended' ? 'extended' : 'compact');
+  });
+
+  const handleViewModeChange = (mode: 'compact' | 'extended') => {
+      setViewMode(mode);
+      localStorage.setItem('insurtech_dashboard_view', mode);
+  };
 
   const [loading, setLoading] = useState(true);
   
@@ -186,6 +194,103 @@ const Dashboard: React.FC = () => {
       return new Intl.NumberFormat('en-US').format(val);
   }
 
+  // --- DATE FORMATTER (dd.mm.yyyy) ---
+  const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return '-';
+      // Attempt to handle both ISO strings and YYYY-MM-DD
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+  };
+
+  // --- OVERDUE CHECK LOGIC ---
+  const getOverdueStatus = (policy: Policy) => {
+      if (policy.status !== PolicyStatus.ACTIVE) return { isOverdue: false, details: '' };
+      
+      const today = new Date();
+      // Reset time for accurate date comparison
+      today.setHours(0,0,0,0);
+
+      // Check installments first
+      if (policy.installments && policy.installments.length > 0) {
+          let totalOverdue = 0;
+          let maxDaysOverdue = 0;
+          
+          policy.installments.forEach(inst => {
+              if (!inst.dueDate) return;
+              const due = new Date(inst.dueDate);
+              const paidAmt = inst.paidAmount || 0;
+              const dueAmt = inst.dueAmount || 0;
+              
+              if (due < today && paidAmt < dueAmt) {
+                  const diffTime = Math.abs(today.getTime() - due.getTime());
+                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                  totalOverdue += (dueAmt - paidAmt);
+                  if (diffDays > maxDaysOverdue) maxDaysOverdue = diffDays;
+              }
+          });
+
+          if (totalOverdue > 0) {
+              return {
+                  isOverdue: true,
+                  details: `OVERDUE: ${formatMoney(totalOverdue, policy.currency)} (${maxDaysOverdue} days late)`
+              };
+          }
+      } 
+      // Legacy Check (Single Payment Date)
+      else if (policy.paymentDate) {
+          const due = new Date(policy.paymentDate);
+          if (due < today && policy.paymentStatus !== 'Paid') {
+               const diffTime = Math.abs(today.getTime() - due.getTime());
+               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+               return {
+                  isOverdue: true,
+                  details: `OVERDUE: ${formatMoney(policy.grossPremium, policy.currency)} (${diffDays} days late)`
+               }
+          }
+      }
+
+      return { isOverdue: false, details: '' };
+  };
+
+  // --- PAYMENT INFO HELPER ---
+  const getPaymentInfo = (policy: Policy) => {
+      const installments = policy.installments || [];
+      
+      // If no installments, use policy level fields as fallback single installment
+      if (installments.length === 0) {
+          const isPaid = policy.paymentStatus === 'Paid';
+          return {
+              nextDueDate: isPaid ? '-' : (policy.paymentDate || '-'),
+              nextDueAmount: isPaid ? 0 : policy.grossPremium,
+              lastPaidDate: isPaid ? (policy.paymentDate || 'Paid') : '-',
+              lastPaidAmount: isPaid ? policy.grossPremium : 0
+          };
+      }
+
+      // Sort by Due Date
+      const sortedByDue = [...installments].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+      
+      // Next Due (First one not fully paid)
+      const nextDue = sortedByDue.find(i => (i.paidAmount || 0) < (i.dueAmount || 0));
+      
+      // Sort by Paid Date for Last Paid
+      const paidItems = installments.filter(i => i.paidDate && (i.paidAmount || 0) > 0);
+      paidItems.sort((a, b) => new Date(b.paidDate!).getTime() - new Date(a.paidDate!).getTime());
+      const lastPaid = paidItems[0];
+
+      return {
+          nextDueDate: nextDue ? nextDue.dueDate : 'Fully Paid',
+          nextDueAmount: nextDue ? ((nextDue.dueAmount || 0) - (nextDue.paidAmount || 0)) : 0, // Outstanding
+          lastPaidDate: lastPaid ? lastPaid.paidDate : '-',
+          lastPaidAmount: lastPaid ? lastPaid.paidAmount : 0
+      };
+  };
+
   const handleExport = async () => {
     await ExcelService.exportPolicies(sortedPolicies); 
   };
@@ -309,7 +414,7 @@ const Dashboard: React.FC = () => {
           {/* View Mode Toggle */}
           <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
              <button
-                onClick={() => setViewMode('compact')}
+                onClick={() => handleViewModeChange('compact')}
                 className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
                     viewMode === 'compact' 
                     ? 'bg-white text-slate-800 shadow-sm' 
@@ -319,7 +424,7 @@ const Dashboard: React.FC = () => {
                  <List size={14}/> Compact
              </button>
              <button
-                onClick={() => setViewMode('extended')}
+                onClick={() => handleViewModeChange('extended')}
                 className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
                     viewMode === 'extended' 
                     ? 'bg-white text-slate-800 shadow-sm' 
@@ -346,9 +451,12 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Class" sortKey="classOfInsurance" />
                             <SortableHeader label="Sum Insured" sortKey="sumInsured" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
-                            <SortableHeader label="Inception" sortKey="inceptionDate" />
+                            
+                            {/* New Payment Columns for Compact View */}
+                            <th className="px-3 py-3 border-b border-gray-200 text-right font-semibold text-gray-600 text-xs">Due</th>
+                            <th className="px-3 py-3 border-b border-gray-200 text-right font-semibold text-gray-600 text-xs">Paid</th>
+
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
-                            <SortableHeader label="Reins %" sortKey="cededShare" className="text-right" />
                             <th className="px-3 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs">Actions</th>
                         </tr>
                     ) : (
@@ -371,7 +479,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Performer" sortKey="performer" />
                             <SortableHeader label="Class" sortKey="classOfInsurance" />
                             <SortableHeader label="Risk Code" sortKey="riskCode" />
-                            <SortableHeader label="Territory" sortKey="territory" />
+                            <SortableHeader label="Country" sortKey="territory" />
                             <SortableHeader label="City" sortKey="city" />
                             <SortableHeader label="Insured Risk" sortKey="insuredRisk" />
                             <SortableHeader label="Currency" sortKey="currency" />
@@ -391,6 +499,13 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Warranty" sortKey="warrantyPeriod" />
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Net Prem" sortKey="netPremium" className="text-right" />
+                            
+                            {/* Detailed Payment Columns for Extended View */}
+                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 bg-red-50/50">Next Due Date</th>
+                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 text-right bg-red-50/50">Next Due Amt</th>
+                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 bg-green-50/50">Last Paid Date</th>
+                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 text-right bg-green-50/50">Last Paid Amt</th>
+
                             <SortableHeader label="Comm %" sortKey="commissionPercent" className="text-right" />
                             <SortableHeader label="Reinsured?" sortKey="hasOutwardReinsurance" />
                             <SortableHeader label="Reinsurer" sortKey="reinsurerName" />
@@ -408,18 +523,26 @@ const Dashboard: React.FC = () => {
                     )}
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
-                    {sortedPolicies.map(p => (
+                    {sortedPolicies.map(p => {
+                        const overdueStatus = getOverdueStatus(p);
+                        const paymentInfo = getPaymentInfo(p);
+                        
+                        const rowClass = overdueStatus.isOverdue 
+                            ? 'bg-red-100 text-red-900 font-bold hover:bg-red-200' 
+                            : (p.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30');
+
+                        return (
                         <tr 
                             key={p.id} 
                             onClick={() => setSelectedPolicy(p)}
-                            className={`group transition-colors cursor-pointer ${
-                                p.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30'
-                            }`}
+                            className={`group transition-colors cursor-pointer ${rowClass}`}
+                            title={overdueStatus.details} // Tooltip for overdue
                         >
                             {viewMode === 'compact' ? (
                                 <>
                                     <td className="px-3 py-3 text-center">
                                         <StatusBadge status={p.status} isDeleted={p.isDeleted} />
+                                        {overdueStatus.isOverdue && <div className="text-[10px] text-red-700 font-black mt-1 animate-pulse">OVERDUE</div>}
                                     </td>
                                     <td className="px-3 py-3">
                                         <ChannelBadge channel={p.channel} />
@@ -467,14 +590,23 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-3 text-right font-bold text-gray-900 bg-gray-50/50">
                                         {formatMoney(p.grossPremium, p.currency)}
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-500">
-                                        {p.inceptionDate}
+                                    
+                                    {/* Compact Payment Info */}
+                                    <td className="px-3 py-3 text-right text-xs">
+                                        <div className="flex flex-col">
+                                            <span className={paymentInfo.nextDueDate !== 'Fully Paid' ? 'text-red-600 font-bold' : 'text-green-600'}>{formatDate(paymentInfo.nextDueDate)}</span>
+                                            {paymentInfo.nextDueAmount > 0 && <span className={paymentInfo.nextDueDate !== 'Fully Paid' ? 'text-red-600' : 'text-gray-500'}>{formatNumber(paymentInfo.nextDueAmount)}</span>}
+                                        </div>
                                     </td>
+                                    <td className="px-3 py-3 text-right text-xs">
+                                        <div className="flex flex-col">
+                                            <span className="text-gray-900">{formatDate(paymentInfo.lastPaidDate)}</span>
+                                            {paymentInfo.lastPaidAmount > 0 && <span className="text-gray-500">{formatNumber(paymentInfo.lastPaidAmount)}</span>}
+                                        </div>
+                                    </td>
+
                                     <td className="px-3 py-3 text-right text-xs">
                                         {p.ourShare}%
-                                    </td>
-                                    <td className="px-3 py-3 text-right text-xs">
-                                        {p.hasOutwardReinsurance ? <span className="text-amber-600 font-bold">{p.cededShare}%</span> : <span className="text-gray-300">-</span>}
                                     </td>
                                     
                                     <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
@@ -504,8 +636,9 @@ const Dashboard: React.FC = () => {
                             ) : (
                                 <>
                                     {/* EXTENDED VIEW - STATUS (Sticky Left) */}
-                                    <td className="px-3 py-2 text-center bg-white sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-blue-50/30 transition-colors">
+                                    <td className={`px-3 py-2 text-center sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors ${overdueStatus.isOverdue ? 'bg-red-100' : 'bg-white group-hover:bg-blue-50/30'}`}>
                                         <StatusBadge status={p.status} isDeleted={p.isDeleted} />
+                                        {overdueStatus.isOverdue && <div className="text-[9px] text-red-700 font-black mt-1 uppercase tracking-tight">Overdue</div>}
                                     </td>
                                     
                                     {/* REST OF COLUMNS */}
@@ -557,15 +690,22 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.limitForeignCurrency)}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.excessForeignCurrency)}</td>
                                     
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.inceptionDate}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.expiryDate}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.dateOfSlip}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.accountingDate}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.paymentDate}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.inceptionDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.expiryDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.dateOfSlip)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.accountingDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.paymentDate)}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{p.warrantyPeriod}</td>
                                     
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-bold text-blue-700">{p.ourShare}%</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-medium">{formatNumber(p.netPremium)}</td>
+                                    
+                                    {/* Extended Payment Info */}
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-red-600 bg-red-50/50">{formatDate(paymentInfo.nextDueDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-mono bg-red-50/50 text-red-600 font-bold">{formatNumber(paymentInfo.nextDueAmount)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-green-700 bg-green-50/50">{formatDate(paymentInfo.lastPaidDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-mono bg-green-50/50 text-green-700 font-bold">{formatNumber(paymentInfo.lastPaidAmount)}</td>
+
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{p.commissionPercent}%</td>
                                     
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{p.hasOutwardReinsurance ? 'Yes' : 'No'}</td>
@@ -585,7 +725,7 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.aicCommission)}</td>
 
                                     {/* EXTENDED VIEW ACTIONS - Sticky Right */}
-                                    <td className="px-3 py-2 text-center bg-white sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-blue-50/30 transition-colors" onClick={e => e.stopPropagation()}>
+                                    <td className={`px-3 py-2 text-center sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors ${overdueStatus.isOverdue ? 'bg-red-100' : 'bg-white group-hover:bg-blue-50/30'}`} onClick={e => e.stopPropagation()}>
                                         <div className="flex justify-center gap-1">
                                             {!p.isDeleted && (
                                                 <>
@@ -601,11 +741,11 @@ const Dashboard: React.FC = () => {
                                 </>
                             )}
                         </tr>
-                    ))}
+                    )})}
                     
                     {!loading && sortedPolicies.length === 0 && (
                         <tr>
-                            <td colSpan={viewMode === 'compact' ? 12 : 47} className="py-12 text-center text-gray-400">
+                            <td colSpan={viewMode === 'compact' ? 14 : 51} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     <p>No policies found matching your criteria.</p>

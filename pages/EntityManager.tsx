@@ -77,7 +77,8 @@ const EntityManager: React.FC = () => {
                         <th className="px-6 py-4">Entity Name</th>
                         <th className="px-6 py-4">Type</th>
                         <th className="px-6 py-4">Reg Code (INN)</th>
-                        <th className="px-6 py-4">Location</th>
+                        <th className="px-6 py-4">Country</th>
+                        <th className="px-6 py-4">City</th>
                         <th className="px-6 py-4 text-center">Actions</th>
                     </tr>
                 </thead>
@@ -95,7 +96,10 @@ const EntityManager: React.FC = () => {
                                 {entity.regCodeValue}
                             </td>
                             <td className="px-6 py-4 text-gray-600">
-                                <div className="flex items-center gap-1"><MapPin size={12}/> {entity.city}, {entity.country}</div>
+                                <div className="flex items-center gap-1"><MapPin size={12}/> {entity.country}</div>
+                            </td>
+                            <td className="px-6 py-4 text-gray-600">
+                                {entity.city || '-'}
                             </td>
                             <td className="px-6 py-4 text-center">
                                 <div className="flex justify-center gap-2">
@@ -108,7 +112,7 @@ const EntityManager: React.FC = () => {
                     ))}
                     {filteredEntities.length === 0 && (
                         <tr>
-                            <td colSpan={5} className="py-12 text-center text-gray-400">
+                            <td colSpan={6} className="py-12 text-center text-gray-400">
                                 <Building2 size={48} className="mx-auto mb-4 opacity-20"/>
                                 No entities found.
                             </td>

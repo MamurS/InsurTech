@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
-import { ReinsuranceSlip, PolicyStatus } from '../types';
-import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash, Activity } from 'lucide-react';
+import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer } from '../types';
+import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash, Activity, Plus, Trash2 } from 'lucide-react';
 
 const SlipForm: React.FC = () => {
   const { id } = useParams();
@@ -17,7 +17,8 @@ const SlipForm: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     insuredName: '',
     brokerReinsurer: '',
-    status: PolicyStatus.ACTIVE // Default
+    status: PolicyStatus.ACTIVE,
+    reinsurers: []
   });
 
   useEffect(() => {
@@ -25,9 +26,19 @@ const SlipForm: React.FC = () => {
       if (isEdit && id) {
         const slip = await DB.getSlip(id);
         if (slip) {
+          // Compatibility: If single field exists but no array, map it
+          if ((!slip.reinsurers || slip.reinsurers.length === 0) && slip.brokerReinsurer) {
+              slip.reinsurers = [{
+                  id: crypto.randomUUID(),
+                  name: slip.brokerReinsurer,
+                  share: 100,
+                  commission: 0
+              }];
+          }
           setFormData({
               ...slip,
-              status: slip.status || PolicyStatus.ACTIVE // Backward compat
+              status: slip.status || PolicyStatus.ACTIVE,
+              reinsurers: slip.reinsurers || []
           });
         } else {
           alert('Slip not found');
@@ -43,24 +54,52 @@ const SlipForm: React.FC = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleReinsurerChange = (index: number, field: keyof PolicyReinsurer, value: any) => {
+      const updated = [...(formData.reinsurers || [])];
+      updated[index] = { ...updated[index], [field]: value };
+      setFormData(prev => ({ ...prev, reinsurers: updated }));
+  };
+
+  const addReinsurer = () => {
+      setFormData(prev => ({
+          ...prev,
+          reinsurers: [...(prev.reinsurers || []), { id: crypto.randomUUID(), name: '', share: 0, commission: 0 }]
+      }));
+  };
+
+  const removeReinsurer = (index: number) => {
+      const updated = [...(formData.reinsurers || [])];
+      updated.splice(index, 1);
+      setFormData(prev => ({ ...prev, reinsurers: updated }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await DB.saveSlip(formData);
+    // Update main field for backward compatibility display in tables
+    const primary = formData.reinsurers && formData.reinsurers.length > 0 ? formData.reinsurers[0].name : '';
+    await DB.saveSlip({ ...formData, brokerReinsurer: primary || formData.brokerReinsurer });
     navigate('/slips');
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
 
-  // Shared Styles
   const labelClass = "block text-sm font-medium text-gray-600 mb-1.5";
-  // Added text-gray-900 to ensure visibility
   const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm text-gray-900";
+
+  // Date Formatter
+  const formattedToday = () => {
+      const date = new Date();
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+  }
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
       <form onSubmit={handleSubmit}>
-         {/* Sticky Header */}
-         <div className="sticky top-0 z-20 bg-gray-50/95 backdrop-blur border-b border-gray-200 py-4 mb-6 flex items-center justify-between -mx-4 px-4 md:-mx-8 md:px-8">
+         {/* Sticky Header - Use negative margin to span full width over layout padding */}
+         <div className="sticky -mt-4 -mx-4 md:-mt-8 md:-mx-8 px-4 md:px-8 py-4 mb-6 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 flex items-center justify-between shadow-sm z-40">
             <div className="flex items-center gap-4">
                 <button type="button" onClick={() => navigate('/slips')} className="text-gray-500 hover:text-gray-800 transition-colors">
                     <ArrowLeft size={24} />
@@ -99,11 +138,10 @@ const SlipForm: React.FC = () => {
                     </div>
                     <h3 className="font-bold text-amber-900 mb-2">Slip Registry</h3>
                     <p className="text-sm text-amber-800/80 leading-relaxed mb-4">
-                        Use this form to register a new Outward Reinsurance Slip number. 
-                        Ensure the number is unique and follows the company naming convention (e.g., RE/MM/YYYY/NN).
+                        Register a new Outward Reinsurance Slip. Support for multiple reinsurers (panel) is now enabled.
                     </p>
                     <div className="text-xs text-amber-700 font-mono bg-amber-100/50 p-2 rounded">
-                        Current Date: {new Date().toLocaleDateString()}
+                        Current Date: {formattedToday()}
                     </div>
                 </div>
             </div>
@@ -167,17 +205,58 @@ const SlipForm: React.FC = () => {
                         />
                     </div>
 
-                    <div>
-                        <label className={labelClass}>Broker / Reinsurer</label>
-                        <input 
-                            required
-                            type="text" 
-                            name="brokerReinsurer" 
-                            value={formData.brokerReinsurer} 
-                            onChange={handleChange}
-                            placeholder="e.g. Marsh / Lockton"
-                            className={inputClass}
-                        />
+                    {/* REINSURERS PANEL */}
+                    <div className="pt-4 border-t border-gray-100">
+                        <label className="block text-sm font-bold text-gray-800 mb-3">Reinsurance Market / Panel</label>
+                        <div className="border border-gray-200 rounded-lg overflow-hidden mb-2">
+                             <table className="w-full text-sm text-left">
+                                <thead className="bg-gray-50 text-gray-700">
+                                    <tr>
+                                        <th className="px-3 py-2 w-1/2">Market Name</th>
+                                        <th className="px-3 py-2">Share %</th>
+                                        <th className="px-3 py-2 w-10"></th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {formData.reinsurers?.map((reinsurer, idx) => (
+                                        <tr key={reinsurer.id}>
+                                            <td className="px-3 py-2">
+                                                <input 
+                                                    type="text" 
+                                                    value={reinsurer.name}
+                                                    onChange={(e) => handleReinsurerChange(idx, 'name', e.target.value)}
+                                                    className="w-full border-none focus:ring-0 text-sm"
+                                                    placeholder="e.g. Swiss Re"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                                <input 
+                                                    type="number" 
+                                                    value={reinsurer.share || ''}
+                                                    onChange={(e) => handleReinsurerChange(idx, 'share', Number(e.target.value))}
+                                                    className="w-full border-none focus:ring-0 text-sm"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
+                                                <button type="button" onClick={() => removeReinsurer(idx)} className="text-red-400 hover:text-red-600">
+                                                    <Trash2 size={14}/>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {(!formData.reinsurers || formData.reinsurers.length === 0) && (
+                                        <tr>
+                                            <td colSpan={3} className="px-3 py-4 text-center text-gray-400 text-xs italic">
+                                                No markets added. Click below to add.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                             </table>
+                        </div>
+                        <button type="button" onClick={addReinsurer} className="text-xs font-bold text-amber-600 flex items-center gap-1 hover:text-amber-800">
+                            <Plus size={12}/> Add Market
+                        </button>
                     </div>
                 </div>
             </div>

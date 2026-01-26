@@ -116,6 +116,27 @@ const PolicyWording: React.FC = () => {
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(val);
   }
 
+  // --- DATE FORMATTER (dd.mm.yyyy) ---
+  const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return '-';
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+      
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+  };
+
+  const formatDateTime = (date: Date) => {
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = date.getFullYear();
+      const hours = String(date.getHours()).padStart(2, '0');
+      const mins = String(date.getMinutes()).padStart(2, '0');
+      return `${day}.${month}.${year} ${hours}:${mins}`;
+  }
+
   // Type Guards
   const isPolicy = (i: any): i is Policy => 'channel' in i;
 
@@ -133,8 +154,8 @@ const PolicyWording: React.FC = () => {
         '{{policyNumber}}': policy.policyNumber,
         '{{insuredName}}': policy.insuredName,
         '{{insuredAddress}}': policy.insuredAddress || '',
-        '{{inceptionDate}}': policy.inceptionDate,
-        '{{expiryDate}}': policy.expiryDate,
+        '{{inceptionDate}}': formatDate(policy.inceptionDate),
+        '{{expiryDate}}': formatDate(policy.expiryDate),
         '{{industry}}': policy.industry,
         '{{classOfInsurance}}': policy.classOfInsurance,
         '{{territory}}': policy.territory,
@@ -142,7 +163,7 @@ const PolicyWording: React.FC = () => {
         '{{grossPremium}}': formatMoney(policy.grossPremium, policy.currency),
         '{{currency}}': policy.currency,
         '{{deductible}}': policy.deductible || 'N/A',
-        '{{issueDate}}': policy.issueDate
+        '{{issueDate}}': formatDate(policy.issueDate)
     };
 
     // Replace all known placeholders
@@ -209,7 +230,7 @@ const PolicyWording: React.FC = () => {
             <div className="col-span-3">{policy.insuredName}</div>
 
             <div className="font-bold text-right text-gray-600">PERIOD:</div>
-            <div className="col-span-3">{policy.inceptionDate} to {policy.expiryDate} (Both days inclusive)</div>
+            <div className="col-span-3">{formatDate(policy.inceptionDate)} to {formatDate(policy.expiryDate)} (Both days inclusive)</div>
 
             <div className="font-bold text-right text-gray-600">INTEREST:</div>
             <div className="col-span-3 text-justify">{policy.classOfInsurance} - {policy.industry}. Situated at {policy.territory}.</div>
@@ -263,7 +284,7 @@ const PolicyWording: React.FC = () => {
         <div className="space-y-4 text-sm max-w-lg mx-auto">
              <div className="flex justify-between border-b border-gray-100 pb-2">
                  <span className="text-gray-500">Date of Allocation</span>
-                 <span className="font-bold">{slip.date}</span>
+                 <span className="font-bold">{formatDate(slip.date)}</span>
              </div>
              <div className="flex justify-between border-b border-gray-100 pb-2">
                  <span className="text-gray-500">Insured Name</span>
@@ -277,7 +298,7 @@ const PolicyWording: React.FC = () => {
 
         <div className="mt-20 text-center text-xs text-gray-400">
             <p>This document certifies the reservation of the above slip number in the system.</p>
-            <p>Generated on {new Date().toLocaleString()}</p>
+            <p>Generated on {formatDateTime(new Date())}</p>
         </div>
     </div>
   );
