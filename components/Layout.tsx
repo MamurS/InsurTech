@@ -6,7 +6,7 @@ import { MosaicLogo } from './MosaicLogo';
 import { 
   LayoutDashboard, FileText, Settings, 
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen, 
-  LogOut, User as UserIcon, Building2, AlertOctagon
+  LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -53,6 +53,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <LayoutDashboard size={20} className="flex-shrink-0" />
             <span>Dashboard (DB)</span>
+          </NavLink>
+
+          <NavLink 
+            to="/agenda" 
+            className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+            }
+            title="My Agenda"
+          >
+            <ClipboardList size={20} className="flex-shrink-0" />
+            <span>My Agenda</span>
           </NavLink>
 
           <NavLink 

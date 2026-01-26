@@ -16,6 +16,7 @@ import EntityManager from './pages/EntityManager';
 import EntityForm from './pages/EntityForm';
 import ClaimsList from './pages/ClaimsList';
 import ClaimDetail from './pages/ClaimDetail';
+import Agenda from './pages/Agenda';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -84,6 +85,9 @@ const AppRoutes = () => {
               <Route path="/entities" element={<EntityManager />} />
               <Route path="/entities/new" element={<EntityForm />} />
               <Route path="/entities/edit/:id" element={<EntityForm />} />
+              
+              {/* Agenda / Tasks */}
+              <Route path="/agenda" element={<Agenda />} />
               
               <Route path="/settings" element={<Settings />} />
               

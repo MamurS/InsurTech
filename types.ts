@@ -66,6 +66,68 @@ export interface User {
   permissions: UserPermissions;
 }
 
+// --- AGENDA & USER MANAGEMENT TYPES ---
+
+export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+export type EntityType = 'POLICY' | 'SLIP' | 'CLAIM' | 'ENTITY' | 'OTHER';
+
+export interface Profile {
+    id: string;
+    email: string;
+    fullName: string;
+    role: UserRole;
+    department?: string;
+    phone?: string;
+    avatarUrl?: string;
+    isActive: boolean;
+    createdAt: string;
+}
+
+export interface AgendaTask {
+    id: string;
+    title: string;
+    description?: string;
+    priority: TaskPriority;
+    status: TaskStatus;
+    dueDate?: string;
+    
+    assignedTo?: string;
+    assignedToName?: string;
+    assignedBy?: string;
+    assignedByName?: string;
+    assignedAt?: string;
+    
+    entityType?: EntityType;
+    entityId?: string;
+    policyNumber?: string;
+    insuredName?: string;
+    brokerName?: string;
+    
+    completedAt?: string;
+    completedBy?: string;
+    completionNotes?: string;
+    
+    createdAt: string;
+    isOverdue?: boolean;
+}
+
+export interface ActivityLogEntry {
+    id: string;
+    userId: string;
+    userName: string;
+    action: string;
+    actionDescription: string;
+    entityType: string;
+    entityId: string;
+    entityReference?: string;
+    createdAt: string;
+    oldValues?: any;
+    newValues?: any;
+}
+
+// --- EXISTING TYPES ---
+
 export interface Installment {
   id: string;
   dueDate: string;

@@ -3,16 +3,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { AuthService } from '../services/auth';
+import { UserService } from '../services/userService';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
-import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, User, UserRole, UserPermissions, DEFAULT_PERMISSIONS, ExchangeRate, Currency } from '../types';
+import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
+import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, User, UserRole, UserPermissions, DEFAULT_PERMISSIONS, ExchangeRate, Currency, Profile } from '../types';
 import { DetailModal } from '../components/DetailModal';
 import { formatDate } from '../utils/dateUtils';
 import { 
   Trash2, RefreshCw, Users, 
   Lock, CheckCircle, AlertTriangle, Table, Code, 
   LogOut, LayoutDashboard, Search, Terminal, Activity,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert, FileText, Plus, Save, X, Edit, Loader2, Coins
+  PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert, FileText, Plus, Save, X, Edit, Loader2, Coins, Phone, Mail
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'users' | 'settings' | 'templates' | 'fx';
@@ -55,16 +57,19 @@ const AdminConsole: React.FC = () => {
       date: new Date().toISOString().split('T')[0]
   });
 
-  // User Management State
-  const [users, setUsers] = useState<User[]>([]);
+  // User Management State (New Hook Implementation)
+  const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
+  const updateProfileMutation = useUpdateProfile();
   const [showUserModal, setShowUserModal] = useState(false);
-  const [currentUser, setCurrentUser] = useState<Partial<User>>({
-      name: '',
+  const [currentUser, setCurrentUser] = useState<Partial<Profile>>({
+      fullName: '',
       email: '',
-      password: '',
-      role: 'Viewer',
-      avatarUrl: 'NU'
+      role: 'Underwriter',
+      department: '',
+      phone: '',
+      isActive: true
   });
+  const [newUserPassword, setNewUserPassword] = useState(''); // Only for new users
   
   // Selection & Modal State
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
@@ -81,19 +86,17 @@ const AdminConsole: React.FC = () => {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [p, s, c, t, u, fx] = await Promise.all([
+    const [p, s, c, t, fx] = await Promise.all([
         DB.getAllPolicies(), 
         DB.getAllSlips(), 
         DB.getAllClauses(), 
         DB.getTemplates(),
-        DB.getUsers(),
         DB.getExchangeRates()
     ]);
     setRawPolicies(p);
     setRawSlips(s);
     setRawClauses(c);
     setTemplates(t);
-    setUsers(u);
     setFxRates(fx);
 
     const [dp, ds, dc] = await Promise.all([DB.getDeletedPolicies(), DB.getDeletedSlips(), DB.getDeletedClauses()]);
@@ -177,58 +180,55 @@ const AdminConsole: React.FC = () => {
   }
 
   // User Handlers
-  const handleEditUser = (u?: User) => {
+  const handleEditUser = (u?: Profile) => {
+      setNewUserPassword('');
       if (u) {
-          setCurrentUser({
-              ...u,
-              permissions: u.permissions || DEFAULT_PERMISSIONS[u.role]
-          });
+          setCurrentUser(u);
       } else {
           setCurrentUser({
-              id: '', 
-              name: '',
+              fullName: '',
               email: '',
-              password: '',
               role: 'Underwriter',
-              avatarUrl: 'NU',
-              permissions: { ...DEFAULT_PERMISSIONS['Underwriter'] }
+              department: '',
+              phone: '',
+              isActive: true,
+              avatarUrl: 'NU'
           });
       }
       setShowUserModal(true);
   };
 
   const handleSaveUser = async () => {
-      if (!currentUser.name || !currentUser.email || !currentUser.role) {
+      if (!currentUser.fullName || !currentUser.email || !currentUser.role) {
           alert("Name, Email and Role are required");
-          return;
-      }
-      if (!currentUser.id && !currentUser.password) {
-          alert("Password is required for new users");
           return;
       }
 
       setActionLoading(true);
       try {
-        if (!currentUser.id && supabase) {
+        if (!currentUser.id) {
+            // New Registration via Auth Service (if Supabase)
+            if (!newUserPassword) {
+                alert("Password required for new user");
+                setActionLoading(false);
+                return;
+            }
             await AuthService.register(
                 currentUser.email,
-                currentUser.password,
-                currentUser.name,
-                currentUser.role as UserRole,
-                currentUser.permissions
+                newUserPassword,
+                currentUser.fullName,
+                currentUser.role as UserRole
             );
-            alert(`User ${currentUser.email} created successfully.`);
-        } 
-        else {
-             const userToSave: User = {
-                ...currentUser,
-                id: currentUser.id || crypto.randomUUID(),
-                permissions: currentUser.permissions || DEFAULT_PERMISSIONS[currentUser.role as UserRole]
-             } as User;
-             await DB.saveUser(userToSave);
+            // Additional profile updates if needed via separate call
+        } else {
+             // Update existing profile
+             updateProfileMutation.mutate({
+                 id: currentUser.id,
+                 updates: currentUser
+             });
         }
         setShowUserModal(false);
-        loadAllData();
+        refetchProfiles();
       } catch (error: any) {
           console.error("Save failed:", error);
           alert("Failed to save user: " + (error.message || "Unknown error"));
@@ -237,37 +237,6 @@ const AdminConsole: React.FC = () => {
       }
   };
 
-  const handleDeleteUser = async (id: string) => {
-      if (id === user?.id) {
-          alert("You cannot delete your own account.");
-          return;
-      }
-      if (confirm("Delete this user? They will no longer be able to log in.")) {
-          await DB.deleteUser(id);
-          loadAllData();
-      }
-  };
-
-  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-      const newRole = e.target.value as UserRole;
-      setCurrentUser(prev => ({
-          ...prev,
-          role: newRole,
-          permissions: { ...DEFAULT_PERMISSIONS[newRole] }
-      }));
-  };
-
-  const togglePermission = (key: keyof UserPermissions) => {
-      if (!currentUser.permissions) return;
-      setCurrentUser(prev => ({
-          ...prev,
-          permissions: {
-              ...prev.permissions!,
-              [key]: !prev.permissions![key]
-          }
-      }));
-  };
-  
   const handleExit = async () => {
     navigate('/');
   }
@@ -293,33 +262,6 @@ const AdminConsole: React.FC = () => {
             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
                 <div className="text-gray-500 text-sm font-medium mb-2">Deleted Items</div>
                 <div className="text-3xl font-bold text-red-600">{stats.deletedItems}</div>
-            </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Activity size={20}/> System Health</h3>
-                <div className="space-y-4">
-                     <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                         <span className="text-gray-600">Identity Provider (IdP)</span>
-                         <span className="font-bold text-green-600 flex items-center gap-1"><ShieldCheck size={14}/> Connected</span>
-                     </div>
-                     <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                         <span className="text-gray-600">Database Connection</span>
-                         <span className="font-bold text-green-600 flex items-center gap-1"><CheckCircle size={14}/> Healthy</span>
-                     </div>
-                </div>
-            </div>
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-                 <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Terminal size={20}/> Quick Actions</h3>
-                 <div className="space-y-2">
-                    <button onClick={() => setActiveSection('database')} className="w-full text-left px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 font-medium transition-colors flex justify-between group">
-                        Browse Database <Table size={16} className="opacity-50 group-hover:opacity-100"/>
-                    </button>
-                    <button onClick={() => setActiveSection('users')} className="w-full text-left px-4 py-3 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-700 font-medium transition-colors flex justify-between group">
-                        Manage Users <Users size={16} className="opacity-50 group-hover:opacity-100"/>
-                    </button>
-                 </div>
             </div>
         </div>
     </div>
@@ -648,16 +590,6 @@ const AdminConsole: React.FC = () => {
                             </td>
                         </tr>
                     ))}
-                    {((recycleType === 'policies' && deletedPolicies.length === 0) ||
-                      (recycleType === 'slips' && deletedSlips.length === 0) ||
-                      (recycleType === 'clauses' && deletedClauses.length === 0)) && (
-                        <tr>
-                            <td colSpan={3} className="px-6 py-12 text-center text-gray-400">
-                                <Trash2 size={48} className="mx-auto mb-4 opacity-20"/>
-                                Recycle bin is empty for this category.
-                            </td>
-                        </tr>
-                    )}
                 </tbody>
             </table>
         </div>
@@ -680,85 +612,81 @@ const AdminConsole: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="p-4 border-b bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
                 <ShieldCheck size={16} />
-                <span>Internal System Users ({users.length})</span>
+                <span>Internal System Users ({profiles?.length || 0})</span>
             </div>
-            <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-700">
-                    <tr>
-                        <th className="px-6 py-4">User Identity</th>
-                        <th className="px-6 py-4">Role & Authority</th>
-                        <th className="px-6 py-4 text-center">Last Login</th>
-                        <th className="px-6 py-4 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y">
-                    {users.map(u => (
-                        <tr key={u.id} className="hover:bg-gray-50 group">
-                            <td className="px-6 py-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">
-                                        {u.avatarUrl}
-                                    </div>
-                                    <div>
-                                        <div className="font-bold text-gray-900">{u.name}</div>
-                                        <div className="text-sm text-gray-500">{u.email}</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td className="px-6 py-4">
-                                <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                    u.role === 'Super Admin' ? 'bg-purple-100 text-purple-700' : 
-                                    u.role === 'Admin' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-gray-100 text-gray-700'
-                                }`}>
-                                    {u.role}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4 text-center text-sm text-gray-500">
-                                {u.lastLogin ? formatDate(u.lastLogin) : 'Never'}
-                            </td>
-                            <td className="px-6 py-4 text-right">
-                                <div className="flex justify-end gap-2">
-                                    <button 
-                                        onClick={() => handleEditUser(u)} 
-                                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                        title="Edit User"
-                                    >
-                                        <Edit size={16}/>
-                                    </button>
-                                    {u.id !== user?.id && (
-                                        <button 
-                                            onClick={() => handleDeleteUser(u.id)}
-                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                            title="Delete User"
-                                        >
-                                            <Trash2 size={16}/>
-                                        </button>
-                                    )}
-                                </div>
-                            </td>
+            {loadingProfiles ? <div className="p-8 text-center text-gray-500">Loading users...</div> : (
+                <table className="w-full text-left">
+                    <thead className="bg-gray-50 text-gray-700">
+                        <tr>
+                            <th className="px-6 py-4">User Identity</th>
+                            <th className="px-6 py-4">Role & Department</th>
+                            <th className="px-6 py-4 text-center">Status</th>
+                            <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody className="divide-y">
+                        {profiles?.map(u => (
+                            <tr key={u.id} className="hover:bg-gray-50 group">
+                                <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">
+                                            {u.avatarUrl || u.fullName.substring(0,2).toUpperCase()}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-gray-900">{u.fullName}</div>
+                                            <div className="text-sm text-gray-500">{u.email}</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                                        u.role === 'Super Admin' ? 'bg-purple-100 text-purple-700' : 
+                                        u.role === 'Admin' ? 'bg-blue-100 text-blue-700' :
+                                        'bg-gray-100 text-gray-700'
+                                    }`}>
+                                        {u.role}
+                                    </span>
+                                    <div className="text-xs text-gray-500 mt-1">{u.department || 'No Dept'}</div>
+                                </td>
+                                <td className="px-6 py-4 text-center">
+                                    {u.isActive 
+                                        ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span>
+                                        : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>
+                                    }
+                                </td>
+                                <td className="px-6 py-4 text-right">
+                                    <div className="flex justify-end gap-2">
+                                        <button 
+                                            onClick={() => handleEditUser(u)} 
+                                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                            title="Edit User"
+                                        >
+                                            <Edit size={16}/>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            )}
         </div>
 
-        {/* User Modal - Modified to prevent outside click close */}
+        {/* User Modal */}
         {showUserModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
                     <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 bg-gray-50 z-10">
-                        <h3 className="font-bold text-gray-800">{currentUser.id ? 'Edit User' : 'Add New User'}</h3>
+                        <h3 className="font-bold text-gray-800">{currentUser.id ? 'Edit User Profile' : 'Create New User'}</h3>
                         <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
                     </div>
                     <div className="p-6 space-y-4">
-                        {/* User form fields truncated for brevity as they are same as previous */}
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
                             <input 
                                 className="w-full bg-white border rounded p-2 text-gray-900" 
-                                value={currentUser.name} 
-                                onChange={e => setCurrentUser({...currentUser, name: e.target.value})}
+                                value={currentUser.fullName} 
+                                onChange={e => setCurrentUser({...currentUser, fullName: e.target.value})}
                                 placeholder="e.g. John Doe"
                             />
                         </div>
@@ -772,41 +700,65 @@ const AdminConsole: React.FC = () => {
                                 disabled={!!currentUser.id} 
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                {currentUser.id ? 'Reset Password (optional)' : 'Password'}
-                            </label>
-                            <input 
-                                type="text"
-                                className="w-full bg-white border rounded p-2 text-gray-900" 
-                                value={currentUser.password || ''} 
-                                onChange={e => setCurrentUser({...currentUser, password: e.target.value})}
-                                placeholder={currentUser.id ? "Leave empty to keep current" : "Secure password"}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Role & Authority</label>
-                            <select 
-                                className="w-full bg-white border rounded p-2 text-gray-900"
-                                value={currentUser.role}
-                                onChange={handleRoleChange}
-                            >
-                                <option value="Super Admin">Super Admin (Full Access)</option>
-                                <option value="Admin">Admin (Manager)</option>
-                                <option value="Underwriter">Underwriter (Standard)</option>
-                                <option value="Viewer">Viewer (Read Only)</option>
-                            </select>
-                        </div>
                         
+                        {!currentUser.id && (
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
+                                <input 
+                                    type="password"
+                                    className="w-full bg-white border rounded p-2 text-gray-900" 
+                                    value={newUserPassword} 
+                                    onChange={e => setNewUserPassword(e.target.value)}
+                                    placeholder="Temp password..."
+                                />
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Role</label>
+                                <select 
+                                    className="w-full bg-white border rounded p-2 text-gray-900"
+                                    value={currentUser.role}
+                                    onChange={e => setCurrentUser({...currentUser, role: e.target.value as UserRole})}
+                                >
+                                    <option value="Super Admin">Super Admin</option>
+                                    <option value="Admin">Admin</option>
+                                    <option value="Underwriter">Underwriter</option>
+                                    <option value="Viewer">Viewer</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Department</label>
+                                <input 
+                                    className="w-full bg-white border rounded p-2 text-gray-900" 
+                                    value={currentUser.department} 
+                                    onChange={e => setCurrentUser({...currentUser, department: e.target.value})}
+                                    placeholder="e.g. Marine"
+                                />
+                            </div>
+                        </div>
+
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Initials (Avatar)</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Phone</label>
+                            <div className="relative">
+                                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                                <input 
+                                    className="w-full pl-9 bg-white border rounded p-2 text-gray-900" 
+                                    value={currentUser.phone} 
+                                    onChange={e => setCurrentUser({...currentUser, phone: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-2">
                             <input 
-                                className="w-full bg-white border rounded p-2 uppercase text-gray-900" 
-                                maxLength={2}
-                                value={currentUser.avatarUrl} 
-                                onChange={e => setCurrentUser({...currentUser, avatarUrl: e.target.value})}
-                                placeholder="JD"
+                                type="checkbox" 
+                                id="activeUser"
+                                checked={currentUser.isActive !== false}
+                                onChange={e => setCurrentUser({...currentUser, isActive: e.target.checked})}
                             />
+                            <label htmlFor="activeUser" className="text-sm text-gray-700">User is Active (can login)</label>
                         </div>
                     </div>
                     <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 sticky bottom-0 z-10">
