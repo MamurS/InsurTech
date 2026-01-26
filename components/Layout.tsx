@@ -6,7 +6,7 @@ import { MosaicLogo } from './MosaicLogo';
 import { 
   LayoutDashboard, FileText, Settings, 
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen, 
-  LogOut, User as UserIcon, Building2
+  LogOut, User as UserIcon, Building2, AlertOctagon
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -64,6 +64,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <FileSpreadsheet size={20} className="flex-shrink-0" />
             <span>Reinsurance Slips</span>
+          </NavLink>
+
+          <NavLink 
+            to="/claims" 
+            className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+            }
+             title="Claims Center"
+          >
+            <AlertOctagon size={20} className="flex-shrink-0" />
+            <span>Claims Center</span>
           </NavLink>
 
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">

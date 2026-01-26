@@ -14,6 +14,8 @@ import AdminConsole from './pages/AdminConsole';
 import Login from './pages/Login';
 import EntityManager from './pages/EntityManager';
 import EntityForm from './pages/EntityForm';
+import ClaimsList from './pages/ClaimsList';
+import ClaimDetail from './pages/ClaimDetail';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -73,6 +75,10 @@ const AppRoutes = () => {
               <Route path="/slips" element={<SlipsDashboard />} />
               <Route path="/slips/new" element={<SlipForm />} />
               <Route path="/slips/edit/:id" element={<SlipForm />} />
+
+              {/* Claims Routes */}
+              <Route path="/claims" element={<ClaimsList />} />
+              <Route path="/claims/:id" element={<ClaimDetail />} />
 
               {/* Legal Entities Routes */}
               <Route path="/entities" element={<EntityManager />} />

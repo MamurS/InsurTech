@@ -1,10 +1,9 @@
 
-import { Claim, ClaimLiabilityType, Policy } from '../types';
+import { Claim, ClaimLiabilityType, ClaimTransaction, Policy } from '../types';
 import { supabase } from './supabase';
 import { DB } from './db';
 
 // --- LIABILITY LOGIC (Pure Function) ---
-// This determines if a claim is strictly Active or just Informational
 export const determineLiability = (
     policy: Policy,
     lossDate: string,
@@ -18,10 +17,8 @@ export const determineLiability = (
     const loss = new Date(lossDate).getTime();
     const report = new Date(reportDate).getTime();
 
-    // 1. Basic Validity
     if (isNaN(loss)) return { type: 'INFORMATIONAL', reason: 'Invalid Loss Date' };
 
-    // 2. Occurrence Basis Logic
     if (coverageBasis === 'occurrence') {
         if (loss >= inception && loss <= expiry) {
             return { type: 'ACTIVE', reason: 'Loss occurred within policy period' };
@@ -29,21 +26,16 @@ export const determineLiability = (
         return { type: 'INFORMATIONAL', reason: `Loss date outside period (${policy.inceptionDate} to ${policy.expiryDate})` };
     }
 
-    // 3. Claims Made Logic
     if (coverageBasis === 'claims_made') {
-        // Must be REPORTED during policy period
         if (report < inception || report > expiry) {
             return { type: 'INFORMATIONAL', reason: 'Reported outside policy period' };
         }
-        
-        // Loss must be after Retroactive Date (if exists)
         if (retroactiveDate) {
             const retro = new Date(retroactiveDate).getTime();
             if (loss < retro) {
                 return { type: 'INFORMATIONAL', reason: 'Loss occurred before retroactive date' };
             }
         }
-        
         return { type: 'ACTIVE', reason: 'Claims-made criteria met' };
     }
 
@@ -53,15 +45,15 @@ export const determineLiability = (
 // --- DATA ACCESS ---
 
 export const ClaimsService = {
-    getClaimsForPolicy: async (policyId: string): Promise<Claim[]> => {
+    // Get all claims (Dashboard)
+    getAllClaims: async (): Promise<Claim[]> => {
         if (!supabase) return [];
         const { data, error } = await supabase
             .from('claims')
             .select(`
                 *,
-                transactions:claim_transactions(*)
+                policy:policies(policyNumber, insuredName)
             `)
-            .eq('policy_id', policyId)
             .order('report_date', { ascending: false });
         
         if (error) {
@@ -69,7 +61,6 @@ export const ClaimsService = {
             return [];
         }
 
-        // Map DB casing to camelCase
         return data.map((row: any) => ({
             id: row.id,
             policyId: row.policy_id,
@@ -82,15 +73,61 @@ export const ClaimsService = {
             claimantName: row.claimant_name,
             locationCountry: row.location_country,
             importedTotalIncurred: row.imported_total_incurred,
-            importedTotalPaid: row.imported_total_paid,
-            transactions: row.transactions?.map((t: any) => ({
+            
+            // Join fields (handled loosely in type)
+            policyNumber: row.policy?.policyNumber,
+            insuredName: row.policy?.insuredName
+        } as unknown as Claim));
+    },
+
+    // Get Single Claim with Transactions
+    getClaimById: async (id: string): Promise<Claim | null> => {
+        if (!supabase) return null;
+        
+        const { data, error } = await supabase
+            .from('claims')
+            .select(`
+                *,
+                transactions:claim_transactions(*),
+                policy:policies(*)
+            `)
+            .eq('id', id)
+            .single();
+
+        if (error || !data) return null;
+
+        return {
+            id: data.id,
+            policyId: data.policy_id,
+            claimNumber: data.claim_number,
+            liabilityType: data.liability_type,
+            status: data.status,
+            lossDate: data.loss_date,
+            reportDate: data.report_date,
+            description: data.description,
+            claimantName: data.claimant_name,
+            locationCountry: data.location_country,
+            importedTotalIncurred: data.imported_total_incurred,
+            importedTotalPaid: data.imported_total_paid,
+            // Attach full policy object for context if needed
+            policyContext: data.policy ? {
+                policyNumber: data.policy.policyNumber,
+                currency: data.policy.currency,
+                insuredName: data.policy.insuredName
+            } : undefined,
+            transactions: data.transactions?.map((t: any) => ({
                 id: t.id,
                 transactionType: t.transaction_type,
+                transactionDate: t.transaction_date,
                 amount100pct: t.amount_100pct,
                 amountOurShare: t.amount_our_share,
-                currency: t.currency
-            }))
-        }));
+                currency: t.currency,
+                exchangeRate: t.exchange_rate,
+                ourSharePercentage: t.our_share_percentage,
+                notes: t.notes,
+                payee: t.payee
+            })).sort((a: any, b: any) => new Date(b.transactionDate).getTime() - new Date(a.transactionDate).getTime())
+        } as unknown as Claim;
     },
 
     createClaim: async (claim: Partial<Claim>): Promise<string | null> => {
@@ -99,7 +136,6 @@ export const ClaimsService = {
             return null;
         }
 
-        // Snake_case mapping for DB
         const payload = {
             policy_id: claim.policyId,
             claim_number: claim.claimNumber,
@@ -109,6 +145,7 @@ export const ClaimsService = {
             report_date: claim.reportDate,
             description: claim.description,
             claimant_name: claim.claimantName,
+            location_country: claim.locationCountry,
             imported_total_incurred: claim.importedTotalIncurred || 0,
             imported_total_paid: claim.importedTotalPaid || 0
         };
@@ -123,15 +160,18 @@ export const ClaimsService = {
         return data.id;
     },
 
-    addTransaction: async (claimId: string, type: string, amount100: number, ourSharePct: number) => {
+    addTransaction: async (txn: Partial<ClaimTransaction>) => {
         if (!supabase) return;
         
         const { error } = await supabase.from('claim_transactions').insert({
-            claim_id: claimId,
-            transaction_type: type,
-            amount_100pct: amount100,
-            our_share_percentage: ourSharePct
-            // amount_our_share is generated by DB
+            claim_id: txn.claimId,
+            transaction_type: txn.transactionType,
+            amount_100pct: txn.amount100pct,
+            our_share_percentage: txn.ourSharePercentage,
+            transaction_date: txn.transactionDate || new Date().toISOString(),
+            currency: txn.currency,
+            notes: txn.notes,
+            payee: txn.payee
         });
 
         if (error) throw error;
