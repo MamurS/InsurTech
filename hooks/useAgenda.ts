@@ -32,6 +32,48 @@ export const useUpdateTaskStatus = () => {
     });
 };
 
+export const useDeleteTask = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => AgendaService.deleteTask(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['agenda'] });
+        }
+    });
+};
+
+// --- ATTACHMENTS HOOKS ---
+
+export const useTaskAttachments = (taskId: string) => {
+    return useQuery({
+        queryKey: ['task-attachments', taskId],
+        queryFn: () => AgendaService.getTaskAttachments(taskId),
+        enabled: !!taskId
+    });
+};
+
+export const useUploadAttachment = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ taskId, file }: { taskId: string, file: File }) => 
+            AgendaService.uploadTaskAttachment(taskId, file),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['task-attachments', variables.taskId] });
+        }
+    });
+};
+
+export const useDeleteAttachment = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ attachmentId, taskId }: { attachmentId: string, taskId: string }) => 
+            AgendaService.deleteTaskAttachment(attachmentId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['task-attachments', variables.taskId] });
+        }
+    });
+};
+
 export const useEntityActivity = (type: string, id: string) => {
     return useQuery({
         queryKey: ['activity', type, id],

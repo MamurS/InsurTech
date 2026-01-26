@@ -112,6 +112,18 @@ export interface AgendaTask {
     isOverdue?: boolean;
 }
 
+export interface TaskAttachment {
+    id: string;
+    taskId: string;
+    fileName: string;
+    fileType?: string;
+    fileSize?: number;
+    fileUrl: string; // Public or signed URL
+    filePath?: string; // Internal storage path
+    uploadedBy?: string;
+    uploadedAt: string;
+}
+
 export interface ActivityLogEntry {
     id: string;
     userId: string;

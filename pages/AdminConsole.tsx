@@ -4,17 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { AuthService } from '../services/auth';
 import { UserService } from '../services/userService';
-import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
-import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, User, UserRole, UserPermissions, DEFAULT_PERMISSIONS, ExchangeRate, Currency, Profile } from '../types';
-import { DetailModal } from '../components/DetailModal';
+import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile } from '../types';
 import { formatDate } from '../utils/dateUtils';
 import { 
   Trash2, RefreshCw, Users, 
-  Lock, CheckCircle, AlertTriangle, Table, Code, 
-  LogOut, LayoutDashboard, Search, Terminal, Activity,
-  PanelLeftClose, PanelLeftOpen, ShieldCheck, ShieldAlert, FileText, Plus, Save, X, Edit, Loader2, Coins, Phone, Mail
+  Lock, Table, Code, 
+  Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
+  Coins, LogOut
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'users' | 'settings' | 'templates' | 'fx';
@@ -23,9 +21,9 @@ type DbViewType = 'policies' | 'slips' | 'clauses';
 
 const AdminConsole: React.FC = () => {
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<Section>('database');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen] = useState(true);
   
   // Recycle Bin State
   const [recycleType, setRecycleType] = useState<RecycleType>('policies');
@@ -71,8 +69,6 @@ const AdminConsole: React.FC = () => {
   });
   const [newUserPassword, setNewUserPassword] = useState(''); // Only for new users
   
-  // Selection & Modal State
-  const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -109,10 +105,6 @@ const AdminConsole: React.FC = () => {
   useEffect(() => {
     loadAllData();
   }, [activeSection, dbViewType, recycleType]);
-
-  const handleRowClick = (item: any) => {
-    setSelectedItem(item);
-  };
 
   const handleRestore = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -237,10 +229,6 @@ const AdminConsole: React.FC = () => {
       }
   };
 
-  const handleExit = async () => {
-    navigate('/');
-  }
-
   // --- SUB-COMPONENT RENDERERS ---
 
   const renderDashboardHome = () => (
@@ -286,10 +274,6 @@ const AdminConsole: React.FC = () => {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 overflow-hidden flex flex-col">
             <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
-                 <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <input type="text" placeholder="Filter records..." className="pl-9 pr-4 py-1.5 text-sm bg-white border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 w-64 text-gray-900"/>
-                 </div>
                  <div className="text-xs text-gray-500 font-mono">
                     Showing {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).length} records
                  </div>
@@ -330,7 +314,6 @@ const AdminConsole: React.FC = () => {
                         {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).map((item: any) => (
                             <tr 
                                 key={item.id} 
-                                onClick={() => handleRowClick(item)}
                                 className={`hover:bg-blue-50 cursor-pointer transition-colors ${item.isDeleted ? 'bg-red-50 text-red-900' : ''}`}
                             >
                                 <td className="px-4 py-2 border-r text-center">
@@ -340,7 +323,7 @@ const AdminConsole: React.FC = () => {
                                 {dbViewType === 'policies' && (
                                     <>
                                         <td className="px-4 py-2 border-r font-medium text-gray-900">{item.policyNumber}</td>
-                                        <td className="px-4 py-2 border-r">{item.recordType}</td>
+                                        <td className="px-4 py-2 border-r">{item.channel || item.recordType}</td>
                                         <td className="px-4 py-2 border-r truncate max-w-[200px]">{item.insuredName}</td>
                                         <td className="px-4 py-2 border-r">{item.status}</td>
                                     </>
@@ -565,8 +548,7 @@ const AdminConsole: React.FC = () => {
                     {((recycleType === 'policies' ? deletedPolicies : recycleType === 'slips' ? deletedSlips : deletedClauses) as any[]).map(item => (
                         <tr 
                             key={item.id} 
-                            onClick={() => handleRowClick(item)}
-                            className="group hover:bg-gray-50 cursor-pointer"
+                            className="group hover:bg-gray-50"
                         >
                             <td className="px-6 py-4 font-mono text-gray-600">
                                 {item.policyNumber || item.slipNumber || item.category + '-' + item.id.substring(0,4)}
@@ -609,12 +591,26 @@ const AdminConsole: React.FC = () => {
             </button>
         </div>
         
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[300px]">
             <div className="p-4 border-b bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
                 <ShieldCheck size={16} />
                 <span>Internal System Users ({profiles?.length || 0})</span>
             </div>
-            {loadingProfiles ? <div className="p-8 text-center text-gray-500">Loading users...</div> : (
+            {loadingProfiles ? (
+                <div className="p-12 text-center text-gray-500">
+                    <Loader2 className="animate-spin mx-auto mb-2" size={24}/>
+                    <p>Loading user directory...</p>
+                </div>
+            ) : (!profiles || profiles.length === 0) ? (
+                <div className="p-12 text-center bg-gray-50 text-gray-500">
+                    <Users className="mx-auto mb-4 opacity-20" size={48}/>
+                    <h3 className="font-bold text-gray-700">No Users Found</h3>
+                    <p className="text-sm mb-4">The public user directory appears empty. Check database permissions.</p>
+                    <button onClick={() => refetchProfiles()} className="text-blue-600 hover:underline text-sm font-bold flex items-center justify-center gap-2">
+                        <RefreshCw size={14}/> Retry Fetch
+                    </button>
+                </div>
+            ) : (
                 <table className="w-full text-left">
                     <thead className="bg-gray-50 text-gray-700">
                         <tr>
@@ -625,7 +621,7 @@ const AdminConsole: React.FC = () => {
                         </tr>
                     </thead>
                     <tbody className="divide-y">
-                        {profiles?.map(u => (
+                        {profiles.map(u => (
                             <tr key={u.id} className="hover:bg-gray-50 group">
                                 <td className="px-6 py-4">
                                     <div className="flex items-center gap-3">
@@ -872,83 +868,43 @@ const AdminConsole: React.FC = () => {
                     <Coins size={18} className="flex-shrink-0" /> <span>FX Rates</span>
                 </button>
 
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">System</div>
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Access Control</div>
                 <button 
                     onClick={() => setActiveSection('users')}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'users' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
                 >
-                    <Users size={18} className="flex-shrink-0" /> <span>Users & Roles</span>
+                    <Users size={18} className="flex-shrink-0" /> <span>User Management</span>
                 </button>
-                 <button 
+
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">System</div>
+                <button 
                     onClick={() => setActiveSection('settings')}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'settings' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
                 >
-                    <ShieldAlert size={18} className="flex-shrink-0" /> <span>Maintenance</span>
+                    <AlertTriangle size={18} className="flex-shrink-0" /> <span>Maintenance</span>
                 </button>
             </nav>
 
-            <div className="p-4 border-t border-slate-800 whitespace-nowrap overflow-hidden">
+            <div className="p-4 border-t border-slate-800 bg-slate-950/50">
                 <button 
-                    onClick={handleExit}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg transition-colors text-sm font-medium whitespace-nowrap"
+                    onClick={() => navigate('/')}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
                 >
-                    <LogOut size={16} className="flex-shrink-0" /> <span>Exit to App</span>
+                    <LogOut size={16} /> Exit Console
                 </button>
             </div>
         </aside>
 
         {/* Main Content Area */}
-        <main className={`flex-1 flex flex-col h-screen overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
-            {/* Top Bar */}
-            <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shadow-sm z-10 flex-shrink-0">
-                <div className="flex items-center gap-4">
-                    <button 
-                        onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                        className="p-1.5 text-gray-500 hover:bg-gray-100 rounded-md transition-colors"
-                        title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
-                    >
-                        {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-                    </button>
-
-                    <div className="flex items-center gap-2 text-gray-500 text-sm">
-                        <LayoutDashboard size={16} />
-                        <span>InsurTech Policy Manager</span>
-                        <span>/</span>
-                        <span className="font-semibold text-gray-800 capitalize">{activeSection === 'fx' ? 'FX Rates' : activeSection}</span>
-                    </div>
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="text-right hidden sm:block">
-                        <div className="text-sm font-bold text-gray-800">{user?.name}</div>
-                        <div className="text-xs text-gray-500">{user?.role}</div>
-                    </div>
-                    <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center font-bold">
-                        {user?.avatarUrl || 'AD'}
-                    </div>
-                </div>
-            </header>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-auto p-4 md:p-8">
-                {activeSection === 'dashboard' && renderDashboardHome()}
-                {activeSection === 'database' && renderDatabaseBrowser()}
-                {activeSection === 'recycle' && renderRecycleBin()}
-                {activeSection === 'templates' && renderTemplates()}
-                {activeSection === 'users' && renderUsers()}
-                {activeSection === 'settings' && renderSettings()}
-                {activeSection === 'fx' && renderFxRates()}
-            </div>
+        <main className={`flex-1 overflow-y-auto p-8 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
+            {activeSection === 'dashboard' && renderDashboardHome()}
+            {activeSection === 'database' && renderDatabaseBrowser()}
+            {activeSection === 'recycle' && renderRecycleBin()}
+            {activeSection === 'users' && renderUsers()}
+            {activeSection === 'templates' && renderTemplates()}
+            {activeSection === 'fx' && renderFxRates()}
+            {activeSection === 'settings' && renderSettings()}
         </main>
-
-        {/* Reusable Detail Modal */}
-        {selectedItem && (
-            <DetailModal 
-                item={selectedItem} 
-                onClose={() => setSelectedItem(null)} 
-                title="Item Details"
-                allowJsonView={true}
-            />
-        )}
     </div>
   );
 };

@@ -45,6 +45,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden">
           <NavLink 
+            end
             to="/" 
             className={({ isActive }) => 
               `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`

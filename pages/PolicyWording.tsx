@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -64,7 +65,7 @@ const DEFAULT_TEMPLATE: PolicyTemplate = {
 };
 
 const PolicyWording: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [item, setItem] = useState<Policy | ReinsuranceSlip | null>(null);
   const [templates, setTemplates] = useState<PolicyTemplate[]>([]);

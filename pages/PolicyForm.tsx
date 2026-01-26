@@ -188,7 +188,7 @@ const SearchableInput: React.FC<SearchableInputProps> = ({ label, name, value, o
 
 
 const PolicyForm: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
@@ -716,7 +716,7 @@ const PolicyForm: React.FC = () => {
                             </div>
                         </div>
                         <div>
-                            <label className={labelClass}>Exchange Rate (to UZS)</label>
+                            <label className="block text-sm font-medium text-gray-600 mb-1.5">Exchange Rate (to UZS)</label>
                             <input type="number" step="0.01" name="exchangeRate" value={formData.exchangeRate || ''} onChange={handleChange} className={inputClass}/>
                         </div>
                          <div>

@@ -5,11 +5,12 @@ import { useAuth } from '../context/AuthContext';
 import { useAgendaTasks, useUpdateTaskStatus } from '../hooks/useAgenda';
 import { formatDate } from '../utils/dateUtils';
 import AssignTaskModal from '../components/AssignTaskModal';
+import TaskDetailModal from '../components/TaskDetailModal';
 import { 
     ClipboardList, Filter, Search, CheckCircle, Clock, 
-    AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight 
+    AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight, Paperclip
 } from 'lucide-react';
-import { TaskStatus } from '../types';
+import { TaskStatus, AgendaTask } from '../types';
 
 const Agenda: React.FC = () => {
     const navigate = useNavigate();
@@ -18,25 +19,24 @@ const Agenda: React.FC = () => {
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('PENDING');
     const [searchTerm, setSearchTerm] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    
+    // Task Detail Modal State
+    const [selectedTask, setSelectedTask] = useState<AgendaTask | null>(null);
 
-    // Fetch tasks (for current user only, unless admin - simple logic here: viewing own agenda)
-    // To view TEAM agenda, we would pass undefined as userId. For now, let's focus on "My Agenda"
+    // Fetch tasks
     const { data: tasks, isLoading } = useAgendaTasks(user?.id, statusFilter === 'ALL' ? undefined : statusFilter);
-    const updateStatusMutation = useUpdateTaskStatus();
 
-    const handleTaskClick = (task: any) => {
+    const handleTaskClick = (task: AgendaTask) => {
         if (task.entityType === 'POLICY' && task.entityId) {
             navigate(`/edit/${task.entityId}`);
         } else if (task.entityType === 'SLIP' && task.entityId) {
             navigate(`/slips/edit/${task.entityId}`);
         } else if (task.entityType === 'CLAIM' && task.entityId) {
             navigate(`/claims/${task.entityId}`);
+        } else {
+            // Open Modal for OTHER or unlinked tasks
+            setSelectedTask(task);
         }
-    };
-
-    const handleComplete = (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
-        updateStatusMutation.mutate({ id, status: 'COMPLETED' });
     };
 
     const getPriorityColor = (p: string) => {
@@ -119,10 +119,10 @@ const Agenda: React.FC = () => {
                             <div 
                                 key={task.id}
                                 onClick={() => handleTaskClick(task)}
-                                className="p-4 hover:bg-blue-50/30 transition-colors cursor-pointer group flex flex-col md:flex-row gap-4 items-start md:items-center"
+                                className="p-4 hover:bg-blue-50/50 transition-colors cursor-pointer group flex flex-col md:flex-row gap-4 items-start md:items-center relative"
                             >
                                 {/* Priority Stripe */}
-                                <div className={`w-1 self-stretch rounded-full ${
+                                <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${
                                     task.priority === 'URGENT' ? 'bg-red-500' : 
                                     task.priority === 'HIGH' ? 'bg-orange-500' : 
                                     'bg-blue-300'
@@ -145,8 +145,13 @@ const Agenda: React.FC = () => {
                                     
                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                                         {task.policyNumber && (
-                                            <span className="flex items-center gap-1 text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded">
+                                            <span className="flex items-center gap-1 text-blue-600 font-medium bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">
                                                 <Briefcase size={12}/> {task.policyNumber}
+                                            </span>
+                                        )}
+                                        {task.entityType === 'CLAIM' && (
+                                            <span className="flex items-center gap-1 text-purple-600 font-medium bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100">
+                                                <AlertCircle size={12}/> Claim
                                             </span>
                                         )}
                                         {task.dueDate && (
@@ -159,17 +164,9 @@ const Agenda: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div className="flex items-center gap-2 shrink-0">
-                                    {task.status !== 'COMPLETED' && (
-                                        <button 
-                                            onClick={(e) => handleComplete(e, task.id)}
-                                            className="px-3 py-1.5 bg-white border border-green-200 text-green-700 hover:bg-green-50 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
-                                        >
-                                            <CheckCircle size={14}/> Done
-                                        </button>
-                                    )}
-                                    <div className="text-gray-300">
-                                        <ArrowRight size={18}/>
+                                <div className="flex items-center gap-2 shrink-0 self-center">
+                                    <div className="text-gray-300 group-hover:text-blue-500 transition-colors">
+                                        {task.entityType === 'OTHER' || !task.entityType ? <MoreHorizontal size={20}/> : <ArrowRight size={20}/>}
                                     </div>
                                 </div>
                             </div>
@@ -183,6 +180,14 @@ const Agenda: React.FC = () => {
                 onClose={() => setShowCreateModal(false)}
                 preSelectedUser={user?.id}
             />
+
+            {selectedTask && (
+                <TaskDetailModal 
+                    task={selectedTask}
+                    isOpen={!!selectedTask}
+                    onClose={() => setSelectedTask(null)}
+                />
+            )}
         </div>
     );
 };

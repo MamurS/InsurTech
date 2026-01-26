@@ -8,7 +8,7 @@ import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash, Activity, P
 import { CustomDateInput } from '../components/CustomDateInput';
 
 const SlipForm: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
