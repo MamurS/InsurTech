@@ -4,21 +4,20 @@ import { Policy, ReinsuranceSlip, Clause, PolicyStatus, TerminationDetails } fro
 import { DB } from '../services/db';
 import { formatDate } from '../utils/dateUtils';
 import { 
-  X, Building2, Calendar, DollarSign, ArrowRightLeft, 
-  FileSpreadsheet, Code, CheckCircle, ShieldAlert, FileText, Download, Upload, AlertCircle, Trash2, XCircle, AlertTriangle, Briefcase, Info,
-  Globe, CreditCard, ShieldCheck
+  X, Building2, Calendar, DollarSign, 
+  CheckCircle, FileText, Upload, AlertCircle, XCircle, AlertTriangle, 
+  MapPin, Shield
 } from 'lucide-react';
 
 interface DetailModalProps {
   item: Policy | ReinsuranceSlip | Clause | null;
   onClose: () => void;
-  onRefresh?: () => void; // Callback to refresh parent data
+  onRefresh?: () => void;
   title?: string;
   allowJsonView?: boolean;
 }
 
-export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefresh, title, allowJsonView = false }) => {
-  const [viewMode, setViewMode] = useState<'details' | 'json'>('details');
+export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefresh, title }) => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -229,4 +228,127 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
              <h4 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><DollarSign size={16}/> Financials ({policy.currency})</h4>
              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-sm">
-                 <div><div className="text-gray-500">Sum Insured</div><div className="font-bold text-lg text-gray-900">{formatMoney
+                 <div><div className="text-gray-500">Sum Insured</div><div className="font-bold text-lg text-gray-900">{formatMoney(policy.sumInsured, policy.currency)}</div></div>
+                 <div><div className="text-gray-500">Limit of Liability</div><div className="font-medium text-gray-900">{formatMoney(policy.limitForeignCurrency, policy.currency)}</div></div>
+                 <div><div className="text-gray-500">Gross Premium</div><div className="font-bold text-lg text-green-700">{formatMoney(policy.grossPremium, policy.currency)}</div></div>
+                 <div><div className="text-gray-500">Net Premium</div><div className="font-bold text-lg text-blue-700">{formatMoney(policy.netPremium, policy.currency)}</div></div>
+             </div>
+             {policy.hasOutwardReinsurance && (
+                 <div className="mt-4 pt-4 border-t border-gray-200">
+                     <h5 className="font-bold text-amber-800 text-xs uppercase mb-2">Outward Reinsurance</h5>
+                     <div className="grid grid-cols-2 gap-4 text-sm">
+                         <div><div className="text-gray-500">Market</div><div className="font-medium">{policy.reinsurers && policy.reinsurers.length > 0 ? 'Panel Placement' : policy.reinsurerName || '-'}</div></div>
+                         <div><div className="text-gray-500">Ceded Share</div><div className="font-medium">{policy.cededShare}%</div></div>
+                     </div>
+                 </div>
+             )}
+        </div>
+    </div>
+    );
+  };
+
+  const renderSlipDetail = (slip: ReinsuranceSlip) => (
+      <div className="space-y-6">
+          <div className="flex gap-3 mb-4">
+              <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold">Reinsurance Slip</span>
+              <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-bold">{slip.status || 'Active'}</span>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><FileText size={16}/> Slip Details</h4>
+                  <div className="space-y-3 text-sm">
+                      <div><div className="text-gray-500 text-xs uppercase">Slip Number</div><div className="font-mono font-bold text-lg text-blue-600">{slip.slipNumber}</div></div>
+                      <div><div className="text-gray-500 text-xs uppercase">Date</div><div className="font-medium">{formatDate(slip.date)}</div></div>
+                      <div><div className="text-gray-500 text-xs uppercase">Insured Name</div><div className="font-medium">{slip.insuredName}</div></div>
+                  </div>
+              </div>
+              <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                  <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><DollarSign size={16}/> Values</h4>
+                  <div className="space-y-3 text-sm">
+                      <div><div className="text-gray-500 text-xs uppercase">Limit of Liability</div><div className="font-mono font-bold text-lg">{formatMoney(slip.limitOfLiability, slip.currency as string)}</div></div>
+                      <div><div className="text-gray-500 text-xs uppercase">Broker / Reinsurer</div><div className="font-medium">{slip.brokerReinsurer}</div></div>
+                  </div>
+              </div>
+          </div>
+
+          {slip.reinsurers && slip.reinsurers.length > 0 && (
+              <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <h4 className="font-bold text-gray-800 mb-3 text-sm">Market Panel</h4>
+                  <table className="w-full text-sm text-left">
+                      <thead>
+                          <tr className="text-gray-500 border-b border-gray-200">
+                              <th className="pb-2">Reinsurer</th>
+                              <th className="pb-2 text-right">Share %</th>
+                              <th className="pb-2 text-right">Comm %</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {slip.reinsurers.map((r, i) => (
+                              <tr key={i} className="border-b border-gray-100 last:border-0">
+                                  <td className="py-2 font-medium">{r.name}</td>
+                                  <td className="py-2 text-right">{r.share}%</td>
+                                  <td className="py-2 text-right">{r.commission}%</td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          )}
+      </div>
+  );
+
+  const renderClauseDetail = (clause: Clause) => (
+      <div className="space-y-4">
+          <div className="flex justify-between items-start">
+              <div>
+                  <h3 className="text-xl font-bold text-gray-800">{clause.title}</h3>
+                  <span className={`text-xs px-2 py-0.5 rounded uppercase font-bold mt-1 inline-block ${
+                      clause.category === 'Exclusion' ? 'bg-red-100 text-red-700' : 
+                      clause.category === 'Warranty' ? 'bg-amber-100 text-amber-700' : 
+                      'bg-blue-100 text-blue-700'
+                  }`}>{clause.category}</span>
+              </div>
+              {clause.isStandard && <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-bold">Standard</span>}
+          </div>
+          <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 font-serif text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
+              {clause.content}
+          </div>
+      </div>
+  );
+
+  // Type Guards
+  const isPolicy = (i: any): i is Policy => 'policyNumber' in i;
+  const isSlip = (i: any): i is ReinsuranceSlip => 'slipNumber' in i && !('policyNumber' in i);
+  const isClause = (i: any): i is Clause => 'title' in i && 'content' in i;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200" onClick={e => e.stopPropagation()}>
+        
+        {/* Header */}
+        <div className="p-4 border-b flex justify-between items-center bg-white sticky top-0 z-10">
+           <h3 className="font-bold text-gray-800 text-lg">{title || 'Details'}</h3>
+           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"><X size={20}/></button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6 bg-white">
+            {isPolicy(item) && renderPolicyDetail(item)}
+            {isSlip(item) && renderSlipDetail(item)}
+            {isClause(item) && renderClauseDetail(item)}
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t bg-gray-50 flex justify-end">
+            <button onClick={onClose} className="px-5 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg text-gray-800 font-bold text-sm transition-colors">Close</button>
+        </div>
+
+        {/* Overlays */}
+        {showTerminationConfirm && renderTerminationModal()}
+        {showNTUConfirm && renderNTUModal()}
+        {showActivateConfirm && renderActivateModal()}
+      </div>
+    </div>
+  );
+};
