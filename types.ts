@@ -77,7 +77,7 @@ export interface Installment {
   notes?: string;
 }
 
-export interface Claim {
+export interface ClaimDeprecated { // Renamed legacy Claim interface if it existed
   id: string;
   dateOfLoss: string;
   description: string;
@@ -191,6 +191,51 @@ export interface LegalEntity {
   updatedAt: string;
 }
 
+// --- NEW CLAIMS MODULE TYPES ---
+
+export type ClaimLiabilityType = 'INFORMATIONAL' | 'ACTIVE';
+export type ClaimStatus = 'OPEN' | 'CLOSED' | 'REOPENED' | 'DENIED';
+export type ClaimTransactionType = 'RESERVE_SET' | 'PAYMENT' | 'RECOVERY' | 'LEGAL_FEE' | 'ADJUSTER_FEE';
+
+export interface ClaimTransaction {
+    id: string;
+    claimId: string;
+    transactionType: ClaimTransactionType;
+    transactionDate: string;
+    amount100pct: number;
+    currency: string;
+    exchangeRate: number;
+    ourSharePercentage: number;
+    amountOurShare: number; // Calculated
+    payee?: string;
+    notes?: string;
+    createdBy?: string;
+    createdAt?: string;
+}
+
+export interface Claim {
+    id: string;
+    policyId: string;
+    claimNumber: string;
+    liabilityType: ClaimLiabilityType;
+    status: ClaimStatus;
+    
+    lossDate?: string;
+    reportDate: string;
+    closedDate?: string;
+    
+    description?: string;
+    claimantName?: string;
+    locationCountry?: string;
+    
+    // Type 1 Fields (Legacy/Import)
+    importedTotalIncurred?: number;
+    importedTotalPaid?: number;
+    
+    transactions?: ClaimTransaction[]; // For Type 2
+}
+
+
 export interface Policy {
   id: string;
   
@@ -298,7 +343,7 @@ export interface Policy {
   status: PolicyStatus;
   paymentStatus: PaymentStatus;
   installments: Installment[];
-  claims: Claim[];
+  claims: ClaimDeprecated[]; // Renamed to avoid conflict
   selectedClauseIds: string[];
   isDeleted?: boolean;
 
