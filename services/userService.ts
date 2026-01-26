@@ -7,29 +7,31 @@ export const UserService = {
     getAllProfiles: async (): Promise<Profile[]> => {
         if (!supabase) return [];
         
-        // Query 'users' table (as defined in supabase_schema.sql)
+        // Query 'users' table
         const { data, error } = await supabase
             .from('users')
             .select('*')
-            .order('name', { ascending: true });
+            .order('email', { ascending: true }); // Order by email is safer if names are null
         
         if (error) {
             console.error("Error fetching users:", error);
             return [];
         }
         
-        // Map DB columns to Profile interface
-        // Handling both potential naming conventions (camelCase from schema vs snake_case standard)
+        // Robust Mapping: Handles snake_case, camelCase, and missing fields
         return (data || []).map((p: any) => ({
             id: p.id,
             email: p.email,
-            fullName: p.name || p.full_name || 'Unknown',
-            role: p.role as UserRole,
-            department: p.department || '', // Will be empty if column missing until migration runs
+            // Try all possible name fields
+            fullName: p.name || p.full_name || p.fullName || 'Unknown User',
+            role: (p.role || 'Viewer') as UserRole,
+            department: p.department || '',
             phone: p.phone || '',
-            avatarUrl: p.avatarUrl || p.avatar_url, 
+            // Handle quoted "avatarUrl" vs snake_case avatar_url
+            avatarUrl: p.avatarUrl || p.avatar_url || p.avatar_url, 
+            // Handle quoted "isActive" vs snake_case is_active
             isActive: p.isActive !== undefined ? p.isActive : (p.is_active !== undefined ? p.is_active : true),
-            createdAt: p.created_at
+            createdAt: p.created_at || new Date().toISOString()
         }));
     },
 
@@ -38,12 +40,14 @@ export const UserService = {
         if (!supabase) return;
         
         const dbUpdates: any = {};
+        
+        // Map App Types -> DB Columns
         if (updates.fullName) dbUpdates.name = updates.fullName;
         if (updates.role) dbUpdates.role = updates.role;
         if (updates.department) dbUpdates.department = updates.department;
         if (updates.phone) dbUpdates.phone = updates.phone;
-        if (updates.avatarUrl) dbUpdates["avatarUrl"] = updates.avatarUrl; // Quote for case-sensitive column if needed
-        if (updates.isActive !== undefined) dbUpdates.isActive = updates.isActive;
+        if (updates.avatarUrl) dbUpdates["avatarUrl"] = updates.avatarUrl; // Quote for legacy camelCase column
+        if (updates.isActive !== undefined) dbUpdates["isActive"] = updates.isActive; // Quote for legacy camelCase column
         
         const { error } = await supabase
             .from('users')

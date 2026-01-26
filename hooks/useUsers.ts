@@ -7,7 +7,8 @@ export const useProfiles = () => {
     return useQuery({
         queryKey: ['profiles'],
         queryFn: () => UserService.getAllProfiles(),
-        staleTime: 1000 * 60 * 30 // 30 mins
+        staleTime: 0, // Always fetch fresh data to ensure Admin Console is up to date
+        refetchOnWindowFocus: true
     });
 };
 
