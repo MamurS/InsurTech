@@ -7,7 +7,8 @@ import { ExcelService } from '../services/excel';
 import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
-import { EntityDetailModal } from '../components/EntityDetailModal'; // Import New Modal
+import { EntityDetailModal } from '../components/EntityDetailModal';
+import { formatDate } from '../utils/dateUtils';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -194,19 +195,6 @@ const Dashboard: React.FC = () => {
       return new Intl.NumberFormat('en-US').format(val);
   }
 
-  // --- DATE FORMATTER (dd.mm.yyyy) ---
-  const formatDate = (dateStr: string | undefined) => {
-      if (!dateStr) return '-';
-      // Attempt to handle both ISO strings and YYYY-MM-DD
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-  };
-
   // --- OVERDUE CHECK LOGIC ---
   const getOverdueStatus = (policy: Policy) => {
       if (policy.status !== PolicyStatus.ACTIVE) return { isOverdue: false, details: '' };
@@ -373,7 +361,7 @@ const Dashboard: React.FC = () => {
             <button 
             type="button"
             onClick={() => navigate('/new')}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm"
+            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
             >
             <Plus size={18} /> New Policy
             </button>
@@ -450,6 +438,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Intermediary" sortKey="intermediaryType" />
                             <SortableHeader label="Class" sortKey="classOfInsurance" />
                             <SortableHeader label="Sum Insured" sortKey="sumInsured" className="text-right" />
+                            <SortableHeader label="Limit of Liab" sortKey="limitForeignCurrency" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
                             
                             {/* New Payment Columns for Compact View */}
@@ -586,6 +575,10 @@ const Dashboard: React.FC = () => {
                                     </td>
                                     <td className="px-3 py-3 text-right font-medium text-gray-700">
                                         {formatMoney(p.sumInsured, p.currency)}
+                                    </td>
+                                    {/* New Limit Column for Compact View */}
+                                    <td className="px-3 py-3 text-right text-gray-600 text-xs">
+                                        {formatMoney(p.limitForeignCurrency, p.currency)}
                                     </td>
                                     <td className="px-3 py-3 text-right font-bold text-gray-900 bg-gray-50/50">
                                         {formatMoney(p.grossPremium, p.currency)}
@@ -745,7 +738,7 @@ const Dashboard: React.FC = () => {
                     
                     {!loading && sortedPolicies.length === 0 && (
                         <tr>
-                            <td colSpan={viewMode === 'compact' ? 14 : 51} className="py-12 text-center text-gray-400">
+                            <td colSpan={viewMode === 'compact' ? 15 : 51} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     <p>No policies found matching your criteria.</p>

@@ -6,6 +6,7 @@ import { ReinsuranceSlip, PolicyStatus } from '../types';
 import { ExcelService } from '../services/excel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
+import { formatDate } from '../utils/dateUtils';
 import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 const SlipsDashboard: React.FC = () => {
@@ -86,19 +87,6 @@ const SlipsDashboard: React.FC = () => {
     setSortConfig({ key, direction });
   };
 
-  // --- DATE FORMATTER (dd.mm.yyyy) ---
-  const formatDate = (dateStr: string | undefined) => {
-      if (!dateStr) return '-';
-      // Attempt to handle both ISO strings and YYYY-MM-DD
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-  };
-
   const filteredSlips = slips.filter(s => {
     // 1. Status Filter
     if (statusFilter === 'Deleted') {
@@ -134,6 +122,15 @@ const SlipsDashboard: React.FC = () => {
 
   const handleExport = async () => {
     await ExcelService.exportSlips(sortedSlips);
+  };
+
+  const formatMoney = (amount: number | undefined, currency: string | undefined) => {
+    if (amount === undefined || amount === null) return '-';
+    try {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD', maximumFractionDigits: 0 }).format(amount);
+    } catch {
+        return `${amount}`;
+    }
   };
 
   const SortableHeader = ({ label, sortKey }: { label: string, sortKey: keyof ReinsuranceSlip }) => {
@@ -183,16 +180,16 @@ const SlipsDashboard: React.FC = () => {
              <button 
                 type="button"
                 onClick={handleExport}
-                className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm cursor-pointer"
+                className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg font-medium transition-all shadow-sm cursor-pointer text-sm"
             >
-                <Download size={18} /> Export Excel
+                <Download size={16} /> Export Excel
             </button>
             <button 
             type="button"
             onClick={() => navigate('/slips/new')}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-lg font-medium transition-all shadow-sm hover:shadow-md cursor-pointer"
+            className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
             >
-            <Plus size={20} /> New Slip
+            <Plus size={18} /> New Slip
             </button>
         </div>
       </div>
@@ -237,6 +234,7 @@ const SlipsDashboard: React.FC = () => {
                     <SortableHeader label="Slip Number" sortKey="slipNumber" />
                     <SortableHeader label="Date" sortKey="date" />
                     <SortableHeader label="Insured" sortKey="insuredName" />
+                    <SortableHeader label="Limit of Liab" sortKey="limitOfLiability" />
                     <SortableHeader label="Broker / Reinsurer" sortKey="brokerReinsurer" />
                     <th className="px-6 py-4 text-center">Actions</th>
                 </tr>
@@ -257,6 +255,9 @@ const SlipsDashboard: React.FC = () => {
                         </td>
                         <td className="px-6 py-4 text-gray-600">{formatDate(slip.date)}</td>
                         <td className="px-6 py-4 font-medium text-gray-800">{slip.insuredName}</td>
+                        <td className="px-6 py-4 text-gray-700 font-mono">
+                            {formatMoney(slip.limitOfLiability, slip.currency as string)}
+                        </td>
                         <td className="px-6 py-4 text-gray-600">{slip.brokerReinsurer}</td>
                         <td className="px-6 py-4 text-center">
                              <div className="flex justify-center items-center gap-2">

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate } from '../types';
 import { MosaicLogo } from '../components/MosaicLogo';
+import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { Printer, ArrowLeft, Settings2, FileText } from 'lucide-react';
 
 const DEFAULT_TEMPLATE: PolicyTemplate = {
@@ -114,27 +114,6 @@ const PolicyWording: React.FC = () => {
   const formatMoney = (val: number | undefined, currency: string) => {
       if (val === undefined || val === null) return '-';
       return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency }).format(val);
-  }
-
-  // --- DATE FORMATTER (dd.mm.yyyy) ---
-  const formatDate = (dateStr: string | undefined) => {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-  };
-
-  const formatDateTime = (date: Date) => {
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const mins = String(date.getMinutes()).padStart(2, '0');
-      return `${day}.${month}.${year} ${hours}:${mins}`;
   }
 
   // Type Guards
@@ -298,7 +277,7 @@ const PolicyWording: React.FC = () => {
 
         <div className="mt-20 text-center text-xs text-gray-400">
             <p>This document certifies the reservation of the above slip number in the system.</p>
-            <p>Generated on {formatDateTime(new Date())}</p>
+            <p>Generated on {formatDateTime(new Date().toISOString())}</p>
         </div>
     </div>
   );

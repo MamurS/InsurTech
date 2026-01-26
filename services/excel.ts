@@ -1,6 +1,7 @@
 
 import ExcelJS from 'exceljs';
 import { Policy, ReinsuranceSlip } from '../types';
+import { getStoredDateFormat } from '../utils/dateUtils';
 
 // Colors based on Tailwind classes used in Dashboard
 const COLORS = {
@@ -40,14 +41,22 @@ const saveWorkbook = async (workbook: ExcelJS.Workbook, fileName: string) => {
   window.URL.revokeObjectURL(url);
 };
 
+// Helper to map app settings to Excel format strings
+const getExcelDateFormat = () => {
+    // App uses 'mm.dd.yyyy' (lowercase), Excel tends to want 'mm.dd.yyyy' or 'dd/mm/yyyy' standard patterns.
+    // Luckily ExcelJS supports these standard pattern strings directly.
+    return getStoredDateFormat(); 
+};
+
 export const ExcelService = {
   exportSlips: async (slips: ReinsuranceSlip[]) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Reinsurance Slips');
+    const dateFormat = getExcelDateFormat();
 
     const columns: ColumnDef[] = [
       { header: 'Slip Number', key: 'slipNumber', width: 25 },
-      { header: 'Date', key: 'date', width: 15, align: 'center', format: 'dd.mm.yyyy' },
+      { header: 'Date', key: 'date', width: 15, align: 'center', format: dateFormat },
       { header: 'Insured', key: 'insuredName', width: 30 },
       { header: 'Broker / Reinsurer', key: 'brokerReinsurer', width: 30 },
     ];
@@ -65,6 +74,7 @@ export const ExcelService = {
   exportPolicies: async (policies: Policy[]) => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(`Policy_Register`);
+    const dateFormat = getExcelDateFormat();
 
     const columns: ColumnDef[] = [
         // Identifiers
@@ -75,12 +85,12 @@ export const ExcelService = {
         { header: 'Bordereau No', key: 'bordereauNo', width: 15 },
         { header: 'Status', key: 'status', width: 15 },
 
-        // Dates (Formatted as dd.mm.yyyy)
-        { header: 'Inception', key: 'inceptionDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
-        { header: 'Expiry', key: 'expiryDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
-        { header: 'Date of Slip', key: 'dateOfSlip', width: 15, align: 'center', format: 'dd.mm.yyyy' },
-        { header: 'Accounting Date', key: 'accountingDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
-        { header: 'Payment Date', key: 'paymentDate', width: 15, align: 'center', format: 'dd.mm.yyyy' },
+        // Dates
+        { header: 'Inception', key: 'inceptionDate', width: 15, align: 'center', format: dateFormat },
+        { header: 'Expiry', key: 'expiryDate', width: 15, align: 'center', format: dateFormat },
+        { header: 'Date of Slip', key: 'dateOfSlip', width: 15, align: 'center', format: dateFormat },
+        { header: 'Accounting Date', key: 'accountingDate', width: 15, align: 'center', format: dateFormat },
+        { header: 'Payment Date', key: 'paymentDate', width: 15, align: 'center', format: dateFormat },
         { header: 'Warranty (Days)', key: 'warrantyPeriod', width: 10 },
 
         // Parties

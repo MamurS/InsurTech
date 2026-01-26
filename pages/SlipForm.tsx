@@ -1,9 +1,11 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
-import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer } from '../types';
-import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash, Activity, Plus, Trash2 } from 'lucide-react';
+import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer, Currency } from '../types';
+import { formatDate } from '../utils/dateUtils';
+import { Save, ArrowLeft, FileSpreadsheet, Building, Calendar, Hash, Activity, Plus, Trash2, DollarSign } from 'lucide-react';
+import { CustomDateInput } from '../components/CustomDateInput';
 
 const SlipForm: React.FC = () => {
   const { id } = useParams();
@@ -18,7 +20,9 @@ const SlipForm: React.FC = () => {
     insuredName: '',
     brokerReinsurer: '',
     status: PolicyStatus.ACTIVE,
-    reinsurers: []
+    reinsurers: [],
+    currency: Currency.USD,
+    limitOfLiability: 0
   });
 
   useEffect(() => {
@@ -38,7 +42,9 @@ const SlipForm: React.FC = () => {
           setFormData({
               ...slip,
               status: slip.status || PolicyStatus.ACTIVE,
-              reinsurers: slip.reinsurers || []
+              reinsurers: slip.reinsurers || [],
+              currency: slip.currency || Currency.USD,
+              limitOfLiability: slip.limitOfLiability || 0
           });
         } else {
           alert('Slip not found');
@@ -51,7 +57,16 @@ const SlipForm: React.FC = () => {
   }, [id, isEdit, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData(prev => ({ 
+        ...prev, 
+        [name]: name === 'limitOfLiability' ? Number(value) : value 
+    }));
+  };
+
+  // Wrapper for date change
+  const handleDateChange = (e: { target: { name: string, value: string } }) => {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleReinsurerChange = (index: number, field: keyof PolicyReinsurer, value: any) => {
@@ -85,15 +100,15 @@ const SlipForm: React.FC = () => {
 
   const labelClass = "block text-sm font-medium text-gray-600 mb-1.5";
   const inputClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition-all text-sm text-gray-900";
+  const selectClass = "w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none transition-all text-sm text-gray-900";
 
-  // Date Formatter
-  const formattedToday = () => {
-      const date = new Date();
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-  }
+  // Priority Currencies Sort
+  const priorityCurrencies = ['UZS', 'USD', 'EUR'];
+  const allCurrencies = Object.values(Currency);
+  const sortedCurrencies = [
+      ...priorityCurrencies,
+      ...allCurrencies.filter(c => !priorityCurrencies.includes(c)).sort()
+  ];
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -141,7 +156,7 @@ const SlipForm: React.FC = () => {
                         Register a new Outward Reinsurance Slip. Support for multiple reinsurers (panel) is now enabled.
                     </p>
                     <div className="text-xs text-amber-700 font-mono bg-amber-100/50 p-2 rounded">
-                        Current Date: {formattedToday()}
+                        Current Date: {formatDate(new Date().toISOString())}
                     </div>
                 </div>
             </div>
@@ -166,15 +181,13 @@ const SlipForm: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         <div>
-                             <label className={labelClass}><span className="flex items-center gap-2"><Calendar size={14}/> Date</span></label>
-                            <input 
-                                required
-                                type="date" 
+                             <CustomDateInput 
+                                label="Date" 
                                 name="date" 
                                 value={formData.date} 
-                                onChange={handleChange}
-                                className={inputClass}
-                            />
+                                onChange={handleDateChange} 
+                                required
+                             />
                         </div>
                         <div>
                             <label className={labelClass}><span className="flex items-center gap-2"><Activity size={14}/> Status</span></label>
@@ -203,6 +216,32 @@ const SlipForm: React.FC = () => {
                             placeholder="e.g. Company A"
                             className={inputClass}
                         />
+                    </div>
+
+                    {/* Financials Section */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 pt-4 border-t border-gray-100">
+                        <div>
+                            <label className={labelClass}><span className="flex items-center gap-2"><DollarSign size={14}/> Currency</span></label>
+                            <select 
+                                name="currency" 
+                                value={formData.currency} 
+                                onChange={handleChange} 
+                                className={selectClass}
+                            >
+                                {sortedCurrencies.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className={labelClass}>Limit of Liability</label>
+                            <input 
+                                type="number" 
+                                name="limitOfLiability" 
+                                value={formData.limitOfLiability || ''} 
+                                onChange={handleChange}
+                                placeholder="0.00"
+                                className={inputClass}
+                            />
+                        </div>
                     </div>
 
                     {/* REINSURERS PANEL */}

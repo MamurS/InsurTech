@@ -7,6 +7,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, User, UserRole, UserPermissions, DEFAULT_PERMISSIONS, ExchangeRate, Currency } from '../types';
 import { DetailModal } from '../components/DetailModal';
+import { formatDate } from '../utils/dateUtils';
 import { 
   Trash2, RefreshCw, Users, 
   Lock, CheckCircle, AlertTriangle, Table, Code, 
@@ -105,18 +106,6 @@ const AdminConsole: React.FC = () => {
   useEffect(() => {
     loadAllData();
   }, [activeSection, dbViewType, recycleType]);
-
-  // --- DATE FORMATTER (dd.mm.yyyy) ---
-  const formatDate = (dateStr: string | undefined | null) => {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-  };
 
   const handleRowClick = (item: any) => {
     setSelectedItem(item);

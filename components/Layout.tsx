@@ -4,9 +4,9 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MosaicLogo } from './MosaicLogo';
 import { 
-  LayoutDashboard, FileText, Settings, PlusCircle, 
+  LayoutDashboard, FileText, Settings, 
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen, 
-  LogOut, User as UserIcon, Shield, Building2
+  LogOut, User as UserIcon, Building2
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -53,17 +53,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <LayoutDashboard size={20} className="flex-shrink-0" />
             <span>Dashboard (DB)</span>
-          </NavLink>
-
-          <NavLink 
-            to="/new" 
-            className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-            }
-             title="New Policy"
-          >
-            <PlusCircle size={20} className="flex-shrink-0" />
-            <span>New Policy</span>
           </NavLink>
 
           <NavLink 

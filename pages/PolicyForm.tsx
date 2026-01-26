@@ -3,7 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryType, PolicyReinsurer, Installment } from '../types';
+import { formatDate } from '../utils/dateUtils';
 import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Briefcase, Globe, Plus, Trash2, RefreshCw, CreditCard, Calendar } from 'lucide-react';
+import { CustomDateInput } from '../components/CustomDateInput';
 
 // --- DATASETS FOR AUTOCOMPLETE ---
 const UZBEK_REGIONS = [
@@ -503,18 +505,6 @@ const PolicyForm: React.FC = () => {
       ...allCurrencies.filter(c => !priorityCurrencies.includes(c)).sort()
   ];
 
-  // --- DATE FORMATTER (dd.mm.yyyy) ---
-  const formatDate = (dateStr: string | undefined) => {
-      if (!dateStr) return '-';
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-  };
-
   return (
     <div className="max-w-7xl mx-auto pb-20">
       <form onSubmit={handleSubmit}>
@@ -815,7 +805,7 @@ const PolicyForm: React.FC = () => {
                         Add installments below. The system tracks Due Date vs Actual Paid Date.
                     </div>
 
-                    <div className="border border-gray-200 rounded-lg overflow-hidden mb-4">
+                    <div className="border border-gray-200 rounded-lg mb-4">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-gray-50 text-gray-700">
                                 <tr>
@@ -834,16 +824,12 @@ const PolicyForm: React.FC = () => {
                                     return (
                                         <tr key={inst.id} className="bg-white">
                                             <td className="px-4 py-2 text-center text-gray-400">{idx + 1}</td>
-                                            <td className="px-4 py-2">
-                                                <div className="relative">
-                                                    <input 
-                                                        type="date" 
-                                                        value={inst.dueDate} 
-                                                        onChange={(e) => handleInstallmentChange(idx, 'dueDate', e.target.value)}
-                                                        className="w-full border-none focus:ring-0 text-sm bg-transparent"
-                                                    />
-                                                    {inst.dueDate && <div className="text-[10px] text-gray-400 mt-0.5">{formatDate(inst.dueDate)}</div>}
-                                                </div>
+                                            <td className="px-4 py-2 min-w-[160px]">
+                                                <CustomDateInput 
+                                                    name="dueDate" 
+                                                    value={inst.dueDate} 
+                                                    onChange={(e) => handleInstallmentChange(idx, 'dueDate', e.target.value)}
+                                                />
                                             </td>
                                             <td className="px-4 py-2">
                                                 <input 
@@ -854,16 +840,12 @@ const PolicyForm: React.FC = () => {
                                                     placeholder="0.00"
                                                 />
                                             </td>
-                                            <td className="px-4 py-2">
-                                                <div className="relative">
-                                                    <input 
-                                                        type="date" 
-                                                        value={inst.paidDate || ''} 
-                                                        onChange={(e) => handleInstallmentChange(idx, 'paidDate', e.target.value)}
-                                                        className="w-full border-none focus:ring-0 text-sm bg-transparent"
-                                                    />
-                                                    {inst.paidDate && <div className="text-[10px] text-green-600 mt-0.5">{formatDate(inst.paidDate)}</div>}
-                                                </div>
+                                            <td className="px-4 py-2 min-w-[160px]">
+                                                <CustomDateInput 
+                                                    name="paidDate" 
+                                                    value={inst.paidDate} 
+                                                    onChange={(e) => handleInstallmentChange(idx, 'paidDate', e.target.value)}
+                                                />
                                             </td>
                                             <td className="px-4 py-2">
                                                 <input 
@@ -1213,24 +1195,19 @@ const PolicyForm: React.FC = () => {
                         
                         <div className="grid grid-cols-2 gap-3 border-t pt-3">
                             <div>
-                                <label className={labelClass}>Inception</label>
-                                <input type="date" name="inceptionDate" value={formData.inceptionDate} onChange={handleChange} className={inputClass}/>
+                                <CustomDateInput label="Inception" name="inceptionDate" value={formData.inceptionDate} onChange={handleChange} />
                             </div>
                              <div>
-                                <label className={labelClass}>Expiry</label>
-                                <input type="date" name="expiryDate" value={formData.expiryDate} onChange={handleChange} className={inputClass}/>
+                                <CustomDateInput label="Expiry" name="expiryDate" value={formData.expiryDate} onChange={handleChange} />
                             </div>
                              <div>
-                                <label className={labelClass}>Date of Slip</label>
-                                <input type="date" name="dateOfSlip" value={formData.dateOfSlip || ''} onChange={handleChange} className={inputClass}/>
+                                <CustomDateInput label="Date of Slip" name="dateOfSlip" value={formData.dateOfSlip} onChange={handleChange} />
                             </div>
                              <div>
-                                <label className={labelClass}>Accounting Date</label>
-                                <input type="date" name="accountingDate" value={formData.accountingDate || ''} onChange={handleChange} className={inputClass}/>
+                                <CustomDateInput label="Accounting Date" name="accountingDate" value={formData.accountingDate} onChange={handleChange} />
                             </div>
                             <div>
-                                <label className={labelClass}>Payment Date</label>
-                                <input type="date" name="paymentDate" value={formData.paymentDate || ''} onChange={handleChange} className={inputClass}/>
+                                <CustomDateInput label="Payment Date" name="paymentDate" value={formData.paymentDate} onChange={handleChange} />
                             </div>
                         </div>
                     </div>

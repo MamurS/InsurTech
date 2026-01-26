@@ -22,7 +22,7 @@ interface AppSettings {
 const DEFAULT_SETTINGS: AppSettings = {
   companyName: 'InsurTech Solutions',
   currency: 'USD',
-  dateFormat: 'DD.MM.YYYY',
+  dateFormat: 'dd.mm.yyyy',
   defaultCommission: 15.0,
   defaultTax: 0,
   enableNotifications: true,
@@ -59,7 +59,13 @@ const Settings: React.FC = () => {
   const handleSave = () => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     setSaveStatus('saved');
-    setTimeout(() => setSaveStatus('idle'), 2000);
+    
+    // We do NOT reload the page to prevent crashes in some hosting environments.
+    // Since components read settings from localStorage on render, 
+    // simply navigating away from this page will reflect changes.
+    setTimeout(() => {
+        setSaveStatus('idle');
+    }, 2000);
   };
 
   const handleChange = (field: keyof AppSettings, value: any) => {
@@ -183,9 +189,12 @@ const Settings: React.FC = () => {
                             onChange={(e) => handleChange('dateFormat', e.target.value)}
                             className="w-full p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
                         >
-                            <option value="DD.MM.YYYY">DD.MM.YYYY</option>
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                            <option value="dd.mm.yyyy">dd.mm.yyyy</option>
+                            <option value="dd/mm/yyyy">dd/mm/yyyy</option>
+                            <option value="mm/dd/yyyy">mm/dd/yyyy</option>
+                            <option value="mm.dd.yyyy">mm.dd.yyyy</option>
+                            <option value="dd-mm-yyyy">dd-mm-yyyy</option>
+                            <option value="mm-dd-yyyy">mm-dd-yyyy</option>
                         </select>
                     </div>
                 </div>

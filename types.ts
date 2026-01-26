@@ -126,6 +126,11 @@ export interface ReinsuranceSlip {
   insuredName: string; // Insured
   brokerReinsurer: string; // Lead Broker/Reinsurer (Legacy)
   reinsurers?: PolicyReinsurer[]; // New Multi-Reinsurer Support
+  
+  // Financials
+  currency?: Currency | string;
+  limitOfLiability?: number;
+
   status?: PolicyStatus; 
   isDeleted?: boolean;
 }

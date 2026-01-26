@@ -104,6 +104,7 @@ create table public.policies (
 
   -- Outward Reinsurance
   "hasOutwardReinsurance" boolean default false,
+  "reinsurers" jsonb default '[]'::jsonb, -- Stores array of reinsurers
   "reinsuranceCommission" numeric,
   "netReinsurancePremium" numeric,
   "cededShare" numeric,
@@ -168,6 +169,9 @@ create table public.slips (
   date date,
   "insuredName" text,
   "brokerReinsurer" text,
+  "reinsurers" jsonb default '[]'::jsonb, -- Array of markets
+  "limitOfLiability" numeric,
+  currency text,
   "isDeleted" boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
@@ -188,3 +192,60 @@ create table public.templates (
 
 alter table public.templates enable row level security;
 create policy "Enable all access for authenticated users" on public.templates for all using (auth.role() = 'authenticated');
+
+
+-- 6. Legal Entities Table
+create table public.legal_entities (
+  id uuid default uuid_generate_v4() primary key,
+  "fullName" text,
+  "shortName" text,
+  type text,
+  "regCodeType" text,
+  "regCodeValue" text,
+  country text,
+  city text,
+  address text,
+  phone text,
+  email text,
+  website text,
+  shareholders text,
+  "lineOfBusiness" text,
+  "directorName" text,
+  "bankName" text,
+  "bankAccount" text,
+  "bankMFO" text,
+  "bankAddress" text,
+  "isDeleted" boolean default false,
+  "createdAt" timestamp with time zone,
+  "updatedAt" timestamp with time zone
+);
+
+alter table public.legal_entities enable row level security;
+create policy "Enable all access for authenticated users" on public.legal_entities for all using (auth.role() = 'authenticated');
+
+
+-- 7. Entity Logs (Audit Trail for Legal Entities)
+create table public.entity_logs (
+  id uuid default uuid_generate_v4() primary key,
+  "entityId" text, 
+  "userId" text,
+  "userName" text,
+  action text,
+  changes text, -- JSON string
+  timestamp timestamp with time zone
+);
+
+alter table public.entity_logs enable row level security;
+create policy "Enable all access for authenticated users" on public.entity_logs for all using (auth.role() = 'authenticated');
+
+
+-- 8. FX Rates Table
+create table public.fx_rates (
+  id uuid default uuid_generate_v4() primary key,
+  currency text,
+  rate numeric,
+  date date
+);
+
+alter table public.fx_rates enable row level security;
+create policy "Enable all access for authenticated users" on public.fx_rates for all using (auth.role() = 'authenticated');
