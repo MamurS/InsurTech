@@ -11,6 +11,14 @@ export const useClaimsList = (filters: ClaimFilters) => {
   });
 };
 
+export const usePoliciesDropdown = () => {
+    return useQuery({
+        queryKey: ['policies-dropdown'],
+        queryFn: () => ClaimsService.getPoliciesForDropdown(),
+        staleTime: 1000 * 60 * 5, // Cache for 5 minutes
+    });
+};
+
 export const useClaimDetail = (id: string | undefined) => {
   return useQuery({
     queryKey: ['claim', id],
@@ -37,7 +45,8 @@ export const useCreateClaim = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (claim: Partial<Claim>) => ClaimsService.createClaim(claim),
+    mutationFn: (claim: Parameters<typeof ClaimsService.createClaim>[0]) => 
+        ClaimsService.createClaim(claim),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['claims'] });
     },

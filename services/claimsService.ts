@@ -50,7 +50,6 @@ export const determineLiability = (
 
 export const ClaimsService = {
     // Get all claims with filtering and pagination
-    // NOTE: Switched to client-side filtering because Supabase RPC chaining is limited
     getAllClaims: async (filters: ClaimFilters): Promise<ClaimsResponse> => {
         if (!supabase) return { data: [], count: 0 };
 
@@ -126,14 +125,30 @@ export const ClaimsService = {
                 outstandingOurShare: parseFloat(row.outstanding_our_share) || 0,
             }));
 
-            console.log("Mapped Data:", mappedData);
-
             return { data: mappedData, count: totalCount };
 
         } catch (err) {
             console.error("getAllClaims critical error:", err);
             return { data: [], count: 0 };
         }
+    },
+
+    // Get Policies for Dropdown (Lightweight)
+    getPoliciesForDropdown: async (): Promise<Array<{id: string, policyNumber: string, insuredName: string, inceptionDate: string, expiryDate: string, currency: string, ourShare: number}>> => {
+        if (!supabase) return [];
+        
+        const { data, error } = await supabase
+            .from('policies')
+            .select('id, policyNumber, insuredName, inceptionDate, expiryDate, currency, ourShare')
+            .or('isDeleted.is.null,isDeleted.eq.false')
+            .order('policyNumber', { ascending: false });
+        
+        if (error) {
+            console.error("Error fetching policies for dropdown", error);
+            return [];
+        }
+        
+        return data || [];
     },
 
     // Get Single Claim with Transactions
@@ -162,7 +177,7 @@ export const ClaimsService = {
             reportDate: data.report_date,
             description: data.description,
             claimantName: data.claimant_name,
-            locationCountry: data.location_country,
+            location_country: data.location_country,
             importedTotalIncurred: data.imported_total_incurred,
             importedTotalPaid: data.imported_total_paid,
             
@@ -193,7 +208,7 @@ export const ClaimsService = {
         } as Claim;
     },
 
-    createClaim: async (claim: Partial<Claim>): Promise<string | null> => {
+    createClaim: async (claim: Partial<Claim> & { initialReserve?: number; currency?: string; ourSharePercentage?: number }): Promise<string | null> => {
         if (!supabase) {
             alert("Database connection required for Claims Module");
             return null;
@@ -203,7 +218,7 @@ export const ClaimsService = {
             policy_id: claim.policyId,
             claim_number: claim.claimNumber,
             liability_type: claim.liabilityType,
-            status: claim.status,
+            status: 'OPEN',
             loss_date: claim.lossDate,
             report_date: claim.reportDate,
             description: claim.description,
@@ -220,7 +235,27 @@ export const ClaimsService = {
             .single();
 
         if (error) throw error;
-        return data.id;
+        
+        const claimId = data.id;
+
+        // If initial reserve provided and claim is ACTIVE, create RESERVE_SET transaction
+        if (claim.initialReserve && claim.liabilityType === 'ACTIVE' && claimId) {
+            const sharePercent = claim.ourSharePercentage || 100;
+            const amountOurShare = claim.initialReserve * (sharePercent / 100);
+            
+            await supabase.from('claim_transactions').insert({
+                claim_id: claimId,
+                transaction_type: 'RESERVE_SET',
+                amount_100pct: claim.initialReserve,
+                our_share_percentage: sharePercent,
+                amount_our_share: amountOurShare,
+                transaction_date: new Date().toISOString(),
+                currency: claim.currency || 'USD',
+                notes: 'Initial reserve set at claim registration'
+            });
+        }
+
+        return claimId;
     },
 
     addTransaction: async (txn: Partial<ClaimTransaction>) => {

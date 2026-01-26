@@ -1,14 +1,16 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClaimFilters, ClaimLiabilityType, ClaimStatus } from '../types';
+import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
+import RegisterClaimModal from '../components/RegisterClaimModal';
 import { AlertOctagon, Search, Plus, Filter, ArrowRight, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
   
   // Filter State
   const [filters, setFilters] = useState<ClaimFilters>({
@@ -53,7 +55,7 @@ const ClaimsList: React.FC = () => {
           <p className="text-gray-500 text-sm">Manage notifications, active claims, and transaction ledgers.</p>
         </div>
         <button 
-          onClick={() => alert("To create a claim, please go to the specific Policy and click 'Register Claim'")}
+          onClick={() => setShowRegisterModal(true)}
           className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm"
         >
           <Plus size={18} /> Register Claim
@@ -254,6 +256,11 @@ const ClaimsList: React.FC = () => {
             </>
         )}
       </div>
+
+      <RegisterClaimModal 
+        isOpen={showRegisterModal} 
+        onClose={() => setShowRegisterModal(false)} 
+      />
     </div>
   );
 };
