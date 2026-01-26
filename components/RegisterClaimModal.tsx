@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { X, Loader2, AlertTriangle, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Loader2, AlertTriangle, CheckCircle, Search, ChevronDown } from 'lucide-react';
 import { useCreateClaim, usePoliciesDropdown } from '../hooks/useClaims';
 import { determineLiability } from '../services/claimsService';
 import { ClaimLiabilityType } from '../types';
@@ -32,12 +32,26 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
     const [locationCountry, setLocationCountry] = useState('');
     const [initialReserve, setInitialReserve] = useState<number | ''>('');
     
+    // Searchable Dropdown State
+    const [searchTerm, setSearchTerm] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    
     // Calculated liability
     const [liabilityType, setLiabilityType] = useState<ClaimLiabilityType | null>(null);
     const [liabilityReason, setLiabilityReason] = useState('');
 
     // Get selected policy details
     const selectedPolicy = policies?.find(p => p.id === selectedPolicyId);
+
+    // Filter policies for dropdown
+    const filteredPolicies = policies?.filter(policy => {
+        if (!searchTerm) return true;
+        const term = searchTerm.toLowerCase();
+        return (
+            policy.policyNumber.toLowerCase().includes(term) ||
+            policy.insuredName.toLowerCase().includes(term)
+        );
+    }) || [];
 
     // Auto-calculate liability when policy and loss date change
     useEffect(() => {
@@ -62,6 +76,8 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
     useEffect(() => {
         if (isOpen) {
             setSelectedPolicyId('');
+            setSearchTerm('');
+            setIsDropdownOpen(false);
             setClaimNumber(generateClaimNumber());
             setLossDate('');
             setReportDate(new Date().toISOString().split('T')[0]);
@@ -74,6 +90,20 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
             setLiabilityReason('');
         }
     }, [isOpen]);
+
+    const handleSelectPolicy = (policy: any) => {
+        setSelectedPolicyId(policy.id);
+        setSearchTerm(`${policy.policyNumber} - ${policy.insuredName}`);
+        setIsDropdownOpen(false);
+    };
+
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setSearchTerm(e.target.value);
+        if (selectedPolicyId) {
+            setSelectedPolicyId(''); // Clear selection if user types
+        }
+        setIsDropdownOpen(true);
+    };
 
     const handleSubmit = async () => {
         if (!selectedPolicyId || !lossDate || !description || !liabilityType) {
@@ -111,7 +141,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10">
+                <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-20">
                     <h2 className="text-xl font-bold text-gray-800">Register New Claim</h2>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-500">
                         <X size={20} />
@@ -120,7 +150,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
 
                 {/* Form */}
                 <div className="p-6 space-y-6">
-                    {/* Policy Selection */}
+                    {/* Policy Selection (Searchable Dropdown) */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-1">
                             Policy <span className="text-red-500">*</span>
@@ -130,24 +160,60 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                                 <Loader2 size={16} className="animate-spin" /> Loading policies...
                             </div>
                         ) : (
-                            <select
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-                                value={selectedPolicyId}
-                                onChange={(e) => setSelectedPolicyId(e.target.value)}
-                            >
-                                <option value="">Select a policy...</option>
-                                {policies?.map(policy => (
-                                    <option key={policy.id} value={policy.id}>
-                                        {policy.policyNumber} - {policy.insuredName}
-                                    </option>
-                                ))}
-                            </select>
+                            <div className="relative">
+                                {/* Click outside overlay */}
+                                {isDropdownOpen && (
+                                    <div 
+                                        className="fixed inset-0 z-10" 
+                                        onClick={() => setIsDropdownOpen(false)}
+                                    />
+                                )}
+                                
+                                <div className="relative z-20">
+                                    <input
+                                        type="text"
+                                        className="w-full p-2.5 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                                        placeholder="Type to search by policy number or insured name..."
+                                        value={searchTerm}
+                                        onChange={handleSearchChange}
+                                        onFocus={() => setIsDropdownOpen(true)}
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
+                                        {isDropdownOpen ? <Search size={16} /> : <ChevronDown size={16} />}
+                                    </div>
+                                </div>
+
+                                {/* Dropdown List */}
+                                {isDropdownOpen && (
+                                    <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
+                                        {filteredPolicies.length === 0 ? (
+                                            <div className="p-3 text-gray-500 text-sm text-center">No policies found</div>
+                                        ) : (
+                                            filteredPolicies.map(policy => (
+                                                <div
+                                                    key={policy.id}
+                                                    className="p-3 hover:bg-blue-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors"
+                                                    onClick={() => handleSelectPolicy(policy)}
+                                                >
+                                                    <div className="font-medium text-gray-900 text-sm flex justify-between">
+                                                        <span>{policy.policyNumber}</span>
+                                                        <span className="text-gray-400 font-normal text-xs">{policy.currency}</span>
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">{policy.insuredName}</div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         )}
+                        
+                        {/* Selected Policy Details Display */}
                         {selectedPolicy && (
-                            <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
-                                <span className="font-bold">Period:</span> {selectedPolicy.inceptionDate} to {selectedPolicy.expiryDate} &bull; 
-                                <span className="font-bold ml-2">Currency:</span> {selectedPolicy.currency} &bull; 
-                                <span className="font-bold ml-2">Our Share:</span> {selectedPolicy.ourShare}%
+                            <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
+                                <span><span className="font-bold">Period:</span> {selectedPolicy.inceptionDate} to {selectedPolicy.expiryDate}</span>
+                                <span><span className="font-bold">Currency:</span> {selectedPolicy.currency}</span>
+                                <span><span className="font-bold">Our Share:</span> {selectedPolicy.ourShare}%</span>
                             </div>
                         )}
                     </div>
