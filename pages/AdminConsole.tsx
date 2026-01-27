@@ -7,7 +7,7 @@ import { UserService } from '../services/userService';
 import { PermissionService } from '../services/permissionService';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
-import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role } from '../types';
+import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
 import { formatDate } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { supabase } from '../services/supabase'; // Import direct for custom save
@@ -73,10 +73,12 @@ const AdminConsole: React.FC = () => {
       role: 'Underwriter',
       roleId: '',
       department: '',
+      departmentId: '',
       phone: '',
       isActive: true
   });
   const [newUserPassword, setNewUserPassword] = useState(''); 
+  const [departments, setDepartments] = useState<Department[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -91,13 +93,14 @@ const AdminConsole: React.FC = () => {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [p, s, c, t, fx, r] = await Promise.all([
+    const [p, s, c, t, fx, r, d] = await Promise.all([
         DB.getAllPolicies(), 
         DB.getAllSlips(), 
         DB.getAllClauses(), 
         DB.getTemplates(),
         DB.getExchangeRates(),
-        PermissionService.getRoles()
+        PermissionService.getRoles(),
+        UserService.getDepartments()
     ]);
     setRawPolicies(p);
     setRawSlips(s);
@@ -105,6 +108,7 @@ const AdminConsole: React.FC = () => {
     setTemplates(t);
     setFxRates(fx);
     setRoles(r);
+    setDepartments(d);
 
     const [dp, ds, dc] = await Promise.all([DB.getDeletedPolicies(), DB.getDeletedSlips(), DB.getDeletedClauses()]);
     setDeletedPolicies(dp);
@@ -189,6 +193,7 @@ const AdminConsole: React.FC = () => {
           setCurrentUser({
               ...u,
               roleId: u.roleId || '',
+              departmentId: u.departmentId || '',
           });
       } else {
           setCurrentUser({
@@ -197,6 +202,7 @@ const AdminConsole: React.FC = () => {
               role: 'Underwriter',
               roleId: '',
               department: '',
+              departmentId: '',
               phone: '',
               isActive: true,
               avatarUrl: 'NU'
@@ -237,6 +243,7 @@ const AdminConsole: React.FC = () => {
                         full_name: currentUser.fullName,
                         role_id: currentUser.roleId || null,
                         department: currentUser.department || null,
+                        department_id: currentUser.departmentId || null,
                         phone: currentUser.phone || null,
                         is_active: currentUser.isActive !== false,
                         role: roles?.find(r => r.id === currentUser.roleId)?.name || 'Underwriter'
@@ -255,6 +262,7 @@ const AdminConsole: React.FC = () => {
                     full_name: currentUser.fullName,
                     role_id: currentUser.roleId || null,
                     department: currentUser.department || null,
+                    department_id: currentUser.departmentId || null,
                     phone: currentUser.phone || null,
                     is_active: currentUser.isActive !== false,
                     role: roles?.find(r => r.id === currentUser.roleId)?.name || currentUser.role
@@ -523,12 +531,25 @@ const AdminConsole: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Department</label>
-                                <input 
-                                    className="w-full bg-white border rounded p-2 text-gray-900" 
-                                    value={currentUser.department} 
-                                    onChange={e => setCurrentUser({...currentUser, department: e.target.value})}
-                                    placeholder="e.g. Marine"
-                                />
+                                <select 
+                                    className="w-full bg-white border rounded p-2 text-gray-900"
+                                    value={currentUser.departmentId || ''}
+                                    onChange={e => {
+                                        const dept = departments.find(d => d.id === e.target.value);
+                                        setCurrentUser({
+                                            ...currentUser, 
+                                            departmentId: e.target.value,
+                                            department: dept?.name || ''
+                                        });
+                                    }}
+                                >
+                                    <option value="">Select Department...</option>
+                                    {departments.map(dept => (
+                                        <option key={dept.id} value={dept.id}>
+                                            {dept.name} {dept.code ? `(${dept.code})` : ''}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
 

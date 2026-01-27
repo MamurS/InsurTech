@@ -114,6 +114,18 @@ export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 export type EntityType = 'POLICY' | 'SLIP' | 'CLAIM' | 'ENTITY' | 'OTHER';
 
+export interface Department {
+    id: string;
+    name: string;
+    code?: string;
+    description?: string;
+    headOfDepartment?: string;
+    maxStaff?: number;
+    currentStaffCount?: number;
+    parentDepartmentId?: string;
+    isActive: boolean;
+}
+
 export interface Profile {
     id: string;
     email: string;
@@ -121,6 +133,7 @@ export interface Profile {
     role: UserRole; // Legacy string role
     roleId?: string; // New RBAC role ID
     department?: string;
+    departmentId?: string;
     phone?: string;
     avatarUrl?: string;
     isActive: boolean;
@@ -128,6 +141,7 @@ export interface Profile {
     customLolLimit?: number;
     customClaimLimit?: number;
     canOverrideLimits?: boolean;
+    updatedAt?: string;
 }
 
 export interface AgendaTask {
