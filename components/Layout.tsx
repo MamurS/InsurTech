@@ -3,7 +3,6 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MosaicLogo } from './MosaicLogo';
-import { PermissionGate } from './PermissionGate';
 import { 
   LayoutDashboard, FileText, Settings, 
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen, 
@@ -65,63 +64,56 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span>My Agenda</span>
           </NavLink>
 
-          <PermissionGate permission={['slips.view', 'slips.create']}>
-            <NavLink 
-                to="/slips" 
-                className={({ isActive }) => 
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-                }
-                title="Reinsurance Slips"
-            >
-                <FileSpreadsheet size={20} className="flex-shrink-0" />
-                <span>Reinsurance Slips</span>
-            </NavLink>
-          </PermissionGate>
+          <NavLink 
+              to="/slips" 
+              className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+              }
+              title="Reinsurance Slips"
+          >
+              <FileSpreadsheet size={20} className="flex-shrink-0" />
+              <span>Reinsurance Slips</span>
+          </NavLink>
 
-          <PermissionGate permission={['claims.view', 'claims.create']}>
-            <NavLink 
-                to="/claims" 
-                className={({ isActive }) => 
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-                }
-                title="Claims Center"
-            >
-                <AlertOctagon size={20} className="flex-shrink-0" />
-                <span>Claims Center</span>
-            </NavLink>
-          </PermissionGate>
+          <NavLink 
+              to="/claims" 
+              className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+              }
+              title="Claims Center"
+          >
+              <AlertOctagon size={20} className="flex-shrink-0" />
+              <span>Claims Center</span>
+          </NavLink>
 
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
             Configuration
           </div>
 
-          <PermissionGate permission={['entities.view']}>
-            <NavLink 
-                to="/entities" 
-                className={({ isActive }) => 
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-                }
-                title="Legal Entities"
-            >
-                <Building2 size={20} className="flex-shrink-0" />
-                <span>Legal Entities</span>
-            </NavLink>
-          </PermissionGate>
+          <NavLink 
+              to="/entities" 
+              className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+              }
+              title="Legal Entities"
+          >
+              <Building2 size={20} className="flex-shrink-0" />
+              <span>Legal Entities</span>
+          </NavLink>
 
-          <PermissionGate permission={['clauses.view']}>
-            <NavLink 
-                to="/clauses" 
-                className={({ isActive }) => 
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-                }
-                title="Clause Library"
-            >
-                <FileText size={20} className="flex-shrink-0" />
-                <span>Clause Library</span>
-            </NavLink>
-          </PermissionGate>
+          <NavLink 
+              to="/clauses" 
+              className={({ isActive }) => 
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
+              }
+              title="Clause Library"
+          >
+              <FileText size={20} className="flex-shrink-0" />
+              <span>Clause Library</span>
+          </NavLink>
 
-          <PermissionGate permission="admin.access">
+          {/* Admin Console - Restricted to Super Admin and Admin only */}
+          {(user?.role === 'Super Admin' || user?.role === 'Admin') && (
              <NavLink 
               to="/admin" 
               className={({ isActive }) => 
@@ -132,7 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Lock size={18} className="flex-shrink-0" />
               <span className="font-semibold">Admin Console</span>
             </NavLink>
-          </PermissionGate>
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-700 bg-slate-950/50">
