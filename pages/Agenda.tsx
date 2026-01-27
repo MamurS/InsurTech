@@ -2,13 +2,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useAgendaTasks, useUpdateTaskStatus } from '../hooks/useAgenda';
+import { useAgendaTasks } from '../hooks/useAgenda';
+import { AgendaService } from '../services/agendaService';
 import { formatDate } from '../utils/dateUtils';
 import AssignTaskModal from '../components/AssignTaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { 
     ClipboardList, Filter, Search, CheckCircle, Clock, 
-    AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight, Paperclip
+    AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight
 } from 'lucide-react';
 import { TaskStatus, AgendaTask } from '../types';
 
@@ -24,15 +25,24 @@ const Agenda: React.FC = () => {
     const [selectedTask, setSelectedTask] = useState<AgendaTask | null>(null);
 
     // Fetch tasks
-    const { data: tasks, isLoading } = useAgendaTasks(user?.id, statusFilter === 'ALL' ? undefined : statusFilter);
+    const { data: tasks, isLoading, refetch } = useAgendaTasks(user?.id, statusFilter === 'ALL' ? undefined : statusFilter);
 
-    const handleTaskClick = (task: AgendaTask) => {
-        if (task.entityType === 'POLICY' && task.entityId) {
-            navigate(`/edit/${task.entityId}`);
-        } else if (task.entityType === 'SLIP' && task.entityId) {
-            navigate(`/slips/edit/${task.entityId}`);
-        } else if (task.entityType === 'CLAIM' && task.entityId) {
-            navigate(`/claims/${task.entityId}`);
+    const handleTaskClick = async (task: AgendaTask) => {
+        // If task is linked to an entity, navigate to it and mark as In Progress
+        if (task.entityType && task.entityType !== 'OTHER' && task.entityId) {
+            
+            // Mark as in progress before navigating
+            await AgendaService.markTaskInProgress(task.id);
+            // Refresh agenda data in background so it's updated when user returns
+            refetch();
+
+            if (task.entityType === 'POLICY') {
+                navigate(`/edit/${task.entityId}`);
+            } else if (task.entityType === 'SLIP') {
+                navigate(`/slips/edit/${task.entityId}`);
+            } else if (task.entityType === 'CLAIM') {
+                navigate(`/claims/${task.entityId}`);
+            }
         } else {
             // Open Modal for OTHER or unlinked tasks
             setSelectedTask(task);
@@ -139,6 +149,13 @@ const Agenda: React.FC = () => {
                                         {task.isOverdue && (
                                             <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">
                                                 <Clock size={10}/> OVERDUE
+                                            </span>
+                                        )}
+                                        {task.status !== 'PENDING' && (
+                                            <span className={`px-2 py-0.5 text-[10px] uppercase font-bold rounded border ${
+                                                task.status === 'COMPLETED' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-blue-100 text-blue-700 border-blue-200'
+                                            }`}>
+                                                {task.status.replace('_', ' ')}
                                             </span>
                                         )}
                                     </div>

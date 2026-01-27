@@ -85,6 +85,25 @@ export const AgendaService = {
         if (error) throw error;
     },
 
+    markTaskInProgress: async (taskId: string): Promise<void> => {
+        if (!supabase) return;
+        
+        // Update status to IN_PROGRESS only if it is currently PENDING.
+        // This avoids resetting COMPLETED tasks or redundant updates.
+        const { error } = await supabase
+            .from('agenda_tasks')
+            .update({ 
+                status: 'IN_PROGRESS',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', taskId)
+            .eq('status', 'PENDING');
+            
+        if (error) {
+            console.error('Failed to mark task in progress:', error);
+        }
+    },
+
     deleteTask: async (taskId: string) => {
         if (!supabase) return;
         
