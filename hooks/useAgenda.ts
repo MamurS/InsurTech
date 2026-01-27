@@ -7,7 +7,10 @@ export const useAgendaTasks = (userId?: string, status?: string) => {
     return useQuery({
         queryKey: ['agenda', userId, status],
         queryFn: () => AgendaService.getTasks(userId, status),
-        staleTime: 1000 * 60 * 2 // 2 mins
+        staleTime: 0, // Always refetch to avoid stale task status
+        refetchOnWindowFocus: true,
+        refetchOnMount: true,
+        refetchInterval: 5000 // Poll every 5s for updates
     });
 };
 

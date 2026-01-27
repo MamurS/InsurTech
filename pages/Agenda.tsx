@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useAgendaTasks } from '../hooks/useAgenda';
 import { AgendaService } from '../services/agendaService';
@@ -16,6 +17,7 @@ import { TaskStatus, AgendaTask } from '../types';
 const Agenda: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('PENDING');
     const [searchTerm, setSearchTerm] = useState('');
@@ -27,14 +29,22 @@ const Agenda: React.FC = () => {
     // Fetch tasks
     const { data: tasks, isLoading, refetch } = useAgendaTasks(user?.id, statusFilter === 'ALL' ? undefined : statusFilter);
 
+    const handleStatusFilterChange = (status: 'ALL' | TaskStatus) => {
+        setStatusFilter(status);
+        // Force refresh when switching tabs to ensure no duplicates from stale cache
+        queryClient.invalidateQueries({ queryKey: ['agenda'] });
+    };
+
     const handleTaskClick = async (task: AgendaTask) => {
         // If task is linked to an entity, navigate to it and mark as In Progress
         if (task.entityType && task.entityType !== 'OTHER' && task.entityId) {
             
-            // Mark as in progress before navigating
-            await AgendaService.markTaskInProgress(task.id);
-            // Refresh agenda data in background so it's updated when user returns
-            refetch();
+            // Auto update status if PENDING
+            if (task.status === 'PENDING') {
+                await AgendaService.markTaskInProgress(task.id);
+                // Invalidate immediately so next fetch reflects the change
+                queryClient.invalidateQueries({ queryKey: ['agenda'] });
+            }
 
             if (task.entityType === 'POLICY') {
                 navigate(`/edit/${task.entityId}`);
@@ -91,7 +101,7 @@ const Agenda: React.FC = () => {
                     {(['ALL', 'PENDING', 'IN_PROGRESS', 'COMPLETED'] as const).map(status => (
                         <button
                             key={status}
-                            onClick={() => setStatusFilter(status)}
+                            onClick={() => handleStatusFilterChange(status)}
                             className={`px-4 py-1.5 text-xs font-bold uppercase rounded-md transition-all whitespace-nowrap ${
                                 statusFilter === status ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
                             }`}
