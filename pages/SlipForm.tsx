@@ -19,7 +19,7 @@ const SlipForm: React.FC = () => {
     date: new Date().toISOString().split('T')[0],
     insuredName: '',
     brokerReinsurer: '',
-    status: PolicyStatus.ACTIVE,
+    status: 'DRAFT' as PolicyStatus,
     reinsurers: [],
     currency: Currency.USD,
     limitOfLiability: 0
@@ -193,11 +193,12 @@ const SlipForm: React.FC = () => {
                             <label className={labelClass}><span className="flex items-center gap-2"><Activity size={14}/> Status</span></label>
                             <select 
                                 name="status" 
-                                value={formData.status || PolicyStatus.ACTIVE} 
+                                value={formData.status || 'DRAFT'} 
                                 onChange={handleChange} 
                                 className={inputClass}
                             >
-                                <option value={PolicyStatus.ACTIVE}>Active</option>
+                                <option value="DRAFT">Draft</option>
+                                <option value={PolicyStatus.ACTIVE}>Active / Bound</option>
                                 <option value={PolicyStatus.PENDING}>Pending</option>
                                 <option value={PolicyStatus.CANCELLED}>Cancelled</option>
                                 <option value={PolicyStatus.NTU}>NTU</option>
