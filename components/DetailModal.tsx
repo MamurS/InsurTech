@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Policy, ReinsuranceSlip, Clause, PolicyStatus, TerminationDetails } from '../types';
 import { DB } from '../services/db';
 import { formatDate } from '../utils/dateUtils';
+import { supabase } from '../services/supabase';
 import { 
   X, Building2, Calendar, DollarSign, 
   CheckCircle, FileText, Upload, AlertCircle, XCircle, AlertTriangle, 
-  MapPin, Shield
+  MapPin, Shield, Settings, Send, RefreshCw, Archive
 } from 'lucide-react';
 
 interface DetailModalProps {
@@ -72,6 +73,121 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
     } finally {
         setIsProcessing(false);
     }
+  };
+
+  // --- SLIP WORKFLOW HANDLERS ---
+
+  const handleSlipStatusChange = async (newStatus: string, additionalFields: any = {}) => {
+    if (!item || !('slipNumber' in item)) {
+        alert('Error: No slip selected');
+        return;
+    }
+    const slip = item as ReinsuranceSlip;
+    
+    const statusLabels: Record<string, string> = {
+        'PENDING': 'submit for review',
+        'QUOTED': 'mark as quoted',
+        'SIGNED': 'sign',
+        'SENT': 'send to reinsurer',
+        'BOUND': 'confirm as bound',
+        'CLOSED': 'close',
+        'DECLINED': 'decline',
+        'NTU': 'mark as not taken up',
+        'CANCELLED': 'cancel'
+    };
+    
+    if (!window.confirm(`Are you sure you want to ${statusLabels[newStatus] || newStatus.toLowerCase()} this slip?`)) {
+        return;
+    }
+    
+    try {
+        const updateData: any = { 
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+            ...additionalFields
+        };
+        
+        if (supabase) {
+            const { error } = await supabase
+                .from('slips')
+                .update(updateData)
+                .eq('id', slip.id);
+            
+            if (error) throw error;
+        } else {
+            // Local fallback
+            const updatedSlip = { ...slip, ...updateData };
+            await DB.saveSlip(updatedSlip);
+        }
+        
+        alert(`Slip ${statusLabels[newStatus] || 'updated'} successfully!`);
+        window.location.reload();
+        
+    } catch (error: any) {
+        console.error('Error updating slip status:', error);
+        alert('Failed to update slip: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const handleSlipDecline = async () => {
+    if (!item || !('slipNumber' in item)) return;
+    const slip = item as ReinsuranceSlip;
+    
+    const reason = window.prompt('Please enter the reason for declining:');
+    if (reason === null) return; // User cancelled
+    
+    try {
+        if (supabase) {
+            const { error } = await supabase
+                .from('slips')
+                .update({
+                    status: 'DECLINED',
+                    decline_reason: reason, // Assuming column exists or handled by flexibility
+                    declined_date: new Date().toISOString().split('T')[0],
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', slip.id);
+            
+            if (error) throw error;
+        } else {
+             // Local fallback
+             const updatedSlip = { 
+                 ...slip, 
+                 status: 'DECLINED' as any, 
+                 decline_reason: reason,
+                 declined_date: new Date().toISOString().split('T')[0]
+             };
+             await DB.saveSlip(updatedSlip);
+        }
+        
+        alert('Slip declined successfully!');
+        window.location.reload();
+        
+    } catch (error: any) {
+        console.error('Error declining slip:', error);
+        alert('Failed to decline slip: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const getSlipStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+        'DRAFT': 'bg-gray-100 text-gray-800',
+        'PENDING': 'bg-blue-100 text-blue-800',
+        'QUOTED': 'bg-purple-100 text-purple-800',
+        'SIGNED': 'bg-indigo-100 text-indigo-800',
+        'SENT': 'bg-cyan-100 text-cyan-800',
+        'BOUND': 'bg-green-100 text-green-800',
+        'CLOSED': 'bg-gray-100 text-gray-800',
+        'DECLINED': 'bg-red-100 text-red-800',
+        'NTU': 'bg-yellow-100 text-yellow-800',
+        'CANCELLED': 'bg-red-100 text-red-800',
+        'Active': 'bg-green-100 text-green-800' // Legacy support
+    };
+    return (
+        <span className={`px-3 py-1 rounded-full text-sm font-medium ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
+            {status || 'DRAFT'}
+        </span>
+    );
   };
 
   const renderTerminationModal = () => (
@@ -247,13 +363,130 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
     );
   };
 
-  const renderSlipDetail = (slip: ReinsuranceSlip) => (
+  const renderSlipDetail = (slip: ReinsuranceSlip) => {
+      const currentStatus = (slip.status as unknown as string) || 'DRAFT';
+
+      return (
       <div className="space-y-6">
-          <div className="flex gap-3 mb-4">
+          <div className="flex gap-3 mb-4 items-center">
               <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold">Reinsurance Slip</span>
-              <span className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-bold">{slip.status || 'Active'}</span>
+              {getSlipStatusBadge(currentStatus)}
           </div>
           
+          {/* Slip Workflow Actions */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-xs uppercase tracking-wide">
+                <Settings size={14} />
+                Workflow Actions
+            </h3>
+            
+            <div className="flex flex-wrap gap-2">
+                {/* DRAFT status */}
+                {(!slip.status || currentStatus === 'DRAFT') && (
+                    <button 
+                        onClick={() => handleSlipStatusChange('PENDING')}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                    >
+                        <Send size={16} />
+                        Submit for Review
+                    </button>
+                )}
+                
+                {/* PENDING status */}
+                {currentStatus === 'PENDING' && (
+                    <>
+                        <button 
+                            onClick={() => handleSlipStatusChange('QUOTED')}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                        >
+                            <FileText size={16} />
+                            Quote Received
+                        </button>
+                        <button 
+                            onClick={() => handleSlipDecline()}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                        >
+                            <XCircle size={16} />
+                            Decline
+                        </button>
+                    </>
+                )}
+                
+                {/* QUOTED status */}
+                {currentStatus === 'QUOTED' && (
+                    <>
+                        <button 
+                            onClick={() => handleSlipStatusChange('SIGNED', { signed_date: new Date().toISOString().split('T')[0] })}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                        >
+                            <CheckCircle size={16} />
+                            Accept & Sign
+                        </button>
+                        <button 
+                            onClick={() => handleSlipStatusChange('NTU')}
+                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                        >
+                            <XCircle size={16} />
+                            Not Taken Up
+                        </button>
+                    </>
+                )}
+                
+                {/* SIGNED status */}
+                {currentStatus === 'SIGNED' && (
+                    <button 
+                        onClick={() => handleSlipStatusChange('SENT', { sent_date: new Date().toISOString().split('T')[0] })}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                    >
+                        <Send size={16} />
+                        Send to Reinsurer
+                    </button>
+                )}
+                
+                {/* SENT status */}
+                {currentStatus === 'SENT' && (
+                    <>
+                        <button 
+                            onClick={() => handleSlipStatusChange('BOUND', { bound_date: new Date().toISOString().split('T')[0] })}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                        >
+                            <CheckCircle size={16} />
+                            Confirm Bound
+                        </button>
+                        <button 
+                            onClick={() => handleSlipStatusChange('NTU')}
+                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                        >
+                            <XCircle size={16} />
+                            Withdrawn
+                        </button>
+                    </>
+                )}
+                
+                {/* BOUND status */}
+                {currentStatus === 'BOUND' && (
+                    <button 
+                        onClick={() => handleSlipStatusChange('CLOSED', { closed_date: new Date().toISOString().split('T')[0] })}
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                    >
+                        <Archive size={16} />
+                        Close Slip
+                    </button>
+                )}
+                
+                {/* DECLINED, NTU, CANCELLED status */}
+                {['DECLINED', 'NTU', 'CANCELLED'].includes(currentStatus) && (
+                    <button 
+                        onClick={() => handleSlipStatusChange('PENDING')}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
+                    >
+                        <RefreshCw size={16} />
+                        Reopen
+                    </button>
+                )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
                   <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2"><FileText size={16}/> Slip Details</h4>
@@ -296,7 +529,8 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
               </div>
           )}
       </div>
-  );
+      );
+  };
 
   const renderClauseDetail = (clause: Clause) => (
       <div className="space-y-4">
