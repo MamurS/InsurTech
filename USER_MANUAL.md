@@ -1,7 +1,7 @@
 
 # InsurTech Policy Manager - User Manual
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Last Updated:** May 2025
 
 ---
@@ -172,6 +172,7 @@ Track work items for yourself or assign them to colleagues.
     *   Assign granular permissions (e.g., `claims.pay`).
     *   Set **Authority Limits** (e.g., Max Claim Payment = $50,000).
 *   **User Management**: Add new users, reset passwords, assign Departments.
+*   **Departments**: Define the organization structure, assign department heads, and set staff capacities.
 *   **Database Browser**: Raw view of database tables for troubleshooting.
 *   **Recycle Bin**: Restore accidentally deleted Policies, Slips, or Clauses.
 *   **FX Rates**: Manage the central exchange rates used for currency conversion.

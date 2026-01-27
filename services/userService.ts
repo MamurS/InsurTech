@@ -3,14 +3,18 @@ import { supabase } from './supabase';
 import { Profile, UserRole, Department } from '../types';
 
 export const UserService = {
-    // Get all departments
+    // --- DEPARTMENTS ---
+
     getDepartments: async (): Promise<Department[]> => {
         if (!supabase) return [];
         
+        // We select *, and join to profiles to get the head of department name
         const { data, error } = await supabase
             .from('departments')
-            .select('*')
-            .eq('is_active', true)
+            .select(`
+                *,
+                head_profile:head_of_department(full_name) 
+            `)
             .order('name');
         
         if (error) {
@@ -18,17 +22,67 @@ export const UserService = {
             return [];
         }
         
+        // Count users in each department to update 'currentStaffCount'
+        // Ideally this is a separate count query or a view, but for small scale this works client-side or via separate query
+        const { data: users } = await supabase.from('profiles').select('department_id');
+        const counts: Record<string, number> = {};
+        users?.forEach((u: any) => {
+            if (u.department_id) counts[u.department_id] = (counts[u.department_id] || 0) + 1;
+        });
+
         return (data || []).map((d: any) => ({
             id: d.id,
             name: d.name,
             code: d.code,
             description: d.description,
-            headOfDepartment: d.head_of_department,
+            headOfDepartment: d.head_of_department, // The UUID
+            headName: d.head_profile?.full_name, // The joined name mapped manually in UI or here
             maxStaff: d.max_staff,
-            currentStaffCount: d.current_staff_count,
+            currentStaffCount: counts[d.id] || 0,
+            parentDepartmentId: d.parent_department_id,
             isActive: d.is_active
         }));
     },
+
+    saveDepartment: async (dept: Partial<Department>) => {
+        if (!supabase) throw new Error("No DB connection");
+
+        const payload = {
+            name: dept.name,
+            code: dept.code,
+            description: dept.description,
+            head_of_department: dept.headOfDepartment || null,
+            max_staff: dept.maxStaff || 0,
+            is_active: dept.isActive !== false,
+            updated_at: new Date().toISOString()
+        };
+
+        if (dept.id) {
+            const { error } = await supabase
+                .from('departments')
+                .update(payload)
+                .eq('id', dept.id);
+            if (error) throw error;
+        } else {
+            const { error } = await supabase
+                .from('departments')
+                .insert(payload);
+            if (error) throw error;
+        }
+    },
+
+    deleteDepartment: async (id: string) => {
+        if (!supabase) throw new Error("No DB connection");
+        
+        const { error } = await supabase
+            .from('departments')
+            .delete()
+            .eq('id', id);
+            
+        if (error) throw error;
+    },
+
+    // --- PROFILES ---
 
     // Get all profiles (for assignment dropdowns and admin list)
     getAllProfiles: async (): Promise<Profile[]> => {

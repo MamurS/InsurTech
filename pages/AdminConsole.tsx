@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -10,15 +9,16 @@ import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
 import { formatDate } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
+import { DepartmentEditModal } from '../components/DepartmentEditModal';
 import { supabase } from '../services/supabase'; // Import direct for custom save
 import { 
   Trash2, RefreshCw, Users, 
   Lock, Table, Code, 
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
-  Coins, LogOut, Key
+  Coins, LogOut, Key, Building2, Briefcase
 } from 'lucide-react';
 
-type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'settings' | 'templates' | 'fx';
+type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx';
 type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
@@ -32,6 +32,11 @@ const AdminConsole: React.FC = () => {
   const [roles, setRoles] = useState<Role[]>([]);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<Role | undefined>(undefined);
+
+  // Departments Management State
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [showDeptModal, setShowDeptModal] = useState(false);
+  const [selectedDept, setSelectedDept] = useState<Department | undefined>(undefined);
 
   // Recycle Bin State
   const [recycleType, setRecycleType] = useState<RecycleType>('policies');
@@ -78,7 +83,6 @@ const AdminConsole: React.FC = () => {
       isActive: true
   });
   const [newUserPassword, setNewUserPassword] = useState(''); 
-  const [departments, setDepartments] = useState<Department[]>([]);
   
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -185,6 +189,23 @@ const AdminConsole: React.FC = () => {
           loadAllData();
       }
   }
+
+  // Department Handlers
+  const handleEditDepartment = (d?: Department) => {
+      setSelectedDept(d);
+      setShowDeptModal(true);
+  };
+
+  const handleDeleteDepartment = async (id: string, name: string) => {
+      if(confirm(`Are you sure you want to delete department "${name}"? Users assigned to this department will remain but the link will be broken.`)) {
+          try {
+              await UserService.deleteDepartment(id);
+              loadAllData();
+          } catch(e: any) {
+              alert("Error deleting department: " + e.message);
+          }
+      }
+  };
 
   // User Handlers
   const handleEditUser = (u?: Profile) => {
@@ -333,6 +354,80 @@ const AdminConsole: React.FC = () => {
     </div>
   );
 
+  const renderDepartments = () => (
+      <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="flex justify-between items-center">
+              <div>
+                  <h2 className="text-2xl font-bold text-gray-800">Departments</h2>
+                  <p className="text-sm text-gray-500">Manage organization structure.</p>
+              </div>
+              <button 
+                  onClick={() => handleEditDepartment()}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                  <Plus size={18}/> Add Department
+              </button>
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <table className="w-full text-left">
+                  <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                          <th className="px-6 py-4 w-12">Code</th>
+                          <th className="px-6 py-4">Department Name</th>
+                          <th className="px-6 py-4">Head of Department</th>
+                          <th className="px-6 py-4 text-center">Staff Count</th>
+                          <th className="px-6 py-4 text-center">Status</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                      {departments.map(dept => (
+                          <tr key={dept.id} className="hover:bg-gray-50 group">
+                              <td className="px-6 py-4 font-mono text-gray-500 font-bold">{dept.code}</td>
+                              <td className="px-6 py-4">
+                                  <div className="font-bold text-gray-900">{dept.name}</div>
+                                  <div className="text-xs text-gray-500">{dept.description}</div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600 flex items-center gap-2">
+                                  {(dept as any).headName ? <Briefcase size={14} className="text-blue-500"/> : null}
+                                  {(dept as any).headName || '-'}
+                              </td>
+                              <td className="px-6 py-4 text-center text-sm">
+                                  {dept.currentStaffCount || 0} / {dept.maxStaff || '∞'}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                  {dept.isActive 
+                                      ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span>
+                                      : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>
+                                  }
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                  <div className="flex justify-end gap-2">
+                                    <button onClick={() => handleEditDepartment(dept)} className="text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors"><Edit size={16}/></button>
+                                    <button onClick={() => handleDeleteDepartment(dept.id, dept.name)} className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors"><Trash2 size={16}/></button>
+                                  </div>
+                              </td>
+                          </tr>
+                      ))}
+                      {departments.length === 0 && (
+                          <tr><td colSpan={6} className="text-center py-8 text-gray-400">No departments found.</td></tr>
+                      )}
+                  </tbody>
+              </table>
+          </div>
+          
+          {showDeptModal && (
+              <DepartmentEditModal 
+                  department={selectedDept}
+                  onClose={() => setShowDeptModal(false)}
+                  onSave={loadAllData}
+                  allUsers={profiles || []}
+              />
+          )}
+      </div>
+  );
+
   const renderRoles = () => (
       <div className="space-y-6 animate-in fade-in duration-300">
           <div className="flex justify-between items-center">
@@ -370,7 +465,7 @@ const AdminConsole: React.FC = () => {
                               </td>
                               <td className="px-6 py-4 text-sm text-gray-600">{role.department || '-'}</td>
                               <td className="px-6 py-4 text-center">
-                                  {role.isSystemRole && <Lock size={14} className="inline text-amber-500" title="System Role"/>}
+                                  {role.isSystemRole && <span title="System Role"><Lock size={14} className="inline text-amber-500"/></span>}
                               </td>
                               <td className="px-6 py-4 text-center">
                                   {role.isActive 
@@ -960,6 +1055,12 @@ const AdminConsole: React.FC = () => {
                 >
                     <Users size={18} className="flex-shrink-0" /> <span>User Management</span>
                 </button>
+                <button 
+                    onClick={() => setActiveSection('departments')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'departments' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Building2 size={18} className="flex-shrink-0" /> <span>Departments</span>
+                </button>
 
                 <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Data Management</div>
                 <button 
@@ -1012,9 +1113,10 @@ const AdminConsole: React.FC = () => {
         <main className={`flex-1 overflow-y-auto p-8 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
             {activeSection === 'dashboard' && renderDashboardHome()}
             {activeSection === 'roles' && renderRoles()}
+            {activeSection === 'users' && renderUsers()}
+            {activeSection === 'departments' && renderDepartments()}
             {activeSection === 'database' && renderDatabaseBrowser()}
             {activeSection === 'recycle' && renderRecycleBin()}
-            {activeSection === 'users' && renderUsers()}
             {activeSection === 'templates' && renderTemplates()}
             {activeSection === 'fx' && renderFxRates()}
             {activeSection === 'settings' && renderSettings()}
