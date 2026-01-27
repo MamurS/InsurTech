@@ -4,14 +4,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ClaimTransactionType } from '../types';
 import { useClaimDetail, useAddTransaction } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
-import { ArrowLeft, FileText, Plus, Wallet, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileText, Plus, Wallet, Loader2, CheckCircle, XCircle, RefreshCw, Settings } from 'lucide-react';
+import { supabase } from '../services/supabase';
 
 const ClaimDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   
   // React Query Hooks
-  const { data: claim, isLoading: loading, error } = useClaimDetail(id);
+  const { data: claim, isLoading: loading, error, refetch } = useClaimDetail(id);
   const addTransactionMutation = useAddTransaction();
 
   // Transaction Form State
@@ -22,6 +23,46 @@ const ClaimDetail: React.FC = () => {
       share: 100,
       notes: ''
   });
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!supabase || !claim) return;
+    
+    const confirmMessage = newStatus === 'CLOSED' 
+        ? 'Are you sure you want to close this claim?' 
+        : newStatus === 'DENIED'
+        ? 'Are you sure you want to deny this claim?'
+        : 'Are you sure you want to reopen this claim?';
+    
+    if (!confirm(confirmMessage)) return;
+    
+    try {
+        const updateData: any = { 
+            status: newStatus,
+            updated_at: new Date().toISOString()
+        };
+        
+        // Set or clear closed_date based on status
+        if (newStatus === 'CLOSED' || newStatus === 'DENIED') {
+            updateData.closed_date = new Date().toISOString().split('T')[0];
+        } else if (newStatus === 'REOPENED') {
+            updateData.closed_date = null;
+        }
+        
+        const { error } = await supabase
+            .from('claims')
+            .update(updateData)
+            .eq('id', claim.id);
+        
+        if (error) throw error;
+        
+        // Refresh claim data
+        refetch();
+        
+    } catch (error: any) {
+        console.error('Error updating claim status:', error);
+        alert('Failed to update claim: ' + (error.message || 'Unknown error'));
+    }
+  };
 
   const handleAddTransaction = () => {
       if (!claim || !id) return;
@@ -97,12 +138,75 @@ const ClaimDetail: React.FC = () => {
            <div>
                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
                    {claim.claimNumber}
-                   <span className={`px-2 py-1 text-sm rounded-full ${claim.liabilityType === 'ACTIVE' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
-                       {claim.liabilityType === 'ACTIVE' ? 'ACTIVE' : 'INFO'}
+                   <span className={`px-2 py-1 text-sm rounded-full ${
+                       claim.status === 'CLOSED' ? 'bg-green-100 text-green-800' :
+                       claim.status === 'DENIED' ? 'bg-red-100 text-red-800' :
+                       claim.liabilityType === 'ACTIVE' ? 'bg-blue-100 text-blue-800' : 
+                       'bg-gray-100 text-gray-600'
+                   }`}>
+                       {claim.status === 'OPEN' ? (claim.liabilityType === 'ACTIVE' ? 'ACTIVE' : 'INFO') : claim.status}
                    </span>
                </h2>
                <p className="text-gray-500">Policy: <span className="font-mono font-bold text-blue-600">{policy.policyNumber}</span> • {policy.insuredName}</p>
            </div>
+       </div>
+
+       {/* Claim Actions Section */}
+       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-sm uppercase">
+                <Settings size={16} />
+                Workflow Actions
+            </h3>
+            
+            <div className="flex flex-wrap gap-2">
+                {claim.status === 'OPEN' && (
+                    <>
+                        <button 
+                            onClick={() => handleStatusChange('CLOSED')}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm transition-colors"
+                        >
+                            <CheckCircle size={16} />
+                            Close Claim
+                        </button>
+                        <button 
+                            onClick={() => handleStatusChange('DENIED')}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-bold shadow-sm transition-colors"
+                        >
+                            <XCircle size={16} />
+                            Deny Claim
+                        </button>
+                    </>
+                )}
+                
+                {(claim.status === 'CLOSED' || claim.status === 'DENIED') && (
+                    <button 
+                        onClick={() => handleStatusChange('REOPENED')}
+                        className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm transition-colors"
+                    >
+                        <RefreshCw size={16} />
+                        Reopen Claim
+                    </button>
+                )}
+                
+                {claim.status === 'REOPENED' && (
+                    <>
+                        <button 
+                            onClick={() => handleStatusChange('CLOSED')}
+                            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm transition-colors"
+                        >
+                            <CheckCircle size={16} />
+                            Close Claim
+                        </button>
+                        <button 
+                            onClick={() => handleStatusChange('DENIED')}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-bold shadow-sm transition-colors"
+                        >
+                            <XCircle size={16} />
+                            Deny Claim
+                        </button>
+                    </>
+                )}
+            </div>
        </div>
 
        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -114,6 +218,7 @@ const ClaimDetail: React.FC = () => {
                         <div><div className="text-xs text-gray-500 uppercase">Status</div><div className="font-medium">{claim.status}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Loss Date</div><div className="font-medium">{formatDate(claim.lossDate)}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Report Date</div><div className="font-medium">{formatDate(claim.reportDate)}</div></div>
+                        {claim.closedDate && <div><div className="text-xs text-gray-500 uppercase">Closed Date</div><div className="font-medium">{formatDate(claim.closedDate)}</div></div>}
                         <div><div className="text-xs text-gray-500 uppercase">Description</div><div className="font-medium">{claim.description || '-'}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Claimant</div><div className="font-medium">{claim.claimantName || '-'}</div></div>
                         <div><div className="text-xs text-gray-500 uppercase">Country</div><div className="font-medium">{claim.locationCountry || '-'}</div></div>
@@ -135,7 +240,7 @@ const ClaimDetail: React.FC = () => {
                <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
                    <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
                        <h3 className="font-bold text-gray-800 flex items-center gap-2"><Wallet size={18}/> Financial Ledger</h3>
-                       {claim.liabilityType === 'ACTIVE' && (
+                       {claim.liabilityType === 'ACTIVE' && claim.status !== 'CLOSED' && claim.status !== 'DENIED' && (
                            <button 
                              onClick={() => setShowTransModal(true)}
                              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm"
