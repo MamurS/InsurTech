@@ -21,23 +21,25 @@ export const AuthService = {
       const { data: { session } } = await supabase!.auth.getSession();
       if (session?.user) {
         
-        // Fetch Profile from public.users to get the Role
+        // Fetch Profile from 'profiles' table
         const { data: profile } = await supabase!
-          .from('users')
+          .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
 
         // Default Role if no profile found (e.g. first login)
         const role: UserRole = profile?.role || 'Underwriter';
-        const permissions: UserPermissions = profile?.permissions || DEFAULT_PERMISSIONS[role];
+        // Profile might not have permissions column directly anymore if using RBAC, 
+        // but keeping fallback for compatibility.
+        const permissions: UserPermissions = (profile as any)?.permissions || DEFAULT_PERMISSIONS[role];
 
         return {
           id: session.user.id,
           email: session.user.email || '',
-          name: profile?.name || session.user.user_metadata.full_name || 'User',
+          name: profile?.full_name || profile?.name || session.user.user_metadata.full_name || 'User',
           role: role, 
-          avatarUrl: profile?.avatarUrl || session.user.user_metadata.avatar_url || 'U',
+          avatarUrl: profile?.avatar_url || profile?.avatarUrl || session.user.user_metadata.avatar_url || 'U',
           lastLogin: session.user.last_sign_in_at,
           permissions: permissions,
           roleId: profile?.role_id
@@ -46,7 +48,6 @@ export const AuthService = {
     }
 
     // 2. Fallback to Local Mock Storage
-    // This allows hybrid mode where admin2026 works via local storage even if Supabase is configured
     const stored = localStorage.getItem(USER_STORAGE_KEY);
     if (stored) {
       return JSON.parse(stored);
@@ -60,7 +61,6 @@ export const AuthService = {
    */
   login: async (email: string, password?: string): Promise<User | null> => {
     // 0. IMMEDIATE LOCAL BACKDOOR: Check Hardcoded Seed Users
-    // This allows the default 'admin2026' user to work even if Supabase is enabled but not set up with this user.
     const seedUser = SEED_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (seedUser && seedUser.password === password) {
          const safeUser = {
@@ -76,29 +76,26 @@ export const AuthService = {
 
     // 1. Supabase Logic
     if (isSupabaseEnabled()) {
-      // Only attempt Supabase login if it looks like a real email. 
-      // This prevents sending non-email usernames (like 'admin2026') to Supabase.
       if (email.includes('@')) {
           const { data, error } = await supabase!.auth.signInWithPassword({ email, password: password || '' });
           if (error || !data.session) throw error;
           
-          // Fetch Profile to get Role
+          // Fetch Profile from 'profiles'
           const { data: profile } = await supabase!
-            .from('users')
+            .from('profiles')
             .select('*')
             .eq('id', data.user.id)
             .single();
 
-          // Fallback if profile row is missing
           const role: UserRole = profile?.role || 'Underwriter';
-          const permissions: UserPermissions = profile?.permissions || DEFAULT_PERMISSIONS[role];
+          const permissions: UserPermissions = (profile as any)?.permissions || DEFAULT_PERMISSIONS[role];
 
           return {
               id: data.user.id,
               email: data.user.email || '',
-              name: profile?.name || data.user.user_metadata.full_name || 'User',
+              name: profile?.full_name || profile?.name || data.user.user_metadata.full_name || 'User',
               role: role,
-              avatarUrl: profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
+              avatarUrl: profile?.avatar_url || profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
               lastLogin: new Date().toISOString(),
               permissions: permissions,
               roleId: profile?.role_id
@@ -157,27 +154,22 @@ export const AuthService = {
     if (error) throw error;
     if (!data.user) return null;
 
-    // 2. Determine Role
-    // If a role is passed (from Admin Console), use it.
-    // If no role passed (Login page registration), default to 'Super Admin' for the first user.
     const finalRole = role || 'Super Admin';
     const finalPermissions = permissions || DEFAULT_PERMISSIONS[finalRole];
 
-    // 3. Create Public Profile
-    // NOTE: A trigger might also create this, but explicit insert/update ensures properties
+    // 3. Create/Update Profile in 'profiles'
     const newUserProfile = {
       id: data.user.id,
       email: email,
-      name: name || 'New User',
+      full_name: name || 'New User',
       role: finalRole,
-      "avatarUrl": name ? name.substring(0, 2).toUpperCase() : 'NU',
-      permissions: finalPermissions,
-      "lastLogin": new Date().toISOString()
+      avatar_url: name ? name.substring(0, 2).toUpperCase() : 'NU',
+      // permissions: finalPermissions, // Optional depending on schema, keeping logic clean
+      // lastLogin is not usually in profiles, but kept if schema matches
     };
 
-    // Use upsert to handle race condition with triggers
     const { error: profileError } = await supabase!
-      .from('users')
+      .from('profiles')
       .upsert(newUserProfile);
 
     if (profileError) {
@@ -185,11 +177,13 @@ export const AuthService = {
     }
 
     return {
-        ...newUserProfile,
         id: data.user.id,
-        avatarUrl: newUserProfile.avatarUrl,
-        lastLogin: newUserProfile.lastLogin,
-        role: newUserProfile.role as UserRole
+        email: email,
+        name: name || 'New User',
+        role: finalRole,
+        avatarUrl: newUserProfile.avatar_url,
+        permissions: finalPermissions,
+        lastLogin: new Date().toISOString()
     };
   },
 

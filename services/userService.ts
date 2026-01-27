@@ -11,29 +11,42 @@ export const UserService = {
         }
         
         try {
-            // Query 'users' table
+            // Query 'profiles' table (CORRECT TABLE)
             const { data, error } = await supabase
-                .from('users')
-                .select('*')
-                .order('email', { ascending: true });
+                .from('profiles')
+                .select(`
+                    id,
+                    email,
+                    full_name,
+                    role,
+                    role_id,
+                    department,
+                    phone,
+                    avatar_url,
+                    is_active,
+                    created_at,
+                    updated_at
+                `)
+                .order('full_name');
             
             if (error) {
-                console.error("UserService: Error fetching users:", error);
+                console.error("UserService: Error fetching profiles:", error);
                 return [];
             }
             
-            // Robust Mapping
+            // Map columns from 'profiles' schema to app Profile type
             return (data || []).map((p: any) => ({
                 id: p.id,
                 email: p.email,
-                fullName: p.name || p.full_name || p.fullName || 'Unknown User',
+                fullName: p.full_name || 'Unknown User',
                 role: (p.role || 'Viewer') as UserRole,
                 roleId: p.role_id,
                 department: p.department || '',
                 phone: p.phone || '',
-                avatarUrl: p.avatarUrl || p.avatar_url || p.avatar_url, 
-                isActive: p.isActive !== undefined ? p.isActive : (p.is_active !== undefined ? p.is_active : true),
-                createdAt: p.created_at || new Date().toISOString()
+                avatarUrl: p.avatar_url,
+                isActive: p.is_active !== undefined ? p.is_active : true,
+                createdAt: p.created_at || new Date().toISOString(),
+                updatedAt: p.updated_at
             }));
         } catch (err) {
             console.error("UserService: Unexpected error:", err);
@@ -47,13 +60,13 @@ export const UserService = {
         
         const payload: any = {};
         
-        // Explicitly map inputs to DB columns
-        if (updates.fullName !== undefined) payload.name = updates.fullName; // DB column is 'name'
+        // Explicitly map inputs to DB columns for 'profiles' table
+        if (updates.fullName !== undefined) payload.full_name = updates.fullName;
         if (updates.roleId !== undefined) payload.role_id = updates.roleId;
         if (updates.department !== undefined) payload.department = updates.department;
         if (updates.phone !== undefined) payload.phone = updates.phone;
-        if (updates.avatarUrl !== undefined) payload["avatarUrl"] = updates.avatarUrl;
-        if (updates.isActive !== undefined) payload["isActive"] = updates.isActive;
+        if (updates.avatarUrl !== undefined) payload.avatar_url = updates.avatarUrl;
+        if (updates.isActive !== undefined) payload.is_active = updates.isActive;
         
         // Sync Legacy Role Field for backward compatibility
         if (updates.roleId) {
@@ -71,7 +84,7 @@ export const UserService = {
         }
         
         const { error } = await supabase
-            .from('users')
+            .from('profiles')  // CORRECT TABLE
             .update(payload)
             .eq('id', id);
             

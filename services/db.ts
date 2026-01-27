@@ -18,7 +18,7 @@ const isSupabaseEnabled = () => {
   return !!supabase;
 };
 
-// --- DATA ADAPTERS ---
+// ... [Existing adapters and helpers omitted for brevity, keeping file structure valid] ...
 
 const toAppPolicy = (dbRecord: any): Policy => {
   // If the record already has 'channel', use it. Otherwise, derive from 'recordType'.
@@ -491,22 +491,31 @@ export const DB = {
   // --- User Management ---
   getUsers: async (): Promise<User[]> => {
     if (isSupabaseEnabled()) {
-      const { data } = await supabase!.from('users').select('*');
-      return data as User[] || [];
+      // Fetch from 'profiles'
+      const { data } = await supabase!.from('profiles').select('*');
+      return (data || []).map((p: any) => ({
+          id: p.id,
+          email: p.email,
+          name: p.full_name,
+          role: p.role,
+          avatarUrl: p.avatar_url,
+          lastLogin: null, // Keep null or add column if needed
+          permissions: DEFAULT_PERMISSIONS[p.role]
+      }));
     }
     return getLocal(USERS_KEY, SEED_USERS);
   },
 
   saveUser: async (user: User): Promise<void> => {
     if (isSupabaseEnabled()) {
-       const { error } = await supabase!.from('users').upsert({
+       // Save to 'profiles'
+       const { error } = await supabase!.from('profiles').upsert({
            id: user.id,
            email: user.email,
-           name: user.name,
+           full_name: user.name,
            role: user.role,
-           avatarUrl: user.avatarUrl,
-           permissions: user.permissions,
-           lastLogin: user.lastLogin
+           avatar_url: user.avatarUrl,
+           // permissions: user.permissions // Optional
        });
        if (error) throw error;
        return;
@@ -520,7 +529,11 @@ export const DB = {
 
   deleteUser: async (id: string): Promise<void> => {
     if (isSupabaseEnabled()) {
-      await supabase!.from('users').delete().eq('id', id);
+      // Delete from auth.users (cascades to profiles)
+      // Note: Client SDK usually doesn't allow deleting auth users directly.
+      // This is often done via RPC or Edge Function for safety.
+      // For now, we try to delete from profiles, but proper way is Admin API.
+      await supabase!.from('profiles').delete().eq('id', id);
       return;
     }
     let users = getLocal(USERS_KEY, SEED_USERS);
@@ -528,7 +541,8 @@ export const DB = {
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
   },
 
-  // --- LEGAL ENTITIES ---
+  // ... [Legal Entities and Search code omitted, keeping file valid] ...
+  
   getLegalEntities: async (): Promise<LegalEntity[]> => {
       if (isSupabaseEnabled()) {
           const { data } = await supabase!.from('legal_entities').select('*').order('fullName', { ascending: true });
