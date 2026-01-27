@@ -211,34 +211,45 @@ const AdminConsole: React.FC = () => {
 
       setActionLoading(true);
       try {
-        if (!currentUser.id) {
+        let targetUserId = currentUser.id;
+
+        if (!targetUserId) {
             // New Registration via Auth Service (if Supabase)
             if (!newUserPassword) {
                 alert("Password required for new user");
                 setActionLoading(false);
                 return;
             }
-            await AuthService.register(
+            const regUser = await AuthService.register(
                 currentUser.email,
                 newUserPassword,
                 currentUser.fullName,
                 currentUser.role as UserRole
             );
-            // Additional profile updates if needed via separate call or trigger
-        } else {
-             // Update existing profile
-             updateProfileMutation.mutate({
-                 id: currentUser.id,
+            
+            if (regUser && regUser.id) {
+                targetUserId = regUser.id;
+            } else {
+                throw new Error("User registration failed.");
+            }
+        }
+        
+        // ALWAYS update profile with full fields (ensures everything is saved even if registration was partial)
+        if (targetUserId) {
+             await updateProfileMutation.mutateAsync({
+                 id: targetUserId,
                  updates: {
                      fullName: currentUser.fullName,
                      roleId: currentUser.roleId,
                      department: currentUser.department,
                      phone: currentUser.phone,
                      isActive: currentUser.isActive,
-                     role: currentUser.role as UserRole // Pass legacy role if still needed by UI components
+                     role: currentUser.role as UserRole, // Legacy sync
+                     avatarUrl: currentUser.avatarUrl
                  }
              });
         }
+
         setShowUserModal(false);
         refetchProfiles();
       } catch (error: any) {

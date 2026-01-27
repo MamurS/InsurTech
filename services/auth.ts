@@ -39,7 +39,8 @@ export const AuthService = {
           role: role, 
           avatarUrl: profile?.avatarUrl || session.user.user_metadata.avatar_url || 'U',
           lastLogin: session.user.last_sign_in_at,
-          permissions: permissions
+          permissions: permissions,
+          roleId: profile?.role_id
         };
       }
     }
@@ -99,7 +100,8 @@ export const AuthService = {
               role: role,
               avatarUrl: profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
               lastLogin: new Date().toISOString(),
-              permissions: permissions
+              permissions: permissions,
+              roleId: profile?.role_id
           };
       }
     }
@@ -162,26 +164,31 @@ export const AuthService = {
     const finalPermissions = permissions || DEFAULT_PERMISSIONS[finalRole];
 
     // 3. Create Public Profile
+    // NOTE: A trigger might also create this, but explicit insert/update ensures properties
     const newUserProfile = {
       id: data.user.id,
       email: email,
       name: name || 'New User',
       role: finalRole,
-      avatarUrl: name ? name.substring(0, 2).toUpperCase() : 'NU',
+      "avatarUrl": name ? name.substring(0, 2).toUpperCase() : 'NU',
       permissions: finalPermissions,
-      lastLogin: new Date().toISOString()
+      "lastLogin": new Date().toISOString()
     };
 
+    // Use upsert to handle race condition with triggers
     const { error: profileError } = await supabase!
       .from('users')
-      .insert(newUserProfile);
+      .upsert(newUserProfile);
 
     if (profileError) {
-      console.error("Profile creation failed", profileError);
+      console.error("Profile creation/update failed", profileError);
     }
 
     return {
         ...newUserProfile,
+        id: data.user.id,
+        avatarUrl: newUserProfile.avatarUrl,
+        lastLogin: newUserProfile.lastLogin,
         role: newUserProfile.role as UserRole
     };
   },

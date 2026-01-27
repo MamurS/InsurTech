@@ -22,8 +22,6 @@ export const UserService = {
                 return [];
             }
             
-            console.log(`UserService: Successfully fetched ${data?.length || 0} users.`);
-
             // Robust Mapping
             return (data || []).map((p: any) => ({
                 id: p.id,
@@ -49,7 +47,8 @@ export const UserService = {
         
         const payload: any = {};
         
-        if (updates.fullName !== undefined) payload.name = updates.fullName; // Map to 'name' column based on schema
+        // Explicitly map inputs to DB columns
+        if (updates.fullName !== undefined) payload.name = updates.fullName; // DB column is 'name'
         if (updates.roleId !== undefined) payload.role_id = updates.roleId;
         if (updates.department !== undefined) payload.department = updates.department;
         if (updates.phone !== undefined) payload.phone = updates.phone;
