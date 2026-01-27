@@ -33,7 +33,7 @@ const ClaimDetail: React.FC = () => {
         ? 'Are you sure you want to deny this claim?'
         : 'Are you sure you want to reopen this claim?';
     
-    if (!confirm(confirmMessage)) return;
+    if (!window.confirm(confirmMessage)) return;
     
     try {
         const updateData: any = { 
@@ -55,8 +55,11 @@ const ClaimDetail: React.FC = () => {
         
         if (error) throw error;
         
-        // Refresh claim data
-        refetch();
+        // SUCCESS - Now refresh the UI
+        alert(`Claim ${newStatus.toLowerCase()} successfully`);
+        
+        // Force page reload to show updated data
+        window.location.reload();
         
     } catch (error: any) {
         console.error('Error updating claim status:', error);
