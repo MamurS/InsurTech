@@ -119,5 +119,18 @@ export const UserService = {
             .eq('id', id);
             
         if (error) throw error;
+    },
+
+    // Delete user (Auth + Profile)
+    deleteUser: async (userId: string) => {
+        if (!supabase) return;
+        
+        // Call RPC function to delete from auth.users (requires setup in DB)
+        const { error } = await supabase.rpc('delete_user_account', { user_id: userId });
+        
+        if (error) {
+            console.error("Error deleting user:", error);
+            throw new Error(error.message || "Failed to delete user. Check permissions.");
+        }
     }
 };

@@ -283,6 +283,20 @@ const AdminConsole: React.FC = () => {
       }
   };
 
+  const handleDeleteUser = async (id: string, name: string) => {
+      if (confirm(`Are you sure you want to PERMANENTLY delete user "${name}"? This action cannot be undone and will remove login access.`)) {
+          setActionLoading(true);
+          try {
+              await UserService.deleteUser(id);
+              refetchProfiles();
+          } catch (error: any) {
+              alert("Failed to delete user: " + error.message);
+          } finally {
+              setActionLoading(false);
+          }
+      }
+  };
+
   // Role Handlers
   const handleEditRole = (r?: Role) => {
       setSelectedRole(r);
@@ -463,6 +477,13 @@ const AdminConsole: React.FC = () => {
                                             title="Edit User"
                                         >
                                             <Edit size={16}/>
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDeleteUser(u.id, u.fullName)} 
+                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            title="Delete User"
+                                        >
+                                            <Trash2 size={16}/>
                                         </button>
                                     </div>
                                 </td>
