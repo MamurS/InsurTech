@@ -36,7 +36,7 @@ export enum PaymentStatus {
 
 export type Channel = 'Direct' | 'Inward';
 export type IntermediaryType = 'Direct' | 'Broker' | 'Agent' | 'MGA';
-export type UserRole = 'Super Admin' | 'Admin' | 'Underwriter' | 'Viewer';
+export type UserRole = 'Super Admin' | 'Admin' | 'Underwriter' | 'Viewer' | string;
 
 export interface UserPermissions {
   canView: boolean;
@@ -48,7 +48,7 @@ export interface UserPermissions {
   canManageUsers: boolean;
 }
 
-export const DEFAULT_PERMISSIONS: Record<UserRole, UserPermissions> = {
+export const DEFAULT_PERMISSIONS: Record<string, UserPermissions> = {
   'Super Admin': { canView: true, canCreate: true, canEdit: true, canDelete: true, canBind: true, canCancel: true, canManageUsers: true },
   'Admin': { canView: true, canCreate: true, canEdit: true, canDelete: true, canBind: true, canCancel: true, canManageUsers: true },
   'Underwriter': { canView: true, canCreate: true, canEdit: true, canDelete: false, canBind: true, canCancel: true, canManageUsers: false },
@@ -125,6 +125,9 @@ export interface Profile {
     avatarUrl?: string;
     isActive: boolean;
     createdAt: string;
+    customLolLimit?: number;
+    customClaimLimit?: number;
+    canOverrideLimits?: boolean;
 }
 
 export interface AgendaTask {

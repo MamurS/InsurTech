@@ -69,6 +69,7 @@ const AdminConsole: React.FC = () => {
       fullName: '',
       email: '',
       role: 'Underwriter',
+      roleId: '',
       department: '',
       phone: '',
       isActive: true
@@ -183,12 +184,16 @@ const AdminConsole: React.FC = () => {
   const handleEditUser = (u?: Profile) => {
       setNewUserPassword('');
       if (u) {
-          setCurrentUser(u);
+          setCurrentUser({
+              ...u,
+              roleId: u.roleId || '', // Ensure roleId is populated
+          });
       } else {
           setCurrentUser({
               fullName: '',
               email: '',
               role: 'Underwriter',
+              roleId: '',
               department: '',
               phone: '',
               isActive: true,
@@ -219,12 +224,19 @@ const AdminConsole: React.FC = () => {
                 currentUser.fullName,
                 currentUser.role as UserRole
             );
-            // Additional profile updates if needed via separate call
+            // Additional profile updates if needed via separate call or trigger
         } else {
              // Update existing profile
              updateProfileMutation.mutate({
                  id: currentUser.id,
-                 updates: currentUser
+                 updates: {
+                     fullName: currentUser.fullName,
+                     roleId: currentUser.roleId,
+                     department: currentUser.department,
+                     phone: currentUser.phone,
+                     isActive: currentUser.isActive,
+                     role: currentUser.role as UserRole // Pass legacy role if still needed by UI components
+                 }
              });
         }
         setShowUserModal(false);
@@ -471,16 +483,16 @@ const AdminConsole: React.FC = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Legacy Role</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Role Assignment</label>
                                 <select 
                                     className="w-full bg-white border rounded p-2 text-gray-900"
-                                    value={currentUser.role}
-                                    onChange={e => setCurrentUser({...currentUser, role: e.target.value as UserRole})}
+                                    value={currentUser.roleId || ''}
+                                    onChange={e => setCurrentUser({...currentUser, roleId: e.target.value})}
                                 >
-                                    <option value="Super Admin">Super Admin</option>
-                                    <option value="Admin">Admin</option>
-                                    <option value="Underwriter">Underwriter</option>
-                                    <option value="Viewer">Viewer</option>
+                                    <option value="">Select Role...</option>
+                                    {roles.map(r => (
+                                        <option key={r.id} value={r.id}>{r.name} {r.department ? `(${r.department})` : ''}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div>
@@ -492,27 +504,6 @@ const AdminConsole: React.FC = () => {
                                     placeholder="e.g. Marine"
                                 />
                             </div>
-                        </div>
-
-                        {/* RBAC Role Selection */}
-                        <div className="border-t pt-4">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">RBAC Role Assignment</label>
-                            <p className="text-xs text-gray-500 mb-2">This overrides the legacy role for permission checks.</p>
-                            <select 
-                                className="w-full bg-white border rounded p-2 text-gray-900"
-                                value={currentUser.roleId || ''}
-                                onChange={e => {
-                                    const selectedId = e.target.value;
-                                    const roleObj = roles.find(r => r.id === selectedId);
-                                    // Optionally sync the legacy string if needed, or just set ID
-                                    setCurrentUser({ ...currentUser, roleId: selectedId });
-                                }}
-                            >
-                                <option value="">-- Select System Role --</option>
-                                {roles.map(r => (
-                                    <option key={r.id} value={r.id}>{r.name} (Lvl {r.level})</option>
-                                ))}
-                            </select>
                         </div>
 
                         <div>

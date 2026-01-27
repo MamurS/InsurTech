@@ -30,6 +30,7 @@ export const UserService = {
                 email: p.email,
                 fullName: p.name || p.full_name || p.fullName || 'Unknown User',
                 role: (p.role || 'Viewer') as UserRole,
+                roleId: p.role_id,
                 department: p.department || '',
                 phone: p.phone || '',
                 avatarUrl: p.avatarUrl || p.avatar_url || p.avatar_url, 
@@ -46,18 +47,33 @@ export const UserService = {
     updateProfile: async (id: string, updates: Partial<Profile>) => {
         if (!supabase) return;
         
-        const dbUpdates: any = {};
+        const payload: any = {};
         
-        if (updates.fullName) dbUpdates.name = updates.fullName;
-        if (updates.role) dbUpdates.role = updates.role;
-        if (updates.department) dbUpdates.department = updates.department;
-        if (updates.phone) dbUpdates.phone = updates.phone;
-        if (updates.avatarUrl) dbUpdates["avatarUrl"] = updates.avatarUrl;
-        if (updates.isActive !== undefined) dbUpdates["isActive"] = updates.isActive;
+        if (updates.fullName !== undefined) payload.name = updates.fullName; // Map to 'name' column based on schema
+        if (updates.roleId !== undefined) payload.role_id = updates.roleId;
+        if (updates.department !== undefined) payload.department = updates.department;
+        if (updates.phone !== undefined) payload.phone = updates.phone;
+        if (updates.avatarUrl !== undefined) payload["avatarUrl"] = updates.avatarUrl;
+        if (updates.isActive !== undefined) payload["isActive"] = updates.isActive;
+        
+        // Sync Legacy Role Field for backward compatibility
+        if (updates.roleId) {
+            const { data: roleData } = await supabase
+                .from('roles')
+                .select('name')
+                .eq('id', updates.roleId)
+                .single();
+            
+            if (roleData) {
+                payload.role = roleData.name;
+            }
+        } else if (updates.role) {
+            payload.role = updates.role;
+        }
         
         const { error } = await supabase
             .from('users')
-            .update(dbUpdates)
+            .update(payload)
             .eq('id', id);
             
         if (error) throw error;
