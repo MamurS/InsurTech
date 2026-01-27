@@ -64,6 +64,48 @@ export interface User {
   avatarUrl?: string;
   lastLogin?: string;
   permissions: UserPermissions;
+  roleId?: string; // Link to dynamic role
+}
+
+// --- RBAC TYPES ---
+
+export interface Role {
+    id: string;
+    name: string;
+    description?: string;
+    department?: string;
+    level: number;
+    isSystemRole: boolean;
+    isActive: boolean;
+}
+
+export interface Permission {
+    id: string;
+    code: string;
+    name: string;
+    description?: string;
+    module: string;
+    action: string;
+}
+
+export interface AuthorityLimit {
+    id: string;
+    roleId: string;
+    limitType: string; // 'policy_lol', 'claim_payment'
+    currency: string;
+    maxAmount: number;
+    requiresApprovalAbove: boolean;
+    canApproveOthers: boolean;
+    description?: string;
+}
+
+export interface RBACPermissions {
+    permissions: string[]; // Array of permission codes
+    authorityLimits: {
+        policyLol?: number;
+        claimPayment?: number;
+    };
+    canApprove: boolean;
 }
 
 // --- AGENDA & USER MANAGEMENT TYPES ---
@@ -76,7 +118,8 @@ export interface Profile {
     id: string;
     email: string;
     fullName: string;
-    role: UserRole;
+    role: UserRole; // Legacy string role
+    roleId?: string; // New RBAC role ID
     department?: string;
     phone?: string;
     avatarUrl?: string;

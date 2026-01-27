@@ -1,30 +1,36 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { AuthService } from '../services/auth';
 import { UserService } from '../services/userService';
+import { PermissionService } from '../services/permissionService';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
-import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile } from '../types';
+import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { RoleEditModal } from '../components/RoleEditModal';
 import { 
   Trash2, RefreshCw, Users, 
   Lock, Table, Code, 
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
-  Coins, LogOut
+  Coins, LogOut, Key
 } from 'lucide-react';
 
-type Section = 'dashboard' | 'database' | 'recycle' | 'users' | 'settings' | 'templates' | 'fx';
+type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'settings' | 'templates' | 'fx';
 type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
 const AdminConsole: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<Section>('database');
+  const [activeSection, setActiveSection] = useState<Section>('roles'); // Default to roles for now
   const [isSidebarOpen] = useState(true);
   
+  // Roles Management State
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<Role | undefined>(undefined);
+
   // Recycle Bin State
   const [recycleType, setRecycleType] = useState<RecycleType>('policies');
   const [deletedPolicies, setDeletedPolicies] = useState<Policy[]>([]);
@@ -82,18 +88,20 @@ const AdminConsole: React.FC = () => {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [p, s, c, t, fx] = await Promise.all([
+    const [p, s, c, t, fx, r] = await Promise.all([
         DB.getAllPolicies(), 
         DB.getAllSlips(), 
         DB.getAllClauses(), 
         DB.getTemplates(),
-        DB.getExchangeRates()
+        DB.getExchangeRates(),
+        PermissionService.getRoles()
     ]);
     setRawPolicies(p);
     setRawSlips(s);
     setRawClauses(c);
     setTemplates(t);
     setFxRates(fx);
+    setRoles(r);
 
     const [dp, ds, dc] = await Promise.all([DB.getDeletedPolicies(), DB.getDeletedSlips(), DB.getDeletedClauses()]);
     setDeletedPolicies(dp);
@@ -191,8 +199,8 @@ const AdminConsole: React.FC = () => {
   };
 
   const handleSaveUser = async () => {
-      if (!currentUser.fullName || !currentUser.email || !currentUser.role) {
-          alert("Name, Email and Role are required");
+      if (!currentUser.fullName || !currentUser.email) {
+          alert("Name and Email are required");
           return;
       }
 
@@ -229,6 +237,16 @@ const AdminConsole: React.FC = () => {
       }
   };
 
+  // Role Handlers
+  const handleEditRole = (r?: Role) => {
+      setSelectedRole(r);
+      setShowRoleModal(true);
+  };
+
+  const handleRoleSaved = () => {
+      loadAllData();
+  };
+
   // --- SUB-COMPONENT RENDERERS ---
 
   const renderDashboardHome = () => (
@@ -255,327 +273,68 @@ const AdminConsole: React.FC = () => {
     </div>
   );
 
-  const renderDatabaseBrowser = () => (
-    <div className="flex flex-col h-full animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center mb-6">
-             <h2 className="text-2xl font-bold text-gray-800">Database Browser</h2>
-             <div className="flex bg-white rounded-lg shadow-sm border p-1">
-                {(['policies', 'slips', 'clauses'] as const).map(type => (
-                    <button
-                        key={type}
-                        onClick={() => setDbViewType(type)}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${dbViewType === type ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'}`}
-                    >
-                        {type}
-                    </button>
-                ))}
-             </div>
-        </div>
+  const renderRoles = () => (
+      <div className="space-y-6 animate-in fade-in duration-300">
+          <div className="flex justify-between items-center">
+              <div>
+                  <h2 className="text-2xl font-bold text-gray-800">RBAC Roles</h2>
+                  <p className="text-sm text-gray-500">Manage hierarchical roles and permissions.</p>
+              </div>
+              <button 
+                  onClick={() => handleEditRole()}
+                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+              >
+                  <Plus size={18}/> Add Role
+              </button>
+          </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex-1 overflow-hidden flex flex-col">
-            <div className="p-3 bg-gray-50 border-b flex justify-between items-center">
-                 <div className="text-xs text-gray-500 font-mono">
-                    Showing {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).length} records
-                 </div>
-            </div>
-            
-            <div className="flex-1 overflow-auto">
-                <table className="w-full text-xs text-left border-collapse">
-                    <thead className="bg-gray-100 text-gray-600 border-b border-gray-300 sticky top-0 z-10 shadow-sm font-bold uppercase tracking-wider">
-                        <tr>
-                            <th className="px-4 py-3 border-r w-16 text-center">Data</th>
-                            <th className="px-4 py-3 border-r">ID</th>
-                            {dbViewType === 'policies' && (
-                                <>
-                                    <th className="px-4 py-3 border-r">Reference</th>
-                                    <th className="px-4 py-3 border-r">Record Type</th>
-                                    <th className="px-4 py-3 border-r">Insured Name</th>
-                                    <th className="px-4 py-3 border-r">Status</th>
-                                </>
-                            )}
-                            {dbViewType === 'slips' && (
-                                <>
-                                    <th className="px-4 py-3 border-r">Slip Number</th>
-                                    <th className="px-4 py-3 border-r">Date</th>
-                                    <th className="px-4 py-3 border-r">Insured Name</th>
-                                </>
-                            )}
-                            {dbViewType === 'clauses' && (
-                                <>
-                                    <th className="px-4 py-3 border-r">Title</th>
-                                    <th className="px-4 py-3 border-r">Category</th>
-                                    <th className="px-4 py-3 border-r">Std</th>
-                                </>
-                            )}
-                            <th className="px-4 py-3 text-center w-24">State</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 font-mono text-gray-600">
-                        {(dbViewType === 'policies' ? rawPolicies : dbViewType === 'slips' ? rawSlips : rawClauses).map((item: any) => (
-                            <tr 
-                                key={item.id} 
-                                className={`hover:bg-blue-50 cursor-pointer transition-colors ${item.isDeleted ? 'bg-red-50 text-red-900' : ''}`}
-                            >
-                                <td className="px-4 py-2 border-r text-center">
-                                    <div className="text-blue-600 hover:text-blue-800"><Code size={14}/></div>
-                                </td>
-                                <td className="px-4 py-2 border-r truncate max-w-[120px]">{item.id}</td>
-                                {dbViewType === 'policies' && (
-                                    <>
-                                        <td className="px-4 py-2 border-r font-medium text-gray-900">{item.policyNumber}</td>
-                                        <td className="px-4 py-2 border-r">{item.channel || item.recordType}</td>
-                                        <td className="px-4 py-2 border-r truncate max-w-[200px]">{item.insuredName}</td>
-                                        <td className="px-4 py-2 border-r">{item.status}</td>
-                                    </>
-                                )}
-                                {dbViewType === 'slips' && (
-                                    <>
-                                        <td className="px-4 py-2 border-r font-medium text-gray-900">{item.slipNumber}</td>
-                                        <td className="px-4 py-2 border-r">{formatDate(item.date)}</td>
-                                        <td className="px-4 py-2 border-r">{item.insuredName}</td>
-                                    </>
-                                )}
-                                {dbViewType === 'clauses' && (
-                                    <>
-                                        <td className="px-4 py-2 border-r font-medium text-gray-900 truncate max-w-[300px]">{item.title}</td>
-                                        <td className="px-4 py-2 border-r">{item.category}</td>
-                                        <td className="px-4 py-2 border-r">{item.isStandard ? 'Y' : 'N'}</td>
-                                    </>
-                                )}
-                                <td className="px-4 py-2 text-center">
-                                    {item.isDeleted ? <span className="text-red-600 font-bold text-[10px] uppercase border border-red-200 bg-red-100 px-1 rounded">Deleted</span> : <span className="text-green-600 text-[10px] uppercase">Active</span>}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-  );
-
-  const renderFxRates = () => (
-      <div className="flex flex-col h-full animate-in fade-in zoom-in duration-200">
-        <div className="mb-6">
-             <h2 className="text-2xl font-bold text-gray-800">Exchange Rates</h2>
-             <p className="text-sm text-gray-500">Manage daily FX rates for calculating totals in National Currency (UZS).</p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-fit">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2"><Plus size={18}/> Add New Rate</h3>
-                <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Currency</label>
-                        <select 
-                            className="w-full bg-white border rounded p-2 text-gray-900" 
-                            value={newRate.currency}
-                            onChange={e => setNewRate({...newRate, currency: e.target.value as Currency})}
-                        >
-                            {Object.values(Currency).filter(c => c !== Currency.UZS).map(c => (
-                                <option key={c} value={c}>{c}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Rate to UZS</label>
-                        <input 
-                            type="number"
-                            className="w-full bg-white border rounded p-2 text-gray-900" 
-                            value={newRate.rate || ''}
-                            onChange={e => setNewRate({...newRate, rate: Number(e.target.value)})}
-                            placeholder="e.g. 12500.00"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-1">Date</label>
-                        <input 
-                            type="date"
-                            className="w-full bg-white border rounded p-2 text-gray-900" 
-                            value={newRate.date}
-                            onChange={e => setNewRate({...newRate, date: e.target.value})}
-                        />
-                    </div>
-                    <button 
-                        onClick={handleAddFx}
-                        className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg hover:bg-blue-700 mt-2"
-                    >
-                        Save Rate
-                    </button>
-                </div>
-            </div>
-
-            <div className="md:col-span-2 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                 <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-700 border-b">
-                        <tr>
-                            <th className="px-6 py-4">Currency</th>
-                            <th className="px-6 py-4">Rate (to UZS)</th>
-                            <th className="px-6 py-4">Date</th>
-                            <th className="px-6 py-4 text-right">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                        {fxRates.map(rate => (
-                            <tr key={rate.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 font-bold">{rate.currency}</td>
-                                <td className="px-6 py-4 font-mono">{rate.rate.toFixed(2)}</td>
-                                <td className="px-6 py-4 text-gray-500">{formatDate(rate.date)}</td>
-                                <td className="px-6 py-4 text-right">
-                                    <button onClick={() => handleDeleteFx(rate.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                 </table>
-            </div>
-        </div>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <table className="w-full text-left">
+                  <thead className="bg-gray-50 text-gray-700">
+                      <tr>
+                          <th className="px-6 py-4 w-12">Lvl</th>
+                          <th className="px-6 py-4">Role Name</th>
+                          <th className="px-6 py-4">Department</th>
+                          <th className="px-6 py-4 text-center">System</th>
+                          <th className="px-6 py-4 text-center">Status</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                      {roles.map(role => (
+                          <tr key={role.id} className="hover:bg-gray-50 group">
+                              <td className="px-6 py-4 font-mono text-gray-500 font-bold">{role.level}</td>
+                              <td className="px-6 py-4">
+                                  <div className="font-bold text-gray-900">{role.name}</div>
+                                  <div className="text-xs text-gray-500">{role.description}</div>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-600">{role.department || '-'}</td>
+                              <td className="px-6 py-4 text-center">
+                                  {role.isSystemRole && <Lock size={14} className="inline text-amber-500" title="System Role"/>}
+                              </td>
+                              <td className="px-6 py-4 text-center">
+                                  {role.isActive 
+                                      ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span>
+                                      : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>
+                                  }
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                  <button onClick={() => handleEditRole(role)} className="text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors"><Edit size={16}/></button>
+                              </td>
+                          </tr>
+                      ))}
+                  </tbody>
+              </table>
+          </div>
+          
+          {showRoleModal && (
+              <RoleEditModal 
+                  role={selectedRole}
+                  onClose={() => setShowRoleModal(false)}
+                  onSave={handleRoleSaved}
+              />
+          )}
       </div>
-  );
-
-  const renderTemplates = () => (
-      <div className="flex flex-col h-full animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center mb-6">
-             <div>
-                <h2 className="text-2xl font-bold text-gray-800">Policy Templates</h2>
-                <p className="text-sm text-gray-500">Manage agreement wordings and placeholders.</p>
-             </div>
-             <button onClick={() => handleEditTemplate()} className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
-                 <Plus size={18}/> New Template
-             </button>
-        </div>
-
-        {isEditingTemplate ? (
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 flex flex-col flex-1 p-6 overflow-hidden">
-                <div className="flex justify-between items-center mb-4 border-b pb-4">
-                    <h3 className="font-bold text-lg">Edit Template</h3>
-                    <div className="flex gap-2">
-                        <button onClick={() => setIsEditingTemplate(false)} className="text-gray-500 hover:text-gray-700 px-3 py-1">Cancel</button>
-                        <button onClick={handleSaveTemplate} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700 flex items-center gap-2"><Save size={16}/> Save</button>
-                    </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full overflow-hidden">
-                    <div className="md:col-span-2 flex flex-col gap-4 h-full overflow-y-auto pr-2">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
-                            <input 
-                                className="w-full bg-white border rounded p-2 text-gray-900" 
-                                value={currentTemplate.name} 
-                                onChange={e => setCurrentTemplate({...currentTemplate, name: e.target.value})}
-                                placeholder="e.g. Standard Commercial Property"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                            <input 
-                                className="w-full bg-white border rounded p-2 text-gray-900" 
-                                value={currentTemplate.description} 
-                                onChange={e => setCurrentTemplate({...currentTemplate, description: e.target.value})}
-                                placeholder="Description of use..."
-                            />
-                        </div>
-                        <div className="flex-1 flex flex-col">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Content (HTML/Text)</label>
-                            <textarea 
-                                className="w-full bg-white border rounded p-4 font-mono text-sm flex-1 focus:ring-2 focus:ring-blue-500 outline-none text-gray-900" 
-                                value={currentTemplate.content} 
-                                onChange={e => setCurrentTemplate({...currentTemplate, content: e.target.value})}
-                                placeholder="<h1>Policy Schedule</h1>..."
-                            />
-                        </div>
-                    </div>
-                    
-                    {/* Cheat Sheet */}
-                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 overflow-y-auto">
-                        <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase">Available Variables</h4>
-                        <p className="text-xs text-gray-500 mb-4">Use these placeholders in your content. They will be replaced by actual policy data.</p>
-                        <div className="space-y-2 text-xs font-mono">
-                            {['policyNumber', 'insuredName', 'insuredAddress', 'inceptionDate', 'expiryDate', 'sumInsured', 'currency', 'grossPremium', 'industry', 'territory', 'classOfInsurance', 'deductible', 'issueDate'].map(v => (
-                                <div key={v} className="bg-white p-2 rounded border border-gray-200 cursor-pointer hover:bg-blue-50 flex justify-between group"
-                                     onClick={() => setCurrentTemplate({...currentTemplate, content: currentTemplate.content + `{{${v}}}`})}>
-                                    <span>{`{{${v}}}`}</span>
-                                    <Plus size={12} className="opacity-0 group-hover:opacity-100 text-blue-500"/>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {templates.map(t => (
-                    <div key={t.id} className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all group relative">
-                        <div className="flex justify-between items-start mb-2">
-                             <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FileText size={20}/></div>
-                             <button onClick={() => handleDeleteTemplate(t.id)} className="text-gray-300 hover:text-red-500"><X size={16}/></button>
-                        </div>
-                        <h3 className="font-bold text-gray-800">{t.name}</h3>
-                        <p className="text-sm text-gray-500 mb-4 line-clamp-2">{t.description}</p>
-                        <button onClick={() => handleEditTemplate(t)} className="w-full py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">Edit Template</button>
-                    </div>
-                ))}
-            </div>
-        )}
-      </div>
-  );
-
-  const renderRecycleBin = () => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <h2 className="text-2xl font-bold text-gray-800">Recycle Bin</h2>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-4 border-b bg-gray-50 flex gap-4">
-                 {(['policies', 'slips', 'clauses'] as const).map(type => (
-                    <button
-                        key={type}
-                        onClick={() => setRecycleType(type)}
-                        className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors capitalize ${recycleType === type ? 'bg-white shadow text-red-600 border' : 'text-gray-500 hover:bg-gray-200'}`}
-                    >
-                        {type} ({(type === 'policies' ? deletedPolicies : type === 'slips' ? deletedSlips : deletedClauses).length})
-                    </button>
-                ))}
-            </div>
-
-            <table className="w-full text-sm text-left">
-                <thead className="bg-white text-gray-700 font-semibold border-b">
-                    <tr>
-                        <th className="px-6 py-4">Item Reference</th>
-                        <th className="px-6 py-4">Description</th>
-                        <th className="px-6 py-4 text-right">Recovery Actions</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                    {((recycleType === 'policies' ? deletedPolicies : recycleType === 'slips' ? deletedSlips : deletedClauses) as any[]).map(item => (
-                        <tr 
-                            key={item.id} 
-                            className="group hover:bg-gray-50"
-                        >
-                            <td className="px-6 py-4 font-mono text-gray-600">
-                                {item.policyNumber || item.slipNumber || item.category + '-' + item.id.substring(0,4)}
-                            </td>
-                            <td className="px-6 py-4">
-                                {item.insuredName || item.title || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 text-right flex justify-end gap-3">
-                                <button 
-                                    onClick={(e) => handleRestore(e, item.id)} 
-                                    className="text-green-600 hover:text-green-800 font-medium text-xs flex items-center gap-1 bg-green-50 px-3 py-1.5 rounded-md border border-green-100 hover:border-green-300 transition-all"
-                                >
-                                    <RefreshCw size={12} /> Restore
-                                </button>
-                                <button 
-                                    onClick={(e) => handleHardDelete(e, item.id)} 
-                                    className="text-red-600 hover:text-red-800 font-medium text-xs flex items-center gap-1 bg-red-50 px-3 py-1.5 rounded-md border border-red-100 hover:border-red-300 transition-all"
-                                >
-                                    <Trash2 size={12} /> Shred
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    </div>
   );
 
   const renderUsers = () => {
@@ -712,7 +471,7 @@ const AdminConsole: React.FC = () => {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Role</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Legacy Role</label>
                                 <select 
                                     className="w-full bg-white border rounded p-2 text-gray-900"
                                     value={currentUser.role}
@@ -733,6 +492,27 @@ const AdminConsole: React.FC = () => {
                                     placeholder="e.g. Marine"
                                 />
                             </div>
+                        </div>
+
+                        {/* RBAC Role Selection */}
+                        <div className="border-t pt-4">
+                            <label className="block text-sm font-bold text-gray-700 mb-1">RBAC Role Assignment</label>
+                            <p className="text-xs text-gray-500 mb-2">This overrides the legacy role for permission checks.</p>
+                            <select 
+                                className="w-full bg-white border rounded p-2 text-gray-900"
+                                value={currentUser.roleId || ''}
+                                onChange={e => {
+                                    const selectedId = e.target.value;
+                                    const roleObj = roles.find(r => r.id === selectedId);
+                                    // Optionally sync the legacy string if needed, or just set ID
+                                    setCurrentUser({ ...currentUser, roleId: selectedId });
+                                }}
+                            >
+                                <option value="">-- Select System Role --</option>
+                                {roles.map(r => (
+                                    <option key={r.id} value={r.id}>{r.name} (Lvl {r.level})</option>
+                                ))}
+                            </select>
                         </div>
 
                         <div>
@@ -816,6 +596,277 @@ const AdminConsole: React.FC = () => {
      </div>
   );
 
+  const renderDatabaseBrowser = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Database Browser</h2>
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          {(['policies', 'slips', 'clauses'] as const).map(view => (
+            <button
+              key={view}
+              onClick={() => setDbViewType(view)}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all capitalize ${dbViewType === view ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {view}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto max-h-[600px]">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-gray-50 text-gray-700 sticky top-0">
+              <tr>
+                {dbViewType === 'policies' && <>
+                  <th className="px-6 py-3">ID</th>
+                  <th className="px-6 py-3">Policy No</th>
+                  <th className="px-6 py-3">Insured</th>
+                  <th className="px-6 py-3">Status</th>
+                </>}
+                {dbViewType === 'slips' && <>
+                  <th className="px-6 py-3">ID</th>
+                  <th className="px-6 py-3">Slip No</th>
+                  <th className="px-6 py-3">Date</th>
+                  <th className="px-6 py-3">Insured</th>
+                </>}
+                {dbViewType === 'clauses' && <>
+                  <th className="px-6 py-3">ID</th>
+                  <th className="px-6 py-3">Title</th>
+                  <th className="px-6 py-3">Type</th>
+                </>}
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {dbViewType === 'policies' && rawPolicies.map(p => (
+                <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3 font-mono text-xs text-gray-500">{p.id.substring(0, 8)}...</td>
+                  <td className="px-6 py-3">{p.policyNumber}</td>
+                  <td className="px-6 py-3">{p.insuredName}</td>
+                  <td className="px-6 py-3">{p.status}</td>
+                </tr>
+              ))}
+              {dbViewType === 'slips' && rawSlips.map(s => (
+                <tr key={s.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3 font-mono text-xs text-gray-500">{s.id.substring(0, 8)}...</td>
+                  <td className="px-6 py-3">{s.slipNumber}</td>
+                  <td className="px-6 py-3">{formatDate(s.date)}</td>
+                  <td className="px-6 py-3">{s.insuredName}</td>
+                </tr>
+              ))}
+              {dbViewType === 'clauses' && rawClauses.map(c => (
+                <tr key={c.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3 font-mono text-xs text-gray-500">{c.id.substring(0, 8)}...</td>
+                  <td className="px-6 py-3">{c.title}</td>
+                  <td className="px-6 py-3">{c.category}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderRecycleBin = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Recycle Bin</h2>
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          {(['policies', 'slips', 'clauses'] as const).map(type => (
+            <button
+              key={type}
+              onClick={() => setRecycleType(type)}
+              className={`px-4 py-2 text-sm font-medium rounded-md transition-all capitalize ${recycleType === type ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-red-50 text-red-900">
+            <tr>
+              <th className="px-6 py-3">Item Reference</th>
+              <th className="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {recycleType === 'policies' && deletedPolicies.map(p => (
+              <tr key={p.id} className="hover:bg-red-50/30">
+                <td className="px-6 py-4">
+                  <div className="font-bold text-gray-900">{p.policyNumber}</div>
+                  <div className="text-xs text-gray-500">{p.insuredName}</div>
+                </td>
+                <td className="px-6 py-4 text-right space-x-2">
+                  <button onClick={(e) => handleRestore(e, p.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded border border-green-200 text-xs font-bold">Restore</button>
+                  <button onClick={(e) => handleHardDelete(e, p.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded border border-red-200 text-xs font-bold">Delete Forever</button>
+                </td>
+              </tr>
+            ))}
+            {recycleType === 'slips' && deletedSlips.map(s => (
+              <tr key={s.id} className="hover:bg-red-50/30">
+                <td className="px-6 py-4">
+                  <div className="font-bold text-gray-900">{s.slipNumber}</div>
+                  <div className="text-xs text-gray-500">{s.insuredName}</div>
+                </td>
+                <td className="px-6 py-4 text-right space-x-2">
+                  <button onClick={(e) => handleRestore(e, s.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded border border-green-200 text-xs font-bold">Restore</button>
+                  <button onClick={(e) => handleHardDelete(e, s.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded border border-red-200 text-xs font-bold">Delete Forever</button>
+                </td>
+              </tr>
+            ))}
+            {recycleType === 'clauses' && deletedClauses.map(c => (
+              <tr key={c.id} className="hover:bg-red-50/30">
+                <td className="px-6 py-4">
+                  <div className="font-bold text-gray-900">{c.title}</div>
+                  <div className="text-xs text-gray-500">{c.category}</div>
+                </td>
+                <td className="px-6 py-4 text-right space-x-2">
+                  <button onClick={(e) => handleRestore(e, c.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded border border-green-200 text-xs font-bold">Restore</button>
+                  <button onClick={(e) => handleHardDelete(e, c.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded border border-red-200 text-xs font-bold">Delete Forever</button>
+                </td>
+              </tr>
+            ))}
+            {((recycleType === 'policies' && deletedPolicies.length === 0) ||
+              (recycleType === 'slips' && deletedSlips.length === 0) ||
+              (recycleType === 'clauses' && deletedClauses.length === 0)) && (
+                <tr>
+                  <td colSpan={2} className="px-6 py-8 text-center text-gray-400">Bin is empty.</td>
+                </tr>
+              )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  const renderTemplates = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-gray-800">Policy Templates</h2>
+        <button onClick={() => handleEditTemplate()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
+          <Plus size={18} /> New Template
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {templates.map(t => (
+          <div key={t.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+            <h3 className="font-bold text-gray-900 mb-1">{t.name}</h3>
+            <p className="text-sm text-gray-500 mb-4 line-clamp-2">{t.description || 'No description'}</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => handleEditTemplate(t)} className="text-blue-600 hover:bg-blue-50 px-3 py-1 rounded text-sm font-medium">Edit</button>
+              <button onClick={() => handleDeleteTemplate(t.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded text-sm font-medium">Delete</button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {isEditingTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold">Template Editor</h3>
+              <button onClick={() => setIsEditingTemplate(false)}><X size={20} /></button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
+                <input className="w-full border rounded p-2" value={currentTemplate.name} onChange={e => setCurrentTemplate({ ...currentTemplate, name: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
+                <input className="w-full border rounded p-2" value={currentTemplate.description} onChange={e => setCurrentTemplate({ ...currentTemplate, description: e.target.value })} />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">HTML Content</label>
+                <div className="text-xs text-gray-500 mb-2">Supported Placeholders: {'{{policyNumber}}'}, {'{{insuredName}}'}, {'{{grossPremium}}'}, etc.</div>
+                <textarea className="w-full border rounded p-2 h-64 font-mono text-sm" value={currentTemplate.content} onChange={e => setCurrentTemplate({ ...currentTemplate, content: e.target.value })} />
+              </div>
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button onClick={() => setIsEditingTemplate(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button>
+              <button onClick={handleSaveTemplate} className="px-4 py-2 bg-blue-600 text-white font-bold rounded">Save Template</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const renderFxRates = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <h2 className="text-2xl font-bold text-gray-800">Exchange Rates</h2>
+
+      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm mb-6">
+        <h3 className="font-bold text-gray-700 mb-4 flex items-center gap-2"><Plus size={18} /> Add New Rate</h3>
+        <div className="flex gap-4 items-end">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label>
+            <select
+              className="w-32 p-2 border rounded bg-white"
+              value={newRate.currency}
+              onChange={e => setNewRate({ ...newRate, currency: e.target.value as any })}
+            >
+              {Object.values(Currency).filter(c => c !== 'UZS').map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rate (UZS)</label>
+            <input
+              type="number"
+              className="w-40 p-2 border rounded"
+              value={newRate.rate || ''}
+              onChange={e => setNewRate({ ...newRate, rate: Number(e.target.value) })}
+              placeholder="e.g. 12500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
+            <input
+              type="date"
+              className="w-40 p-2 border rounded"
+              value={newRate.date}
+              onChange={e => setNewRate({ ...newRate, date: e.target.value })}
+            />
+          </div>
+          <button onClick={handleAddFx} className="px-4 py-2 bg-green-600 text-white font-bold rounded hover:bg-green-700">Add Rate</button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-gray-50 text-gray-700">
+            <tr>
+              <th className="px-6 py-3">Currency</th>
+              <th className="px-6 py-3">Rate (to UZS)</th>
+              <th className="px-6 py-3">Effective Date</th>
+              <th className="px-6 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {fxRates.map(r => (
+              <tr key={r.id} className="hover:bg-gray-50">
+                <td className="px-6 py-3 font-bold">{r.currency}</td>
+                <td className="px-6 py-3">{r.rate.toLocaleString()}</td>
+                <td className="px-6 py-3">{formatDate(r.date)}</td>
+                <td className="px-6 py-3 text-right">
+                  <button onClick={() => handleDeleteFx(r.id)} className="text-red-400 hover:text-red-600"><Trash2 size={16} /></button>
+                </td>
+              </tr>
+            ))}
+            {fxRates.length === 0 && (
+              <tr><td colSpan={4} className="p-6 text-center text-gray-400">No rates defined.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen flex bg-gray-100 font-sans">
         
@@ -838,6 +889,20 @@ const AdminConsole: React.FC = () => {
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'dashboard' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
                 >
                     <Activity size={18} className="flex-shrink-0" /> <span>Dashboard</span>
+                </button>
+
+                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Access Control</div>
+                <button 
+                    onClick={() => setActiveSection('roles')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'roles' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Key size={18} className="flex-shrink-0" /> <span>Roles & Permissions</span>
+                </button>
+                <button 
+                    onClick={() => setActiveSection('users')}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'users' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
+                >
+                    <Users size={18} className="flex-shrink-0" /> <span>User Management</span>
                 </button>
 
                 <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Data Management</div>
@@ -868,14 +933,6 @@ const AdminConsole: React.FC = () => {
                     <Coins size={18} className="flex-shrink-0" /> <span>FX Rates</span>
                 </button>
 
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Access Control</div>
-                <button 
-                    onClick={() => setActiveSection('users')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'users' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Users size={18} className="flex-shrink-0" /> <span>User Management</span>
-                </button>
-
                 <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">System</div>
                 <button 
                     onClick={() => setActiveSection('settings')}
@@ -898,6 +955,7 @@ const AdminConsole: React.FC = () => {
         {/* Main Content Area */}
         <main className={`flex-1 overflow-y-auto p-8 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
             {activeSection === 'dashboard' && renderDashboardHome()}
+            {activeSection === 'roles' && renderRoles()}
             {activeSection === 'database' && renderDatabaseBrowser()}
             {activeSection === 'recycle' && renderRecycleBin()}
             {activeSection === 'users' && renderUsers()}

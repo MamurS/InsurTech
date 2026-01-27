@@ -1,7 +1,9 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { PermissionProvider } from './context/PermissionContext';
 import Dashboard from './pages/Dashboard';
 import PolicyForm from './pages/PolicyForm';
 import PolicyWording from './pages/PolicyWording';
@@ -33,12 +35,13 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Admin Route Component
+// Admin Route Component (Now enhanced by Permission logic inside AdminConsole, but kept for high level protection)
 const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
   if (loading) return null;
 
+  // Basic role check fallback, Permissions handled deeper
   if (user?.role !== 'Super Admin' && user?.role !== 'Admin') {
     return <Navigate to="/" replace />;
   }
@@ -108,9 +111,11 @@ const AppRoutes = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <HashRouter>
-        <AppRoutes />
-      </HashRouter>
+      <PermissionProvider>
+        <HashRouter>
+          <AppRoutes />
+        </HashRouter>
+      </PermissionProvider>
     </AuthProvider>
   );
 };
