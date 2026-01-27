@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Loader2, AlertTriangle, CheckCircle, Search, ChevronDown } from 'lucide-react';
+import { X, Loader2, AlertTriangle, CheckCircle, Search, ChevronDown, Info } from 'lucide-react';
 import { useCreateClaim, usePoliciesDropdown } from '../hooks/useClaims';
 import { determineLiability } from '../services/claimsService';
 import { ClaimLiabilityType } from '../types';
@@ -101,13 +101,14 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
         setSearchTerm(e.target.value);
         if (selectedPolicyId) {
             setSelectedPolicyId(''); // Clear selection if user types
+            setLiabilityType(null);
         }
         setIsDropdownOpen(true);
     };
 
     const handleSubmit = async () => {
-        if (!selectedPolicyId || !lossDate || !description || !liabilityType) {
-            alert('Please fill in all required fields');
+        if (!selectedPolicyId || !lossDate || !description || !liabilityType || !claimNumber) {
+            alert('Please fill in all required fields (Policy, Claim No, Loss Date, Description).');
             return;
         }
 
@@ -117,7 +118,8 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
             lossDate,
             reportDate,
             description,
-            // Assuming description holds causeOfLoss for now or map it if schema supports
+            // Store cause of loss in description or extended field if schema allows, 
+            // for now concatenating if description is simple
             claimantName,
             locationCountry,
             liabilityType,
@@ -135,10 +137,13 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
         });
     };
 
+    // Determine if the form is valid for enabling the button
+    const isFormValid = !!selectedPolicyId && !!claimNumber && !!lossDate && !!reportDate && !!description && !!liabilityType;
+
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-20">
@@ -172,7 +177,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                                 <div className="relative z-20">
                                     <input
                                         type="text"
-                                        className="w-full p-2.5 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                                        className={`w-full p-2.5 pr-8 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white ${!selectedPolicyId && searchTerm ? 'border-amber-300 ring-1 ring-amber-200' : 'border-gray-300'}`}
                                         placeholder="Type to search by policy number or insured name..."
                                         value={searchTerm}
                                         onChange={handleSearchChange}
@@ -187,7 +192,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                                 {isDropdownOpen && (
                                     <div className="absolute z-30 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-100">
                                         {filteredPolicies.length === 0 ? (
-                                            <div className="p-3 text-gray-500 text-sm text-center">No policies found</div>
+                                            <div className="p-3 text-gray-500 text-sm text-center">No policies found matching "{searchTerm}"</div>
                                         ) : (
                                             filteredPolicies.map(policy => (
                                                 <div
@@ -209,11 +214,15 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                         )}
                         
                         {/* Selected Policy Details Display */}
-                        {selectedPolicy && (
+                        {selectedPolicy ? (
                             <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
                                 <span><span className="font-bold">Period:</span> {selectedPolicy.inceptionDate} to {selectedPolicy.expiryDate}</span>
                                 <span><span className="font-bold">Currency:</span> {selectedPolicy.currency}</span>
                                 <span><span className="font-bold">Our Share:</span> {selectedPolicy.ourShare}%</span>
+                            </div>
+                        ) : searchTerm && !isDropdownOpen && (
+                            <div className="mt-1 text-xs text-amber-600 flex items-center gap-1">
+                                <AlertTriangle size={12}/> Policy not selected. Please select from the dropdown.
                             </div>
                         )}
                     </div>
@@ -258,7 +267,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                     </div>
 
                     {/* Liability Type Display */}
-                    {liabilityType && (
+                    {liabilityType ? (
                         <div className={`p-4 rounded-lg flex items-start gap-3 ${
                             liabilityType === 'ACTIVE' 
                                 ? 'bg-blue-50 border border-blue-200' 
@@ -276,7 +285,11 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                                 <div className={`text-xs ${liabilityType === 'ACTIVE' ? 'text-blue-600' : 'text-amber-600'}`}>{liabilityReason}</div>
                             </div>
                         </div>
-                    )}
+                    ) : selectedPolicyId && lossDate ? (
+                        <div className="p-3 bg-gray-50 rounded text-xs text-gray-500 italic flex items-center gap-2">
+                            <Loader2 size={12} className="animate-spin"/> Calculating liability...
+                        </div>
+                    ) : null}
 
                     {/* Description */}
                     <div>
@@ -365,22 +378,31 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
-                        disabled={createClaimMutation.isPending}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={createClaimMutation.isPending || !selectedPolicyId || !lossDate || !description}
-                        className="px-6 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm shadow-sm transition-colors"
-                    >
-                        {createClaimMutation.isPending && <Loader2 size={16} className="animate-spin" />}
-                        Register Claim
-                    </button>
+                <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                        {!isFormValid && <><Info size={14}/> Complete marked fields to enable registration.</>}
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                            disabled={createClaimMutation.isPending}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={createClaimMutation.isPending || !isFormValid}
+                            className={`px-6 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition-colors ${
+                                isFormValid 
+                                ? 'bg-red-600 hover:bg-red-700 text-white' 
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            }`}
+                        >
+                            {createClaimMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                            Register Claim
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
