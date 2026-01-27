@@ -155,26 +155,27 @@ export const PermissionService = {
         if (!user) return { permissions: [], authorityLimits: {}, canApprove: false };
 
         // 1. Get Permissions List (RPC)
-        const { data: perms } = await supabase.rpc('get_user_permissions', { user_id: user.id });
+        // Fixed: Use p_user_id
+        const { data: perms } = await supabase.rpc('get_user_permissions', { 
+            p_user_id: user.id 
+        });
         const permissionsList = perms?.map((p: any) => p.code) || [];
 
-        // 2. Get Authority Limits (RPC or Direct)
-        // We'll fetch for key types 'policy_lol' and 'claim_payment'
+        // 2. Get Authority Limits (RPC)
+        // Fixed: Use p_user_id, p_limit_type, p_currency
         const { data: lolLimit } = await supabase.rpc('get_user_authority_limit', { 
-            user_id: user.id, 
-            limit_type: 'policy_lol', 
-            currency: 'USD' 
+            p_user_id: user.id, 
+            p_limit_type: 'policy_lol', 
+            p_currency: 'USD' 
         });
         
         const { data: claimLimit } = await supabase.rpc('get_user_authority_limit', { 
-            user_id: user.id, 
-            limit_type: 'claim_payment', 
-            currency: 'USD' 
+            p_user_id: user.id, 
+            p_limit_type: 'claim_payment', 
+            p_currency: 'USD' 
         });
 
         // 3. Can Approve? (Check role level or flag)
-        // Simple logic: if they have high limits, they can approve. 
-        // Or check a specific permission code like 'approval.execute'
         const canApprove = permissionsList.includes('approval.execute');
 
         return {
