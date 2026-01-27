@@ -364,7 +364,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   };
 
   const renderSlipDetail = (slip: ReinsuranceSlip) => {
-      const currentStatus = (slip.status as unknown as string) || 'DRAFT';
+      // Normalize legacy status values
+      let currentStatus = (slip.status as unknown as string) || 'DRAFT';
+      
+      // Map legacy 'Active' to 'BOUND'
+      if (currentStatus === 'Active') currentStatus = 'BOUND';
 
       return (
       <div className="space-y-6">
