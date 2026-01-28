@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
+import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { DepartmentEditModal } from '../components/DepartmentEditModal';
 import { supabase } from '../services/supabase'; // Import direct for custom save
@@ -65,9 +66,9 @@ const AdminConsole: React.FC = () => {
   const [fxRates, setFxRates] = useState<ExchangeRate[]>([]);
   const [newRate, setNewRate] = useState<Partial<ExchangeRate>>({
       currency: Currency.USD,
-      rate: 1,
-      date: new Date().toISOString().split('T')[0]
+      rate: 1
   });
+  const [fxDate, setFxDate] = useState<Date | null>(new Date());
 
   // User Management State
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
@@ -194,11 +195,14 @@ const AdminConsole: React.FC = () => {
   // FX Handlers
   const handleAddFx = async () => {
       if (!newRate.rate || !newRate.currency) return;
+      
+      const dateString = toISODateString(fxDate) || new Date().toISOString().split('T')[0];
+      
       await DB.saveExchangeRate({
           id: crypto.randomUUID(),
           currency: newRate.currency!,
           rate: Number(newRate.rate),
-          date: newRate.date || new Date().toISOString().split('T')[0]
+          date: dateString
       });
       loadAllData();
       setNewRate({ ...newRate, rate: 0 }); // Reset rate
@@ -1194,12 +1198,12 @@ const AdminConsole: React.FC = () => {
                     />
                 </div>
                 <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
-                    <input 
-                        type="date" 
+                    <DatePickerInput
+                        value={fxDate}
+                        onChange={setFxDate}
+                        label="Date"
+                        placeholder="Select date"
                         className="w-full p-2 border rounded"
-                        value={newRate.date}
-                        onChange={e => setNewRate({...newRate, date: e.target.value})}
                     />
                 </div>
                 <button onClick={handleAddFx} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700">Add Rate</button>
