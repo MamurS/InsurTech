@@ -8,7 +8,7 @@ import { PermissionService } from '../services/permissionService';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { DepartmentEditModal } from '../components/DepartmentEditModal';
 import { supabase } from '../services/supabase'; // Import direct for custom save
@@ -16,10 +16,10 @@ import {
   Trash2, RefreshCw, Users, 
   Lock, Table, Code, 
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
-  Coins, LogOut, Key, Building2, Briefcase
+  Coins, LogOut, Key, Building2, Briefcase, ScrollText, Search
 } from 'lucide-react';
 
-type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx';
+type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity';
 type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
@@ -85,6 +85,17 @@ const AdminConsole: React.FC = () => {
   });
   const [newUserPassword, setNewUserPassword] = useState(''); 
   
+  // Activity Log State
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityCategory, setActivityCategory] = useState<string>('');
+  const [activityDateFrom, setActivityDateFrom] = useState<string>('');
+  const [activityDateTo, setActivityDateTo] = useState<string>('');
+  const [activityPage, setActivityPage] = useState(0);
+  const [activityTotal, setActivityTotal] = useState(0);
+  const ACTIVITY_PAGE_SIZE = 50;
+  
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -122,9 +133,45 @@ const AdminConsole: React.FC = () => {
     setLoading(false);
   };
 
+  // Fetch activity logs
+  const fetchActivityLogs = async () => {
+      if (!supabase) return;
+      setActivityLoading(true);
+      try {
+          const { data, error } = await supabase.rpc('search_audit_log', {
+              p_search: activitySearch || null,
+              p_action_category: activityCategory || null,
+              p_date_from: activityDateFrom ? new Date(activityDateFrom).toISOString() : null,
+              p_date_to: activityDateTo ? new Date(activityDateTo + 'T23:59:59').toISOString() : null,
+              p_limit: ACTIVITY_PAGE_SIZE,
+              p_offset: activityPage * ACTIVITY_PAGE_SIZE
+          });
+          
+          if (error) throw error;
+          
+          setActivityLogs(data || []);
+          if (data && data.length > 0) {
+              setActivityTotal(data[0].total_count);
+          } else {
+              setActivityTotal(0);
+          }
+      } catch (err) {
+          console.error('Error fetching activity logs:', err);
+      } finally {
+          setActivityLoading(false);
+      }
+  };
+
   useEffect(() => {
     loadAllData();
   }, [activeSection, dbViewType, recycleType]);
+
+  // useEffect to fetch activity logs on filter change
+  useEffect(() => {
+      if (activeSection === 'activity') {
+          fetchActivityLogs();
+      }
+  }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
 
   const handleRestore = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -352,6 +399,194 @@ const AdminConsole: React.FC = () => {
                 <div className="text-3xl font-bold text-red-600">{stats.deletedItems}</div>
             </div>
         </div>
+    </div>
+  );
+
+  const renderActivityLog = () => (
+    <div className="space-y-4 animate-in fade-in duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+            <div>
+                <h2 className="text-xl font-bold text-gray-800">Activity Log</h2>
+                <p className="text-sm text-gray-500">Track all system activities and changes</p>
+            </div>
+            <button
+                onClick={fetchActivityLogs}
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+            >
+                <RefreshCw size={16} />
+                Refresh
+            </button>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* Search */}
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                        type="text"
+                        placeholder="Search logs..."
+                        value={activitySearch}
+                        onChange={(e) => { setActivitySearch(e.target.value); setActivityPage(0); }}
+                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                </div>
+                
+                {/* Category Filter */}
+                <select
+                    value={activityCategory}
+                    onChange={(e) => { setActivityCategory(e.target.value); setActivityPage(0); }}
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                >
+                    <option value="">All Categories</option>
+                    <option value="POLICY">Policies</option>
+                    <option value="SLIP">Slips</option>
+                    <option value="CLAIM">Claims</option>
+                    <option value="TASK">Tasks</option>
+                    <option value="USER">Users</option>
+                    <option value="ENTITY">Legal Entities</option>
+                    <option value="ADMIN">Admin</option>
+                    <option value="AUTH">Authentication</option>
+                </select>
+                
+                {/* Date From */}
+                <input
+                    type="date"
+                    value={activityDateFrom}
+                    onChange={(e) => { setActivityDateFrom(e.target.value); setActivityPage(0); }}
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="From date"
+                />
+                
+                {/* Date To */}
+                <input
+                    type="date"
+                    value={activityDateTo}
+                    onChange={(e) => { setActivityDateTo(e.target.value); setActivityPage(0); }}
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    placeholder="To date"
+                />
+            </div>
+            
+            {/* Clear Filters */}
+            {(activitySearch || activityCategory || activityDateFrom || activityDateTo) && (
+                <button
+                    onClick={() => {
+                        setActivitySearch('');
+                        setActivityCategory('');
+                        setActivityDateFrom('');
+                        setActivityDateTo('');
+                        setActivityPage(0);
+                    }}
+                    className="mt-3 text-sm text-blue-600 hover:text-blue-800"
+                >
+                    Clear all filters
+                </button>
+            )}
+        </div>
+
+        {/* Results Count */}
+        <div className="text-sm text-gray-500">
+            Showing {activityLogs.length} of {activityTotal} logs
+        </div>
+
+        {/* Activity Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            {activityLoading ? (
+                <div className="flex items-center justify-center py-12">
+                    <Loader2 className="animate-spin text-blue-600" size={32} />
+                </div>
+            ) : activityLogs.length === 0 ? (
+                <div className="text-center py-12 text-gray-500">
+                    <ScrollText size={48} className="mx-auto mb-4 text-gray-300" />
+                    <p>No activity logs found</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead className="bg-gray-50 border-b">
+                            <tr>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Time</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Category</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Reference</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                            {activityLogs.map((log) => (
+                                <tr key={log.id} className="hover:bg-gray-50">
+                                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                                        {formatDateTime(log.created_at)}
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <div className="text-sm font-medium text-gray-900">{log.user_name || 'System'}</div>
+                                        <div className="text-xs text-gray-500">{log.user_email}</div>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                            log.action === 'INSERT' ? 'bg-green-100 text-green-800' :
+                                            log.action === 'UPDATE' ? 'bg-blue-100 text-blue-800' :
+                                            log.action === 'DELETE' ? 'bg-red-100 text-red-800' :
+                                            log.action === 'STATUS_CHANGE' ? 'bg-purple-100 text-purple-800' :
+                                            log.action === 'LOGIN' ? 'bg-cyan-100 text-cyan-800' :
+                                            'bg-gray-100 text-gray-800'
+                                        }`}>
+                                            {log.action}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3">
+                                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                                            log.action_category === 'POLICY' ? 'bg-indigo-50 text-indigo-700' :
+                                            log.action_category === 'SLIP' ? 'bg-orange-50 text-orange-700' :
+                                            log.action_category === 'CLAIM' ? 'bg-red-50 text-red-700' :
+                                            log.action_category === 'TASK' ? 'bg-yellow-50 text-yellow-700' :
+                                            log.action_category === 'USER' ? 'bg-pink-50 text-pink-700' :
+                                            log.action_category === 'AUTH' ? 'bg-cyan-50 text-cyan-700' :
+                                            'bg-gray-50 text-gray-700'
+                                        }`}>
+                                            {log.action_category}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-700 max-w-md truncate" title={log.action_description}>
+                                        {log.action_description}
+                                    </td>
+                                    <td className="px-4 py-3 text-sm font-mono text-gray-600">
+                                        {log.entity_reference}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+
+        {/* Pagination */}
+        {activityTotal > ACTIVITY_PAGE_SIZE && (
+            <div className="flex items-center justify-between">
+                <button
+                    onClick={() => setActivityPage(p => Math.max(0, p - 1))}
+                    disabled={activityPage === 0}
+                    className="px-4 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                    Previous
+                </button>
+                <span className="text-sm text-gray-600">
+                    Page {activityPage + 1} of {Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE)}
+                </span>
+                <button
+                    onClick={() => setActivityPage(p => p + 1)}
+                    disabled={(activityPage + 1) * ACTIVITY_PAGE_SIZE >= activityTotal}
+                    className="px-4 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                >
+                    Next
+                </button>
+            </div>
+        )}
     </div>
   );
 
@@ -1030,6 +1265,9 @@ const AdminConsole: React.FC = () => {
           <button onClick={() => setActiveSection('recycle')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'recycle' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
             <Trash2 size={20}/> Recycle Bin
           </button>
+          <button onClick={() => setActiveSection('activity')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'activity' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <ScrollText size={20}/> Activity Log
+          </button>
           
           <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Configuration</div>
           <button onClick={() => setActiveSection('templates')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'templates' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
@@ -1061,6 +1299,7 @@ const AdminConsole: React.FC = () => {
                 {activeSection === 'departments' && renderDepartments()}
                 {activeSection === 'database' && renderDatabaseBrowser()}
                 {activeSection === 'recycle' && renderRecycleBin()}
+                {activeSection === 'activity' && renderActivityLog()}
                 {activeSection === 'templates' && renderTemplates()}
                 {activeSection === 'fx' && renderFxRates()}
             </>
