@@ -20,7 +20,7 @@ import ClaimDetail from './pages/ClaimDetail';
 import Agenda from './pages/Agenda';
 
 // Protected Route Component
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
@@ -36,7 +36,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 // Admin Route Component (Now enhanced by Permission logic inside AdminConsole, but kept for high level protection)
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+const AdminRoute = ({ children }: React.PropsWithChildren) => {
   const { user, loading } = useAuth();
   
   if (loading) return null;
