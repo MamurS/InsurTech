@@ -4,6 +4,7 @@ import { X, Loader2, AlertTriangle, CheckCircle, Search, ChevronDown, Info } fro
 import { useCreateClaim, usePoliciesDropdown } from '../hooks/useClaims';
 import { determineLiability } from '../services/claimsService';
 import { ClaimLiabilityType } from '../types';
+import { formatDate } from '../utils/dateUtils';
 
 interface RegisterClaimModalProps {
     isOpen: boolean;
@@ -216,7 +217,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                         {/* Selected Policy Details Display */}
                         {selectedPolicy ? (
                             <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100 flex flex-wrap gap-x-4 gap-y-1">
-                                <span><span className="font-bold">Period:</span> {selectedPolicy.inceptionDate} to {selectedPolicy.expiryDate}</span>
+                                <span><span className="font-bold">Period:</span> {formatDate(selectedPolicy.inceptionDate)} to {formatDate(selectedPolicy.expiryDate)}</span>
                                 <span><span className="font-bold">Currency:</span> {selectedPolicy.currency}</span>
                                 <span><span className="font-bold">Our Share:</span> {selectedPolicy.ourShare}%</span>
                             </div>

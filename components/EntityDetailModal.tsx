@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { LegalEntity, EntityLog } from '../types';
 import { DB } from '../services/db';
+import { formatDateTime } from '../utils/dateUtils';
 import { X, Building2, Globe, Phone, Mail, MapPin, Landmark, Users, Clock, History } from 'lucide-react';
 
 interface EntityDetailModalProps {
@@ -26,19 +27,6 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({ entity, on
   }, [activeTab, entity]);
 
   if (!entity) return null;
-
-  // --- DATE FORMATTER (dd.mm.yyyy HH:mm) ---
-  const formatDateTime = (dateStr: string) => {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return dateStr;
-      
-      const day = String(date.getDate()).padStart(2, '0');
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const year = date.getFullYear();
-      const hours = String(date.getHours()).padStart(2, '0');
-      const mins = String(date.getMinutes()).padStart(2, '0');
-      return `${day}.${month}.${year} ${hours}:${mins}`;
-  };
 
   const renderDetails = () => (
     <div className="space-y-6">
