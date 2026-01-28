@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Calendar, User, Briefcase, AlertTriangle, Paperclip, File as FileIcon, Trash2 } from 'lucide-react';
+import { X, Loader2, User, Briefcase, AlertTriangle, Paperclip, File as FileIcon, Trash2 } from 'lucide-react';
 import { useCreateTask, useUploadAttachment } from '../hooks/useAgenda';
 import { useProfiles } from '../hooks/useUsers';
 import { TaskPriority, EntityType } from '../types';
+import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 
 interface AssignTaskModalProps {
     isOpen: boolean;
@@ -25,7 +26,7 @@ const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [priority, setPriority] = useState<TaskPriority>('MEDIUM');
-    const [dueDate, setDueDate] = useState('');
+    const [dueDate, setDueDate] = useState<Date | null>(null);
     const [assignedTo, setAssignedTo] = useState(preSelectedUser || '');
     const [errorMsg, setErrorMsg] = useState('');
     
@@ -40,7 +41,7 @@ const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
             setTitle(entityReference ? `Review: ${entityReference}` : '');
             setDescription('');
             setPriority('MEDIUM');
-            setDueDate('');
+            setDueDate(null);
             setAssignedTo(preSelectedUser || '');
             setErrorMsg('');
             setSelectedFiles([]);
@@ -72,7 +73,7 @@ const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                 title,
                 description,
                 priority,
-                dueDate: dueDate || undefined,
+                dueDate: toISODateString(dueDate) || undefined,
                 assignedTo,
                 entityType: entityType || 'OTHER',
                 entityId,
@@ -169,15 +170,12 @@ const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                                 <option value="URGENT">Urgent</option>
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Due Date</label>
-                            <input 
-                                type="date"
-                                className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                value={dueDate}
-                                onChange={e => setDueDate(e.target.value)}
-                            />
-                        </div>
+                        <DatePickerInput
+                            label="Due Date"
+                            value={dueDate}
+                            onChange={setDueDate}
+                            minDate={new Date()}
+                        />
                     </div>
 
                     <div>

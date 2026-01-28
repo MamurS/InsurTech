@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter, Switch, Route, Redirect, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PermissionProvider } from './context/PermissionContext';
@@ -29,7 +29,7 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Redirect to={{ pathname: "/login", state: { from: location } }} />;
   }
 
   return <>{children}</>;
@@ -43,7 +43,7 @@ const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
 
   // Basic role check fallback, Permissions handled deeper
   if (user?.role !== 'Super Admin' && user?.role !== 'Admin') {
-    return <Navigate to="/" replace />;
+    return <Redirect to="/" />;
   }
 
   return <>{children}</>;
@@ -51,60 +51,88 @@ const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
 
 const AppRoutes = () => {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <Switch>
+      <Route path="/login">
+        <Login />
+      </Route>
 
       {/* Standalone Admin Platform */}
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute>
-            <AdminRoute>
-              <AdminConsole />
-            </AdminRoute>
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/admin">
+        <ProtectedRoute>
+          <AdminRoute>
+            <AdminConsole />
+          </AdminRoute>
+        </ProtectedRoute>
+      </Route>
 
       {/* Main Application - Wrapped in Layout */}
-      <Route
-        path="/*"
-        element={
-          <ProtectedRoute>
-            <Layout>
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/new" element={<PolicyForm />} />
-                <Route path="/edit/:id" element={<PolicyForm />} />
-                <Route path="/wording/:id" element={<PolicyWording />} />
-                <Route path="/clauses" element={<ClauseManager />} />
-                
-                {/* Slips Routes */}
-                <Route path="/slips" element={<SlipsDashboard />} />
-                <Route path="/slips/new" element={<SlipForm />} />
-                <Route path="/slips/edit/:id" element={<SlipForm />} />
+      <Route path="/">
+        <ProtectedRoute>
+          <Layout>
+            <Switch>
+              <Route exact path="/">
+                <Dashboard />
+              </Route>
+              <Route path="/new">
+                <PolicyForm />
+              </Route>
+              <Route path="/edit/:id">
+                <PolicyForm />
+              </Route>
+              <Route path="/wording/:id">
+                <PolicyWording />
+              </Route>
+              <Route path="/clauses">
+                <ClauseManager />
+              </Route>
+              
+              {/* Slips Routes */}
+              <Route exact path="/slips">
+                <SlipsDashboard />
+              </Route>
+              <Route path="/slips/new">
+                <SlipForm />
+              </Route>
+              <Route path="/slips/edit/:id">
+                <SlipForm />
+              </Route>
 
-                {/* Claims Routes */}
-                <Route path="/claims" element={<ClaimsList />} />
-                <Route path="/claims/:id" element={<ClaimDetail />} />
+              {/* Claims Routes */}
+              <Route exact path="/claims">
+                <ClaimsList />
+              </Route>
+              <Route path="/claims/:id">
+                <ClaimDetail />
+              </Route>
 
-                {/* Legal Entities Routes */}
-                <Route path="/entities" element={<EntityManager />} />
-                <Route path="/entities/new" element={<EntityForm />} />
-                <Route path="/entities/edit/:id" element={<EntityForm />} />
-                
-                {/* Agenda / Tasks */}
-                <Route path="/agenda" element={<Agenda />} />
-                
-                <Route path="/settings" element={<Settings />} />
-                
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Layout>
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+              {/* Legal Entities Routes */}
+              <Route exact path="/entities">
+                <EntityManager />
+              </Route>
+              <Route path="/entities/new">
+                <EntityForm />
+              </Route>
+              <Route path="/entities/edit/:id">
+                <EntityForm />
+              </Route>
+              
+              {/* Agenda / Tasks */}
+              <Route path="/agenda">
+                <Agenda />
+              </Route>
+              
+              <Route path="/settings">
+                <Settings />
+              </Route>
+              
+              <Route path="*">
+                <Redirect to="/" />
+              </Route>
+            </Switch>
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+    </Switch>
   );
 }
 

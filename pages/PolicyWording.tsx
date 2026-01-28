@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useHistory } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate } from '../types';
 import { MosaicLogo } from '../components/MosaicLogo';
@@ -66,7 +66,7 @@ const DEFAULT_TEMPLATE: PolicyTemplate = {
 
 const PolicyWording: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const history = useHistory();
   const [item, setItem] = useState<Policy | ReinsuranceSlip | null>(null);
   const [templates, setTemplates] = useState<PolicyTemplate[]>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
@@ -286,7 +286,7 @@ const PolicyWording: React.FC = () => {
   return (
     <div className="flex gap-6 h-[calc(100vh-100px)]">
       <div className="w-72 flex-shrink-0 flex flex-col gap-4 print:hidden">
-         <button onClick={() => navigate(-1)} className="flex items-center gap-2 text-gray-600 hover:text-black"><ArrowLeft size={16}/> Back</button>
+         <button onClick={() => history.goBack()} className="flex items-center gap-2 text-gray-600 hover:text-black"><ArrowLeft size={16}/> Back</button>
          
          <div className="bg-white p-4 rounded-lg shadow-sm border space-y-4">
             <h3 className="font-bold text-gray-800 flex items-center gap-2"><Settings2 size={16}/> Configuration</h3>

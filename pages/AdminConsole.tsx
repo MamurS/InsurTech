@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import { DB } from '../services/db';
 import { AuthService } from '../services/auth';
 import { UserService } from '../services/userService';
@@ -23,7 +24,7 @@ type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
 const AdminConsole: React.FC = () => {
-  const navigate = useNavigate();
+  const history = useHistory();
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<Section>('roles'); 
   const [isSidebarOpen] = useState(true);
@@ -987,142 +988,4 @@ const AdminConsole: React.FC = () => {
                             <td className="px-6 py-3">{r.rate}</td>
                             <td className="px-6 py-3 text-gray-500">{formatDate(r.date)}</td>
                             <td className="px-6 py-3 text-right">
-                                <button onClick={() => handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
-    </div>
-  );
-
-  const renderSettings = () => (
-      <div className="space-y-6 animate-in fade-in duration-300">
-          <h2 className="text-2xl font-bold text-gray-800">System Maintenance</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Lock size={18}/> Cache & Session</h3>
-                  <p className="text-sm text-gray-600 mb-4">Clear local storage and force logout for all sessions.</p>
-                  <button onClick={() => { localStorage.clear(); window.location.reload(); }} className="px-4 py-2 bg-red-100 text-red-700 font-bold rounded hover:bg-red-200 text-sm">Clear Local Cache</button>
-              </div>
-              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                  <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2"><Code size={18}/> System Version</h3>
-                  <div className="text-sm text-gray-600">
-                      <div><span className="font-bold">Version:</span> 1.2.0 (Beta)</div>
-                      <div><span className="font-bold">Build:</span> 2025-05-15</div>
-                      <div><span className="font-bold">Environment:</span> {process.env.NODE_ENV}</div>
-                  </div>
-              </div>
-          </div>
-      </div>
-  );
-
-  return (
-    <div className="min-h-screen flex bg-gray-100 font-sans">
-        
-        {/* Admin Sidebar */}
-        <aside 
-            className={`bg-slate-900 text-slate-300 flex flex-col flex-shrink-0 shadow-xl z-20 fixed h-full transition-all duration-300 ease-in-out
-            ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden'}`}
-        >
-            <div className="h-16 flex items-center px-6 bg-slate-950 border-b border-slate-800 whitespace-nowrap overflow-hidden">
-                <div className="font-bold text-white tracking-wider flex items-center gap-2">
-                    <Lock size={18} className="text-emerald-500 flex-shrink-0" /> 
-                    <span className={`transition-opacity duration-200 ${!isSidebarOpen && 'opacity-0'}`}>ADMIN<span className="text-slate-600">PANEL</span></span>
-                </div>
-            </div>
-
-            <nav className="flex-1 p-4 space-y-1 overflow-y-auto overflow-x-hidden">
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-2 whitespace-nowrap">Platform</div>
-                <button 
-                    onClick={() => setActiveSection('dashboard')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'dashboard' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Activity size={18} className="flex-shrink-0" /> <span>Dashboard</span>
-                </button>
-
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Access Control</div>
-                <button 
-                    onClick={() => setActiveSection('roles')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'roles' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Key size={18} className="flex-shrink-0" /> <span>Roles & Permissions</span>
-                </button>
-                <button 
-                    onClick={() => setActiveSection('users')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'users' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Users size={18} className="flex-shrink-0" /> <span>User Management</span>
-                </button>
-                <button 
-                    onClick={() => setActiveSection('departments')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'departments' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Building2 size={18} className="flex-shrink-0" /> <span>Departments</span>
-                </button>
-
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Data Management</div>
-                <button 
-                    onClick={() => setActiveSection('database')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'database' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Table size={18} className="flex-shrink-0" /> <span>Database Browser</span>
-                </button>
-                 <button 
-                    onClick={() => setActiveSection('recycle')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'recycle' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Trash2 size={18} className="flex-shrink-0" /> <span>Recycle Bin</span>
-                </button>
-
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">Configuration</div>
-                <button 
-                    onClick={() => setActiveSection('templates')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'templates' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <FileText size={18} className="flex-shrink-0" /> <span>Policy Templates</span>
-                </button>
-                <button 
-                    onClick={() => setActiveSection('fx')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'fx' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <Coins size={18} className="flex-shrink-0" /> <span>FX Rates</span>
-                </button>
-
-                <div className="text-xs font-bold text-slate-600 uppercase mb-2 px-2 mt-6 whitespace-nowrap">System</div>
-                <button 
-                    onClick={() => setActiveSection('settings')}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all whitespace-nowrap ${activeSection === 'settings' ? 'bg-emerald-600 text-white shadow-lg' : 'hover:bg-slate-800 hover:text-white'}`}
-                >
-                    <AlertTriangle size={18} className="flex-shrink-0" /> <span>Maintenance</span>
-                </button>
-            </nav>
-
-            <div className="p-4 border-t border-slate-800 bg-slate-950/50">
-                <button 
-                    onClick={() => navigate('/')}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 hover:text-white transition-colors"
-                >
-                    <LogOut size={16} /> Exit Console
-                </button>
-            </div>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className={`flex-1 overflow-y-auto p-8 transition-all duration-300 ${isSidebarOpen ? 'ml-64' : 'ml-0'}`}>
-            {activeSection === 'dashboard' && renderDashboardHome()}
-            {activeSection === 'roles' && renderRoles()}
-            {activeSection === 'users' && renderUsers()}
-            {activeSection === 'departments' && renderDepartments()}
-            {activeSection === 'database' && renderDatabaseBrowser()}
-            {activeSection === 'recycle' && renderRecycleBin()}
-            {activeSection === 'templates' && renderTemplates()}
-            {activeSection === 'fx' && renderFxRates()}
-            {activeSection === 'settings' && renderSettings()}
-        </main>
-    </div>
-  );
-};
-
-export default AdminConsole;
+                                <button onClick={() => handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size

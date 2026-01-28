@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -6,6 +7,7 @@
     <title>InsurTech Policy Manager</title>
     <!-- Using Tailwind CDN for simplicity in this setup -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/react-datepicker@7.6.0/dist/react-datepicker.css">
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
       
@@ -27,6 +29,22 @@
           background: white;
         }
       }
+
+      /* Custom Datepicker Overrides */
+      .react-datepicker-wrapper {
+        width: 100%;
+      }
+      .react-datepicker__input-container input {
+        width: 100%;
+        outline: none;
+      }
+      .react-datepicker__day--selected, .react-datepicker__day--keyboard-selected {
+        background-color: #2563eb !important;
+      }
+      .react-datepicker__header {
+        background-color: #f3f4f6;
+        border-bottom: 1px solid #e5e7eb;
+      }
     </style>
   <script type="importmap">
 {
@@ -41,7 +59,8 @@
     "exceljs": "https://esm.sh/exceljs@^4.4.0",
     "vite": "https://esm.sh/vite@^7.3.1",
     "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "@tanstack/react-query": "https://esm.sh/@tanstack/react-query@^5.90.20"
+    "@tanstack/react-query": "https://esm.sh/@tanstack/react-query@^5.90.20",
+    "react-datepicker": "https://esm.sh/react-datepicker@7.6.0?external=react,react-dom"
   }
 }
 </script>

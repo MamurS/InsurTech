@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useHistory } from 'react-router-dom';
 import { DB } from '../services/db';
 import { ReinsuranceSlip, PolicyStatus } from '../types';
 import { ExcelService } from '../services/excel';
@@ -29,7 +29,7 @@ const SlipsDashboard: React.FC = () => {
     direction: 'desc'
   });
 
-  const navigate = useNavigate();
+  const history = useHistory();
 
   const slipStatusTabs = [
     { key: 'ALL', label: 'All' },
@@ -69,13 +69,13 @@ const SlipsDashboard: React.FC = () => {
   const handleEdit = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/slips/edit/${id}`);
+    history.push(`/slips/edit/${id}`);
   };
 
   const handleWording = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/wording/${id}`);
+    history.push(`/wording/${id}`);
   };
 
   const confirmDelete = async () => {
@@ -225,7 +225,7 @@ const SlipsDashboard: React.FC = () => {
             </button>
             <button 
             type="button"
-            onClick={() => navigate('/slips/new')}
+            onClick={() => history.push('/slips/new')}
             className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
             >
             <Plus size={18} /> New Slip

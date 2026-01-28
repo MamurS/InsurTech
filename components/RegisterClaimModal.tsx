@@ -1,10 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Loader2, AlertTriangle, CheckCircle, Search, ChevronDown, Info } from 'lucide-react';
 import { useCreateClaim, usePoliciesDropdown } from '../hooks/useClaims';
 import { determineLiability } from '../services/claimsService';
 import { ClaimLiabilityType } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 
 interface RegisterClaimModalProps {
     isOpen: boolean;
@@ -25,8 +26,11 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
     // Form state
     const [selectedPolicyId, setSelectedPolicyId] = useState('');
     const [claimNumber, setClaimNumber] = useState(generateClaimNumber());
-    const [lossDate, setLossDate] = useState('');
-    const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0]);
+    
+    // Date States (as Date objects)
+    const [lossDate, setLossDate] = useState<Date | null>(null);
+    const [reportDate, setReportDate] = useState<Date | null>(new Date());
+    
     const [description, setDescription] = useState('');
     const [causeOfLoss, setCauseOfLoss] = useState('');
     const [claimantName, setClaimantName] = useState('');
@@ -56,14 +60,17 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
 
     // Auto-calculate liability when policy and loss date change
     useEffect(() => {
-        if (selectedPolicy && lossDate) {
+        const lossDateStr = toISODateString(lossDate);
+        const reportDateStr = toISODateString(reportDate);
+
+        if (selectedPolicy && lossDateStr && reportDateStr) {
             const result = determineLiability(
                 { 
                     inceptionDate: selectedPolicy.inceptionDate, 
                     expiryDate: selectedPolicy.expiryDate 
                 } as any,
-                lossDate,
-                reportDate
+                lossDateStr,
+                reportDateStr
             );
             setLiabilityType(result.type);
             setLiabilityReason(result.reason);
@@ -80,8 +87,8 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
             setSearchTerm('');
             setIsDropdownOpen(false);
             setClaimNumber(generateClaimNumber());
-            setLossDate('');
-            setReportDate(new Date().toISOString().split('T')[0]);
+            setLossDate(null);
+            setReportDate(new Date());
             setDescription('');
             setCauseOfLoss('');
             setClaimantName('');
@@ -108,19 +115,20 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
     };
 
     const handleSubmit = async () => {
-        if (!selectedPolicyId || !lossDate || !description || !liabilityType || !claimNumber) {
-            alert('Please fill in all required fields (Policy, Claim No, Loss Date, Description).');
+        const lossDateStr = toISODateString(lossDate);
+        const reportDateStr = toISODateString(reportDate);
+
+        if (!selectedPolicyId || !lossDateStr || !reportDateStr || !description || !liabilityType || !claimNumber) {
+            alert('Please fill in all required fields (Policy, Claim No, Loss Date, Report Date, Description).');
             return;
         }
 
         createClaimMutation.mutate({
             policyId: selectedPolicyId,
             claimNumber,
-            lossDate,
-            reportDate,
+            lossDate: lossDateStr,
+            reportDate: reportDateStr,
             description,
-            // Store cause of loss in description or extended field if schema allows, 
-            // for now concatenating if description is simple
             claimantName,
             locationCountry,
             liabilityType,
@@ -243,28 +251,20 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
 
                     {/* Dates Row */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                Loss Date <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="date"
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                value={lossDate}
-                                onChange={(e) => setLossDate(e.target.value)}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">
-                                Report Date <span className="text-red-500">*</span>
-                            </label>
-                            <input
-                                type="date"
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                                value={reportDate}
-                                onChange={(e) => setReportDate(e.target.value)}
-                            />
-                        </div>
+                        <DatePickerInput
+                            label="Loss Date"
+                            required
+                            value={lossDate}
+                            onChange={setLossDate}
+                            placeholder="Date of loss"
+                        />
+                        <DatePickerInput
+                            label="Report Date"
+                            required
+                            value={reportDate}
+                            onChange={setReportDate}
+                            placeholder="Date reported"
+                        />
                     </div>
 
                     {/* Liability Type Display */}

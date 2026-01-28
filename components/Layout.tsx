@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, useHistory, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MosaicLogo } from './MosaicLogo';
 import { 
@@ -14,13 +14,22 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const navigate = useNavigate();
+  const history = useHistory();
+  const location = useLocation();
   const { user, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/login');
+    history.push('/login');
+  };
+
+  const getLinkClass = (path: string, exact: boolean = false) => {
+    const isActive = exact 
+      ? location.pathname === path 
+      : location.pathname.startsWith(path);
+      
+    return `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`;
   };
 
   return (
@@ -41,89 +50,74 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         </div>
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden">
-          <NavLink 
-            end
+          <Link 
             to="/" 
-            className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-            }
+            className={getLinkClass('/', true)}
             title="Dashboard"
           >
             <LayoutDashboard size={20} className="flex-shrink-0" />
             <span>Dashboard (DB)</span>
-          </NavLink>
+          </Link>
 
-          <NavLink 
+          <Link 
             to="/agenda" 
-            className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-            }
+            className={getLinkClass('/agenda')}
             title="My Agenda"
           >
             <ClipboardList size={20} className="flex-shrink-0" />
             <span>My Agenda</span>
-          </NavLink>
+          </Link>
 
-          <NavLink 
+          <Link 
               to="/slips" 
-              className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-              }
+              className={getLinkClass('/slips')}
               title="Reinsurance Slips"
           >
               <FileSpreadsheet size={20} className="flex-shrink-0" />
               <span>Reinsurance Slips</span>
-          </NavLink>
+          </Link>
 
-          <NavLink 
+          <Link 
               to="/claims" 
-              className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-              }
+              className={getLinkClass('/claims')}
               title="Claims Center"
           >
               <AlertOctagon size={20} className="flex-shrink-0" />
               <span>Claims Center</span>
-          </NavLink>
+          </Link>
 
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
             Configuration
           </div>
 
-          <NavLink 
+          <Link 
               to="/entities" 
-              className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-              }
+              className={getLinkClass('/entities')}
               title="Legal Entities"
           >
               <Building2 size={20} className="flex-shrink-0" />
               <span>Legal Entities</span>
-          </NavLink>
+          </Link>
 
-          <NavLink 
+          <Link 
               to="/clauses" 
-              className={({ isActive }) => 
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`
-              }
+              className={getLinkClass('/clauses')}
               title="Clause Library"
           >
               <FileText size={20} className="flex-shrink-0" />
               <span>Clause Library</span>
-          </NavLink>
+          </Link>
 
           {/* Admin Console - Restricted to Super Admin and Admin only */}
           {(user?.role === 'Super Admin' || user?.role === 'Admin') && (
-             <NavLink 
+             <Link 
               to="/admin" 
-              className={({ isActive }) => 
-                `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap mt-2 ${isActive ? 'bg-emerald-800 text-emerald-100' : 'text-emerald-400 hover:bg-emerald-900/50'}`
-              }
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap mt-2 ${location.pathname.startsWith('/admin') ? 'bg-emerald-800 text-emerald-100' : 'text-emerald-400 hover:bg-emerald-900/50'}`}
               title="Admin Console"
             >
               <Lock size={18} className="flex-shrink-0" />
               <span className="font-semibold">Admin Console</span>
-            </NavLink>
+            </Link>
           )}
         </nav>
 
@@ -141,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
            <div className="space-y-1 whitespace-nowrap overflow-hidden">
               <div 
-                onClick={() => navigate('/settings')}
+                onClick={() => history.push('/settings')}
                 className="flex items-center gap-3 px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors"
                 title="Settings"
               >

@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useHistory, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryType, PolicyReinsurer, Installment } from '../types';
 import { formatDate } from '../utils/dateUtils';
 import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Briefcase, Globe, Plus, Trash2, RefreshCw, CreditCard, Calendar } from 'lucide-react';
-import { CustomDateInput } from '../components/CustomDateInput';
+import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
 // --- DATASETS FOR AUTOCOMPLETE ---
 const UZBEK_REGIONS = [
@@ -189,7 +189,7 @@ const SearchableInput: React.FC<SearchableInputProps> = ({ label, name, value, o
 
 const PolicyForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const history = useHistory();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
@@ -282,7 +282,7 @@ const PolicyForm: React.FC = () => {
           });
         } else {
           alert('Policy not found');
-          navigate('/');
+          history.push('/');
         }
       } else {
         setFormData(prev => ({ 
@@ -293,7 +293,7 @@ const PolicyForm: React.FC = () => {
       setLoading(false);
     };
     loadData();
-  }, [id, isEdit, navigate]);
+  }, [id, isEdit, history]);
 
   // Reactive Calculations (Premium & Reinsurance)
   useEffect(() => {
@@ -381,6 +381,11 @@ const PolicyForm: React.FC = () => {
       setFormData(prev => ({ ...prev, intermediaryType: type }));
   };
 
+  // Date Change Handler for DatePickerInput
+  const handleDateChange = (name: string, date: Date | null) => {
+      setFormData(prev => ({ ...prev, [name]: toISODateString(date) || '' }));
+  };
+
   // Reinsurance Handlers
   const handleReinsurerChange = (index: number, field: keyof PolicyReinsurer, value: any) => {
       const updated = [...(formData.reinsurers || [])];
@@ -405,6 +410,12 @@ const PolicyForm: React.FC = () => {
   const handleInstallmentChange = (index: number, field: keyof Installment, value: any) => {
       const updated = [...(formData.installments || [])];
       updated[index] = { ...updated[index], [field]: value };
+      setFormData(prev => ({ ...prev, installments: updated }));
+  };
+
+  const handleInstallmentDateChange = (index: number, field: keyof Installment, date: Date | null) => {
+      const updated = [...(formData.installments || [])];
+      updated[index] = { ...updated[index], [field]: toISODateString(date) || '' };
       setFormData(prev => ({ ...prev, installments: updated }));
   };
 
@@ -449,7 +460,7 @@ const PolicyForm: React.FC = () => {
             };
         }
         await DB.savePolicy(updatedData);
-        navigate('/');
+        history.push('/');
     } catch (error: any) { 
         console.error(error); 
         alert(`Failed to activate: ${error.message || 'Unknown error'}`);
@@ -461,7 +472,7 @@ const PolicyForm: React.FC = () => {
     setProcessingAction('ntu');
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.NTU });
-        navigate('/');
+        history.push('/');
     } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
@@ -470,7 +481,7 @@ const PolicyForm: React.FC = () => {
     setProcessingAction('cancel');
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.CANCELLED });
-        navigate('/');
+        history.push('/');
     } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
@@ -479,7 +490,7 @@ const PolicyForm: React.FC = () => {
     setProcessingAction('save');
     try {
         await DB.savePolicy(formData);
-        navigate('/');
+        history.push('/');
     } catch (error: any) { 
         console.error(error); 
         alert(`Failed to save: ${error.message || 'Check console for details.'}`); 
@@ -512,7 +523,7 @@ const PolicyForm: React.FC = () => {
         {/* Sticky Header - Use z-index 50 to ensure it is above other content and use negative margins to span width */}
         <div className="sticky -mt-4 -mx-4 md:-mt-8 md:-mx-8 px-4 md:px-8 py-4 mb-6 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 flex items-center justify-between shadow-sm z-50 top-0">
             <div className="flex items-center gap-4">
-                <button type="button" onClick={() => navigate('/')} className="text-gray-500 hover:text-gray-800 transition-colors">
+                <button type="button" onClick={() => history.push('/')} className="text-gray-500 hover:text-gray-800 transition-colors">
                     <ArrowLeft size={24} />
                 </button>
                 <div>
@@ -538,6 +549,9 @@ const PolicyForm: React.FC = () => {
             </div>
         </div>
 
+        {/* ... Rest of JSX remains identical, just copy it over ... */}
+        {/* I am re-pasting the full content below to ensure validity */}
+        
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
             
             {/* Left Column (Main Data) */}
@@ -825,10 +839,10 @@ const PolicyForm: React.FC = () => {
                                         <tr key={inst.id} className="bg-white">
                                             <td className="px-4 py-2 text-center text-gray-400">{idx + 1}</td>
                                             <td className="px-4 py-2 min-w-[160px]">
-                                                <CustomDateInput 
-                                                    name="dueDate" 
-                                                    value={inst.dueDate} 
-                                                    onChange={(e) => handleInstallmentChange(idx, 'dueDate', e.target.value)}
+                                                <DatePickerInput
+                                                    value={parseDate(inst.dueDate)}
+                                                    onChange={(date) => handleInstallmentDateChange(idx, 'dueDate', date)}
+                                                    placeholder="Due Date"
                                                 />
                                             </td>
                                             <td className="px-4 py-2">
@@ -841,10 +855,10 @@ const PolicyForm: React.FC = () => {
                                                 />
                                             </td>
                                             <td className="px-4 py-2 min-w-[160px]">
-                                                <CustomDateInput 
-                                                    name="paidDate" 
-                                                    value={inst.paidDate} 
-                                                    onChange={(e) => handleInstallmentChange(idx, 'paidDate', e.target.value)}
+                                                <DatePickerInput
+                                                    value={parseDate(inst.paidDate)}
+                                                    onChange={(date) => handleInstallmentDateChange(idx, 'paidDate', date)}
+                                                    placeholder="Paid Date"
                                                 />
                                             </td>
                                             <td className="px-4 py-2">
@@ -1195,19 +1209,19 @@ const PolicyForm: React.FC = () => {
                         
                         <div className="grid grid-cols-2 gap-3 border-t pt-3">
                             <div>
-                                <CustomDateInput label="Inception" name="inceptionDate" value={formData.inceptionDate} onChange={handleChange} />
+                                <DatePickerInput label="Inception" value={parseDate(formData.inceptionDate)} onChange={(date) => handleDateChange('inceptionDate', date)} />
                             </div>
                              <div>
-                                <CustomDateInput label="Expiry" name="expiryDate" value={formData.expiryDate} onChange={handleChange} />
+                                <DatePickerInput label="Expiry" value={parseDate(formData.expiryDate)} onChange={(date) => handleDateChange('expiryDate', date)} />
                             </div>
                              <div>
-                                <CustomDateInput label="Date of Slip" name="dateOfSlip" value={formData.dateOfSlip} onChange={handleChange} />
+                                <DatePickerInput label="Date of Slip" value={parseDate(formData.dateOfSlip)} onChange={(date) => handleDateChange('dateOfSlip', date)} />
                             </div>
                              <div>
-                                <CustomDateInput label="Accounting Date" name="accountingDate" value={formData.accountingDate} onChange={handleChange} />
+                                <DatePickerInput label="Accounting Date" value={parseDate(formData.accountingDate)} onChange={(date) => handleDateChange('accountingDate', date)} />
                             </div>
                             <div>
-                                <CustomDateInput label="Payment Date" name="paymentDate" value={formData.paymentDate} onChange={handleChange} />
+                                <DatePickerInput label="Payment Date" value={parseDate(formData.paymentDate)} onChange={(date) => handleDateChange('paymentDate', date)} />
                             </div>
                         </div>
                     </div>
