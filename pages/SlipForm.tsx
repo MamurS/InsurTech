@@ -2,9 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
+import { supabase } from '../services/supabase';
 import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer, Currency } from '../types';
 import { formatDate } from '../utils/dateUtils';
-import { Save, ArrowLeft, FileSpreadsheet, Building, Hash, Activity, Plus, Trash2, DollarSign } from 'lucide-react';
+import { Save, ArrowLeft, FileSpreadsheet, Building, Hash, Activity, Plus, Trash2, DollarSign, Send, FileText, CheckCircle, XCircle, Archive, RefreshCw, Settings } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
 const SlipForm: React.FC = () => {
@@ -12,6 +13,7 @@ const SlipForm: React.FC = () => {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
+  const [slipStatus, setSlipStatus] = useState<string>('DRAFT');
 
   const [formData, setFormData] = useState<ReinsuranceSlip>({
     id: crypto.randomUUID(),
@@ -39,6 +41,7 @@ const SlipForm: React.FC = () => {
                   commission: 0
               }];
           }
+          const currentStatus = (slip.status as unknown as string) || 'DRAFT';
           setFormData({
               ...slip,
               status: slip.status || PolicyStatus.ACTIVE,
@@ -46,6 +49,7 @@ const SlipForm: React.FC = () => {
               currency: slip.currency || Currency.USD,
               limitOfLiability: slip.limitOfLiability || 0
           });
+          setSlipStatus(currentStatus === 'Active' ? 'BOUND' : currentStatus);
         } else {
           alert('Slip not found');
           navigate('/slips');
@@ -95,6 +99,63 @@ const SlipForm: React.FC = () => {
     navigate('/slips');
   };
 
+  // Workflow status change handler
+  const handleSlipStatusChange = async (newStatus: string, additionalFields: any = {}) => {
+    if (!id) return;
+    
+    const statusMessages: Record<string, string> = {
+        'PENDING': 'Submit this slip for review?',
+        'QUOTED': 'Mark as quote received?',
+        'SIGNED': 'Mark as signed?',
+        'SENT': 'Mark as sent to reinsurer?',
+        'BOUND': 'Confirm this slip is bound?',
+        'CLOSED': 'Close this slip?',
+        'DECLINED': 'Decline this slip?',
+        'NTU': 'Mark as Not Taken Up?'
+    };
+    
+    if (!window.confirm(statusMessages[newStatus] || `Change status to ${newStatus}?`)) return;
+    
+    try {
+        const updateData: any = { 
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+            ...additionalFields
+        };
+        
+        if (supabase) {
+            const { error } = await supabase
+                .from('slips')
+                .update(updateData)
+                .eq('id', id);
+                
+            if (error) throw error;
+        } else {
+            // Local fallback
+            const updatedSlip = { ...formData, ...updateData };
+            await DB.saveSlip(updatedSlip);
+        }
+        
+        setSlipStatus(newStatus);
+        setFormData(prev => ({ ...prev, status: newStatus as any }));
+        alert('Status updated successfully!');
+    } catch (err: any) {
+        console.error('Error updating status:', err);
+        alert('Failed to update status: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  // Decline handler with reason prompt
+  const handleSlipDecline = async () => {
+    const reason = window.prompt('Please enter the reason for declining:');
+    if (reason === null) return;
+    
+    await handleSlipStatusChange('DECLINED', { 
+        decline_reason: reason,
+        declined_date: new Date().toISOString()
+    });
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
 
   const labelClass = "block text-sm font-medium text-gray-600 mb-1.5";
@@ -141,6 +202,99 @@ const SlipForm: React.FC = () => {
                 </button>
             </div>
         </div>
+
+        {/* Workflow Actions Section - Only show when editing existing slip */}
+        {id && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                    <Settings size={16} className="text-gray-500" />
+                    <span className="font-semibold text-gray-700">WORKFLOW ACTIONS</span>
+                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                        slipStatus === 'DRAFT' ? 'bg-gray-100 text-gray-800' :
+                        slipStatus === 'PENDING' ? 'bg-blue-100 text-blue-800' :
+                        slipStatus === 'QUOTED' ? 'bg-purple-100 text-purple-800' :
+                        slipStatus === 'SIGNED' ? 'bg-indigo-100 text-indigo-800' :
+                        slipStatus === 'SENT' ? 'bg-cyan-100 text-cyan-800' :
+                        slipStatus === 'BOUND' ? 'bg-green-100 text-green-800' :
+                        slipStatus === 'CLOSED' ? 'bg-gray-100 text-gray-600' :
+                        slipStatus === 'DECLINED' ? 'bg-red-100 text-red-800' :
+                        slipStatus === 'NTU' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                    }`}>
+                        {slipStatus}
+                    </span>
+                </div>
+                
+                <div className="flex flex-wrap gap-2">
+                    {(slipStatus === 'DRAFT' || !slipStatus) && (
+                        <button type="button" onClick={() => handleSlipStatusChange('PENDING')} 
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700">
+                            <Send size={14} /> Submit for Review
+                        </button>
+                    )}
+                    
+                    {slipStatus === 'PENDING' && (
+                        <>
+                            <button type="button" onClick={() => handleSlipStatusChange('QUOTED')} 
+                                className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700">
+                                <FileText size={14} /> Quote Received
+                            </button>
+                            <button type="button" onClick={handleSlipDecline}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200">
+                                <XCircle size={14} /> Decline
+                            </button>
+                        </>
+                    )}
+                    
+                    {slipStatus === 'QUOTED' && (
+                        <>
+                            <button type="button" onClick={() => handleSlipStatusChange('SIGNED', { signed_date: new Date().toISOString() })} 
+                                className="flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700">
+                                <CheckCircle size={14} /> Accept & Sign
+                            </button>
+                            <button type="button" onClick={() => handleSlipStatusChange('NTU')}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm hover:bg-yellow-200">
+                                <XCircle size={14} /> Not Taken Up
+                            </button>
+                        </>
+                    )}
+                    
+                    {slipStatus === 'SIGNED' && (
+                        <button type="button" onClick={() => handleSlipStatusChange('SENT', { sent_date: new Date().toISOString() })} 
+                            className="flex items-center gap-1 px-3 py-1.5 bg-cyan-600 text-white rounded-lg text-sm hover:bg-cyan-700">
+                            <Send size={14} /> Send to Reinsurer
+                        </button>
+                    )}
+                    
+                    {slipStatus === 'SENT' && (
+                        <>
+                            <button type="button" onClick={() => handleSlipStatusChange('BOUND', { bound_date: new Date().toISOString() })} 
+                                className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700">
+                                <CheckCircle size={14} /> Confirm Bound
+                            </button>
+                            <button type="button" onClick={() => handleSlipStatusChange('NTU')}
+                                className="flex items-center gap-1 px-3 py-1.5 bg-yellow-100 text-yellow-700 rounded-lg text-sm hover:bg-yellow-200">
+                                <XCircle size={14} /> Withdrawn
+                            </button>
+                        </>
+                    )}
+                    
+                    {slipStatus === 'BOUND' && (
+                        <button type="button" onClick={() => handleSlipStatusChange('CLOSED', { closed_date: new Date().toISOString() })} 
+                            className="flex items-center gap-1 px-3 py-1.5 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700">
+                            <Archive size={14} /> Close Slip
+                        </button>
+                    )}
+                    
+                    {['DECLINED', 'NTU', 'CANCELLED'].includes(slipStatus) && (
+                        <button type="button" onClick={() => handleSlipStatusChange('PENDING')} 
+                            className="flex items-center gap-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200">
+                            <RefreshCw size={14} /> Reopen
+                        </button>
+                    )}
+                </div>
+            </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             
