@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useHistory, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryType, PolicyReinsurer, Installment } from '../types';
 import { formatDate } from '../utils/dateUtils';
@@ -189,7 +189,7 @@ const SearchableInput: React.FC<SearchableInputProps> = ({ label, name, value, o
 
 const PolicyForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const history = useHistory();
+  const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
@@ -282,7 +282,7 @@ const PolicyForm: React.FC = () => {
           });
         } else {
           alert('Policy not found');
-          history.push('/');
+          navigate('/');
         }
       } else {
         setFormData(prev => ({ 
@@ -293,7 +293,7 @@ const PolicyForm: React.FC = () => {
       setLoading(false);
     };
     loadData();
-  }, [id, isEdit, history]);
+  }, [id, isEdit, navigate]);
 
   // Reactive Calculations (Premium & Reinsurance)
   useEffect(() => {
@@ -460,7 +460,7 @@ const PolicyForm: React.FC = () => {
             };
         }
         await DB.savePolicy(updatedData);
-        history.push('/');
+        navigate('/');
     } catch (error: any) { 
         console.error(error); 
         alert(`Failed to activate: ${error.message || 'Unknown error'}`);
@@ -472,7 +472,7 @@ const PolicyForm: React.FC = () => {
     setProcessingAction('ntu');
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.NTU });
-        history.push('/');
+        navigate('/');
     } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
@@ -481,7 +481,7 @@ const PolicyForm: React.FC = () => {
     setProcessingAction('cancel');
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.CANCELLED });
-        history.push('/');
+        navigate('/');
     } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
@@ -490,7 +490,7 @@ const PolicyForm: React.FC = () => {
     setProcessingAction('save');
     try {
         await DB.savePolicy(formData);
-        history.push('/');
+        navigate('/');
     } catch (error: any) { 
         console.error(error); 
         alert(`Failed to save: ${error.message || 'Check console for details.'}`); 
@@ -523,7 +523,7 @@ const PolicyForm: React.FC = () => {
         {/* Sticky Header - Use z-index 50 to ensure it is above other content and use negative margins to span width */}
         <div className="sticky -mt-4 -mx-4 md:-mt-8 md:-mx-8 px-4 md:px-8 py-4 mb-6 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 flex items-center justify-between shadow-sm z-50 top-0">
             <div className="flex items-center gap-4">
-                <button type="button" onClick={() => history.push('/')} className="text-gray-500 hover:text-gray-800 transition-colors">
+                <button type="button" onClick={() => navigate('/')} className="text-gray-500 hover:text-gray-800 transition-colors">
                     <ArrowLeft size={24} />
                 </button>
                 <div>

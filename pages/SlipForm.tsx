@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useHistory, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer, Currency } from '../types';
 import { formatDate } from '../utils/dateUtils';
@@ -9,7 +9,7 @@ import { DatePickerInput, parseDate, toISODateString } from '../components/DateP
 
 const SlipForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
-  const history = useHistory();
+  const navigate = useNavigate();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
 
@@ -48,13 +48,13 @@ const SlipForm: React.FC = () => {
           });
         } else {
           alert('Slip not found');
-          history.push('/slips');
+          navigate('/slips');
         }
       }
       setLoading(false);
     };
     loadData();
-  }, [id, isEdit, history]);
+  }, [id, isEdit, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -92,7 +92,7 @@ const SlipForm: React.FC = () => {
     // Update main field for backward compatibility display in tables
     const primary = formData.reinsurers && formData.reinsurers.length > 0 ? formData.reinsurers[0].name : '';
     await DB.saveSlip({ ...formData, brokerReinsurer: primary || formData.brokerReinsurer });
-    history.push('/slips');
+    navigate('/slips');
   };
 
   if (loading) return <div className="p-8 text-center text-gray-500">Loading...</div>;
@@ -115,7 +115,7 @@ const SlipForm: React.FC = () => {
          {/* Sticky Header - Use negative margin to span full width over layout padding */}
          <div className="sticky -mt-4 -mx-4 md:-mt-8 md:-mx-8 px-4 md:px-8 py-4 mb-6 bg-gray-50/95 backdrop-blur-md border-b border-gray-200 flex items-center justify-between shadow-sm z-40">
             <div className="flex items-center gap-4">
-                <button type="button" onClick={() => history.push('/slips')} className="text-gray-500 hover:text-gray-800 transition-colors">
+                <button type="button" onClick={() => navigate('/slips')} className="text-gray-500 hover:text-gray-800 transition-colors">
                     <ArrowLeft size={24} />
                 </button>
                 <div>
@@ -128,7 +128,7 @@ const SlipForm: React.FC = () => {
             <div className="flex gap-3">
                  <button
                     type="button"
-                    onClick={() => history.push('/slips')}
+                    onClick={() => navigate('/slips')}
                     className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
                 >
                     Cancel

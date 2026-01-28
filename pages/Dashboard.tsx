@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, LegalEntity, Installment } from '../types';
 import { ExcelService } from '../services/excel';
@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
     direction: 'desc'
   });
 
-  const history = useHistory();
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const fetchData = async () => {
@@ -73,13 +73,13 @@ const Dashboard: React.FC = () => {
   const handleEdit = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    history.push(`/edit/${id}`);
+    navigate(`/edit/${id}`);
   };
 
   const handleWording = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    history.push(`/wording/${id}`);
+    navigate(`/wording/${id}`);
   };
 
   const handleRestore = async (e: React.MouseEvent, id: string) => {
@@ -122,13 +122,10 @@ const Dashboard: React.FC = () => {
       } else {
           // Optional: Prompt to create?
           if(confirm(`Entity "${name}" not found in database. Create it?`)) {
-              history.push('/entities/new');
+              navigate('/entities/new');
           }
       }
   };
-
-  // ... (rest of the file remains same, just replacing useNavigate with useHistory)
-  // Since I need to include full content, I'll paste the rest from original file but keep changes
 
   const handleSort = (key: keyof Policy | string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -349,7 +346,7 @@ const Dashboard: React.FC = () => {
             </button>
             <button 
             type="button"
-            onClick={() => history.push('/new')}
+            onClick={() => navigate('/new')}
             className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
             >
             <Plus size={18} /> New Policy
@@ -751,7 +748,7 @@ const Dashboard: React.FC = () => {
       <EntityDetailModal 
         entity={selectedEntity} 
         onClose={() => setSelectedEntity(null)} 
-        onEdit={(id) => { setSelectedEntity(null); history.push(`/entities/edit/${id}`); }}
+        onEdit={(id) => { setSelectedEntity(null); navigate(`/entities/edit/${id}`); }}
       />
     </div>
   );

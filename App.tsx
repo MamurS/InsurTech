@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter, Switch, Route, Redirect, useLocation } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PermissionProvider } from './context/PermissionContext';
@@ -20,7 +20,7 @@ import ClaimDetail from './pages/ClaimDetail';
 import Agenda from './pages/Agenda';
 
 // Protected Route Component
-const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
 
@@ -29,21 +29,21 @@ const ProtectedRoute = ({ children }: { children?: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    return <Redirect to={{ pathname: "/login", state: { from: location } }} />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   return <>{children}</>;
 };
 
 // Admin Route Component (Now enhanced by Permission logic inside AdminConsole, but kept for high level protection)
-const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   
   if (loading) return null;
 
   // Basic role check fallback, Permissions handled deeper
   if (user?.role !== 'Super Admin' && user?.role !== 'Admin') {
-    return <Redirect to="/" />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
@@ -51,88 +51,54 @@ const AdminRoute = ({ children }: { children?: React.ReactNode }) => {
 
 const AppRoutes = () => {
   return (
-    <Switch>
-      <Route path="/login">
-        <Login />
-      </Route>
+    <Routes>
+      <Route path="/login" element={<Login />} />
 
       {/* Standalone Admin Platform */}
-      <Route path="/admin">
+      <Route path="/admin" element={
         <ProtectedRoute>
           <AdminRoute>
             <AdminConsole />
           </AdminRoute>
         </ProtectedRoute>
-      </Route>
+      } />
 
       {/* Main Application - Wrapped in Layout */}
-      <Route path="/">
+      <Route path="/*" element={
         <ProtectedRoute>
           <Layout>
-            <Switch>
-              <Route exact path="/">
-                <Dashboard />
-              </Route>
-              <Route path="/new">
-                <PolicyForm />
-              </Route>
-              <Route path="/edit/:id">
-                <PolicyForm />
-              </Route>
-              <Route path="/wording/:id">
-                <PolicyWording />
-              </Route>
-              <Route path="/clauses">
-                <ClauseManager />
-              </Route>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/new" element={<PolicyForm />} />
+              <Route path="/edit/:id" element={<PolicyForm />} />
+              <Route path="/wording/:id" element={<PolicyWording />} />
+              <Route path="/clauses" element={<ClauseManager />} />
               
               {/* Slips Routes */}
-              <Route exact path="/slips">
-                <SlipsDashboard />
-              </Route>
-              <Route path="/slips/new">
-                <SlipForm />
-              </Route>
-              <Route path="/slips/edit/:id">
-                <SlipForm />
-              </Route>
+              <Route path="/slips" element={<SlipsDashboard />} />
+              <Route path="/slips/new" element={<SlipForm />} />
+              <Route path="/slips/edit/:id" element={<SlipForm />} />
 
               {/* Claims Routes */}
-              <Route exact path="/claims">
-                <ClaimsList />
-              </Route>
-              <Route path="/claims/:id">
-                <ClaimDetail />
-              </Route>
+              <Route path="/claims" element={<ClaimsList />} />
+              <Route path="/claims/:id" element={<ClaimDetail />} />
 
               {/* Legal Entities Routes */}
-              <Route exact path="/entities">
-                <EntityManager />
-              </Route>
-              <Route path="/entities/new">
-                <EntityForm />
-              </Route>
-              <Route path="/entities/edit/:id">
-                <EntityForm />
-              </Route>
+              <Route path="/entities" element={<EntityManager />} />
+              <Route path="/entities/new" element={<EntityForm />} />
+              <Route path="/entities/edit/:id" element={<EntityForm />} />
               
               {/* Agenda / Tasks */}
-              <Route path="/agenda">
-                <Agenda />
-              </Route>
+              <Route path="/agenda" element={<Agenda />} />
               
-              <Route path="/settings">
-                <Settings />
-              </Route>
+              <Route path="/settings" element={<Settings />} />
               
-              <Route path="*">
-                <Redirect to="/" />
-              </Route>
-            </Switch>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </Layout>
         </ProtectedRoute>
-      </Route>
-    </Switch>
+      } />
+    </Routes>
   );
 }
 

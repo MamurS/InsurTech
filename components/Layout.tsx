@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link, useHistory, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MosaicLogo } from './MosaicLogo';
 import { 
@@ -14,14 +14,14 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   const handleSignOut = async () => {
     await signOut();
-    history.push('/login');
+    navigate('/login');
   };
 
   const getLinkClass = (path: string, exact: boolean = false) => {
@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
            <div className="space-y-1 whitespace-nowrap overflow-hidden">
               <div 
-                onClick={() => history.push('/settings')}
+                onClick={() => navigate('/settings')}
                 className="flex items-center gap-3 px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors"
                 title="Settings"
               >

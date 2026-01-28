@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { AuthService } from '../services/auth';
 import { UserService } from '../services/userService';
@@ -24,7 +24,7 @@ type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
 const AdminConsole: React.FC = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<Section>('roles'); 
   const [isSidebarOpen] = useState(true);
@@ -988,4 +988,86 @@ const AdminConsole: React.FC = () => {
                             <td className="px-6 py-3">{r.rate}</td>
                             <td className="px-6 py-3 text-gray-500">{formatDate(r.date)}</td>
                             <td className="px-6 py-3 text-right">
-                                <button onClick={() => handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size
+                                <button onClick={() => handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-gray-100 flex">
+      {/* Admin Sidebar */}
+      <aside className={`bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen ? '' : '-ml-64'}`}>
+        <div className="p-6 border-b border-slate-800">
+          <h1 className="font-bold text-xl flex items-center gap-2">
+            <Lock className="text-red-500"/> Admin Console
+          </h1>
+        </div>
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          <button onClick={() => setActiveSection('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Activity size={20}/> Dashboard
+          </button>
+          
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Access Control</div>
+          <button onClick={() => setActiveSection('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Users size={20}/> Users
+          </button>
+          <button onClick={() => setActiveSection('roles')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'roles' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <ShieldCheck size={20}/> Roles & Permissions
+          </button>
+          <button onClick={() => setActiveSection('departments')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'departments' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Building2 size={20}/> Departments
+          </button>
+
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">System</div>
+          <button onClick={() => setActiveSection('database')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'database' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Table size={20}/> Database Browser
+          </button>
+          <button onClick={() => setActiveSection('recycle')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'recycle' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Trash2 size={20}/> Recycle Bin
+          </button>
+          
+          <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Configuration</div>
+          <button onClick={() => setActiveSection('templates')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'templates' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <FileText size={20}/> Policy Templates
+          </button>
+          <button onClick={() => setActiveSection('fx')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'fx' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+            <Coins size={20}/> Exchange Rates
+          </button>
+
+          <div className="pt-8 mt-auto">
+             <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
+                <LogOut size={20}/> Exit Console
+             </button>
+          </div>
+        </nav>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 p-8 overflow-y-auto h-screen">
+        {loading ? (
+            <div className="flex items-center justify-center h-full text-gray-500">
+                <Loader2 className="animate-spin mr-2" size={24}/> Loading system data...
+            </div>
+        ) : (
+            <>
+                {activeSection === 'dashboard' && renderDashboardHome()}
+                {activeSection === 'users' && renderUsers()}
+                {activeSection === 'roles' && renderRoles()}
+                {activeSection === 'departments' && renderDepartments()}
+                {activeSection === 'database' && renderDatabaseBrowser()}
+                {activeSection === 'recycle' && renderRecycleBin()}
+                {activeSection === 'templates' && renderTemplates()}
+                {activeSection === 'fx' && renderFxRates()}
+            </>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default AdminConsole;
