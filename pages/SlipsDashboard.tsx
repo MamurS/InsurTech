@@ -15,7 +15,7 @@ const SlipsDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   
   // Status Filter State
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   // Selection State
   const [selectedSlip, setSelectedSlip] = useState<ReinsuranceSlip | null>(null);
@@ -26,10 +26,23 @@ const SlipsDashboard: React.FC = () => {
   // Sorting State
   const [sortConfig, setSortConfig] = useState<{ key: keyof ReinsuranceSlip; direction: 'asc' | 'desc' }>({
     key: 'date',
-    direction: 'asc'
+    direction: 'desc'
   });
 
   const navigate = useNavigate();
+
+  const slipStatusTabs = [
+    { key: 'ALL', label: 'All' },
+    { key: 'DRAFT', label: 'Draft' },
+    { key: 'PENDING', label: 'Pending' },
+    { key: 'QUOTED', label: 'Quoted' },
+    { key: 'SIGNED', label: 'Signed' },
+    { key: 'SENT', label: 'Sent' },
+    { key: 'BOUND', label: 'Bound' },
+    { key: 'CLOSED', label: 'Closed' },
+    { key: 'DECLINED', label: 'Declined/NTU' },
+    { key: 'DELETED', label: 'Deleted' }
+  ];
 
   const fetchData = async () => {
       setLoading(true);
@@ -87,27 +100,41 @@ const SlipsDashboard: React.FC = () => {
     setSortConfig({ key, direction });
   };
 
-  const filteredSlips = slips.filter(s => {
-    // 1. Status Filter
-    if (statusFilter === 'Deleted') {
-        if (!s.isDeleted) return false;
-    } else {
-        if (s.isDeleted) return false;
-        
-        // Default undefined status to ACTIVE for backward compatibility
-        const status = s.status || PolicyStatus.ACTIVE;
+  const filteredSlips = slips.filter(slip => {
+    // Deleted filter - special handling
+    if (statusFilter === 'DELETED') {
+        return slip.isDeleted === true;
+    }
+    
+    // For non-deleted filters, exclude deleted slips
+    if (slip.isDeleted && statusFilter !== 'ALL') return false;
+    
+    const currentStatus = (slip.status as any) || 'DRAFT';
 
-        if (statusFilter === 'Active' && status !== PolicyStatus.ACTIVE) return false;
-        if (statusFilter === 'Pending' && status !== PolicyStatus.PENDING) return false;
-        if (statusFilter === 'Cancelled' && (status !== PolicyStatus.CANCELLED && status !== PolicyStatus.NTU)) return false;
+    // Status filter
+    if (statusFilter !== 'ALL') {
+        if (statusFilter === 'DECLINED') {
+            // Include both DECLINED, NTU, and CANCELLED
+            if (!['DECLINED', 'NTU', 'CANCELLED'].includes(currentStatus)) return false;
+        } else if (statusFilter === 'BOUND') {
+            // Include legacy 'Active' as BOUND
+            if (currentStatus !== 'BOUND' && currentStatus !== 'Active') return false;
+        } else {
+            if (currentStatus !== statusFilter) return false;
+        }
+    }
+    
+    // Search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      return (
+        slip.slipNumber.toLowerCase().includes(search) ||
+        slip.insuredName.toLowerCase().includes(search) ||
+        slip.brokerReinsurer.toLowerCase().includes(search)
+      );
     }
 
-    // 2. Search Filter
-    return (
-      s.slipNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.insuredName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      s.brokerReinsurer.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return true;
   });
 
   const sortedSlips = [...filteredSlips].sort((a, b) => {
@@ -133,6 +160,37 @@ const SlipsDashboard: React.FC = () => {
     }
   };
 
+  const getStatusBadge = (status: string, isDeleted?: boolean) => {
+    if (isDeleted) {
+        return (
+            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                DELETED
+            </span>
+        );
+    }
+    
+    // Normalize legacy status
+    if (status === 'Active') status = 'BOUND';
+    
+    const styles: Record<string, string> = {
+        'DRAFT': 'bg-gray-100 text-gray-800 border border-gray-200',
+        'PENDING': 'bg-blue-100 text-blue-800 border border-blue-200',
+        'QUOTED': 'bg-purple-100 text-purple-800 border border-purple-200',
+        'SIGNED': 'bg-indigo-100 text-indigo-800 border border-indigo-200',
+        'SENT': 'bg-cyan-100 text-cyan-800 border border-cyan-200',
+        'BOUND': 'bg-green-100 text-green-800 border border-green-200',
+        'CLOSED': 'bg-gray-100 text-gray-600 border border-gray-300',
+        'DECLINED': 'bg-red-100 text-red-800 border border-red-200',
+        'NTU': 'bg-yellow-100 text-yellow-800 border border-yellow-200',
+        'CANCELLED': 'bg-red-100 text-red-800 border border-red-200',
+    };
+    return (
+        <span className={`px-2 py-1 rounded-full text-xs font-bold ${styles[status] || 'bg-gray-100 text-gray-800'}`}>
+            {status || 'DRAFT'}
+        </span>
+    );
+  };
+
   const SortableHeader = ({ label, sortKey }: { label: string, sortKey: keyof ReinsuranceSlip }) => {
     const isActive = sortConfig.key === sortKey;
     return (
@@ -148,25 +206,6 @@ const SlipsDashboard: React.FC = () => {
         </div>
       </th>
     );
-  };
-
-  // Status Indicator Component (Duplicated from Dashboard for simplicity)
-  const StatusBadge = ({ status, isDeleted }: { status: PolicyStatus, isDeleted?: boolean }) => {
-    if (isDeleted) {
-        return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full border border-red-200"><Trash2 size={10}/> DELETED</span>
-    }
-    switch (status) {
-        case PolicyStatus.ACTIVE:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full"><CheckCircle size={10}/> ACTIVE</span>
-        case PolicyStatus.PENDING:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full"><AlertCircle size={10}/> PENDING</span>
-        case PolicyStatus.NTU:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">NTU</span>
-        case PolicyStatus.CANCELLED:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full"><XCircle size={10}/> CANC</span>
-        default:
-            return <span className="text-[10px] text-gray-500">{status}</span>
-    }
   };
 
   return (
@@ -194,30 +233,30 @@ const SlipsDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-col xl:flex-row gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200">
          {/* Status Tabs */}
-          <div className="flex bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto max-w-full">
-             {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
+          <div className="flex bg-gray-50 p-1 rounded-lg shrink-0 overflow-x-auto max-w-full mb-4">
+             {slipStatusTabs.map(tab => (
                  <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
+                    key={tab.key}
+                    onClick={() => setStatusFilter(tab.key)}
                     className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
-                        statusFilter === status 
-                        ? 'bg-white text-blue-600 shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-700'
+                        statusFilter === tab.key 
+                        ? 'bg-white text-blue-600 shadow-sm font-bold' 
+                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                     }`}
                  >
-                     {status}
+                     {tab.label}
                  </button>
              ))}
           </div>
 
-          <div className="flex-1 w-full relative min-w-[200px]">
+          <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
               placeholder="Search slip no, insured, or broker..." 
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm text-gray-900"
+              className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm text-gray-900"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -248,7 +287,7 @@ const SlipsDashboard: React.FC = () => {
                     >
                         <td className="px-6 py-4 text-gray-400">{index + 1}</td>
                         <td className="px-6 py-4">
-                            <StatusBadge status={slip.status || PolicyStatus.ACTIVE} isDeleted={slip.isDeleted} />
+                            {getStatusBadge((slip.status as any) || 'DRAFT', slip.isDeleted)}
                         </td>
                         <td className="px-6 py-4 font-mono font-medium text-amber-700">
                             {slip.slipNumber}
