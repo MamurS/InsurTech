@@ -1,18 +1,19 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useAgendaTasks } from '../hooks/useAgenda';
 import { AgendaService } from '../services/agendaService';
+import { DB } from '../services/db';
 import { formatDate } from '../utils/dateUtils';
 import AssignTaskModal from '../components/AssignTaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
+import { DetailModal } from '../components/DetailModal';
 import { 
     ClipboardList, Filter, Search, CheckCircle, Clock, 
     AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight
 } from 'lucide-react';
-import { TaskStatus, AgendaTask } from '../types';
+import { TaskStatus, AgendaTask, ReinsuranceSlip } from '../types';
 
 const Agenda: React.FC = () => {
     const navigate = useNavigate();
@@ -25,6 +26,7 @@ const Agenda: React.FC = () => {
     
     // Task Detail Modal State
     const [selectedTask, setSelectedTask] = useState<AgendaTask | null>(null);
+    const [selectedSlip, setSelectedSlip] = useState<ReinsuranceSlip | null>(null);
 
     // Fetch tasks
     const { data: tasks, isLoading, refetch } = useAgendaTasks(user?.id, statusFilter === 'ALL' ? undefined : statusFilter);
@@ -49,7 +51,13 @@ const Agenda: React.FC = () => {
             if (task.entityType === 'POLICY') {
                 navigate(`/edit/${task.entityId}`);
             } else if (task.entityType === 'SLIP') {
-                navigate(`/slips/edit/${task.entityId}`);
+                // Fetch slip and open modal instead of navigating
+                const slip = await DB.getSlip(task.entityId);
+                if (slip) {
+                    setSelectedSlip(slip);
+                } else {
+                    console.error("Slip not found or deleted");
+                }
             } else if (task.entityType === 'CLAIM') {
                 navigate(`/claims/${task.entityId}`);
             }
@@ -213,6 +221,14 @@ const Agenda: React.FC = () => {
                     task={selectedTask}
                     isOpen={!!selectedTask}
                     onClose={() => setSelectedTask(null)}
+                />
+            )}
+
+            {selectedSlip && (
+                <DetailModal 
+                    item={selectedSlip} 
+                    onClose={() => setSelectedSlip(null)} 
+                    title="Slip Details"
                 />
             )}
         </div>
