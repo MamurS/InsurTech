@@ -1,10 +1,12 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, session } = require('electron');
+const path = require('path');
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1400,
     height: 900,
     title: "InsurTech Policy Manager",
+    icon: path.join(__dirname, 'icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: false,
@@ -12,7 +14,6 @@ function createWindow() {
     }
   });
 
-  // Your Render URL
   win.loadURL('https://insurtech-r36f.onrender.com');
 
   // Handle connection errors
@@ -34,8 +35,16 @@ function createWindow() {
 
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+// AUTO-LOGOUT: Clear all session data when app closes
+app.on('window-all-closed', async () => {
+  const ses = session.defaultSession;
+  await ses.clearStorageData({
+    storages: ['cookies', 'localstorage', 'sessionstorage']
+  });
+  
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
 });
 
 app.on('activate', () => {
