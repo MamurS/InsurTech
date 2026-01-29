@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -8,25 +7,26 @@ import { PermissionService } from '../services/permissionService';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
-import { formatDate, formatDateTime } from '../utils/dateUtils';
+import { formatDate } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { DepartmentEditModal } from '../components/DepartmentEditModal';
-import { supabase } from '../services/supabase'; // Import direct for custom save
+import { supabase } from '../services/supabase';
 import { 
   Trash2, RefreshCw, Users, 
   Lock, Table, Code, 
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
-  Coins, LogOut, Key, Building2, Briefcase, ScrollText, Search
+  Coins, LogOut, Key, Building2, Briefcase, DollarSign, TrendingDown, TrendingUp,
+  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText
 } from 'lucide-react';
 
-type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity';
+type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log';
 type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
 const AdminConsole: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<Section>('roles'); 
+  const [activeSection, setActiveSection] = useState<Section>('dashboard'); 
   const [isSidebarOpen] = useState(true);
   
   // Roles Management State
@@ -85,9 +85,17 @@ const AdminConsole: React.FC = () => {
   });
   const [newUserPassword, setNewUserPassword] = useState(''); 
   
+  const [loading, setLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Dashboard Analytics State
+  const [claims, setClaims] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+
   // Activity Log State
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
-  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityLogLoading, setActivityLogLoading] = useState(false);
   const [activitySearch, setActivitySearch] = useState('');
   const [activityCategory, setActivityCategory] = useState<string>('');
   const [activityDateFrom, setActivityDateFrom] = useState<string>('');
@@ -95,17 +103,27 @@ const AdminConsole: React.FC = () => {
   const [activityPage, setActivityPage] = useState(0);
   const [activityTotal, setActivityTotal] = useState(0);
   const ACTIVITY_PAGE_SIZE = 50;
-  
-  const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState(false);
 
   // Stats for Dashboard
   const stats = {
     totalPolicies: rawPolicies.length,
     totalSlips: rawSlips.length,
     totalClauses: rawClauses.length,
-    deletedItems: deletedPolicies.length + deletedSlips.length + deletedClauses.length
+    deletedItems: deletedPolicies.length + deletedSlips.length + deletedClauses.length,
+    totalUsers: profiles?.length || 0,
+    activeClaims: claims.filter(c => c.status === 'OPEN' || c.status === 'REOPENED').length,
+    pendingTasks: tasks.filter(t => t.status === 'PENDING').length
   };
+
+  // Calculate financial metrics
+  const totalPremium = rawPolicies.reduce((sum, p) => sum + (Number(p.grossPremium) || 0), 0);
+  const totalClaimsPaid = claims.reduce((sum, c) => sum + (Number(c.total_paid) || 0), 0);
+  const lossRatio = totalPremium > 0 ? (totalClaimsPaid / totalPremium) * 100 : 0;
+
+  // Policy status breakdown
+  const activePolicies = rawPolicies.filter(p => p.status === 'Active').length;
+  const pendingPolicies = rawPolicies.filter(p => p.status === 'Pending Confirmation').length;
+  const expiredPolicies = rawPolicies.filter(p => p.status === 'Expired' || p.status === 'Terminated').length;
 
   const loadAllData = async () => {
     setLoading(true);
@@ -130,48 +148,94 @@ const AdminConsole: React.FC = () => {
     setDeletedPolicies(dp);
     setDeletedSlips(ds);
     setDeletedClauses(dc);
+
+    // Load claims and tasks for dashboard
+    try {
+      const { data: claimsData } = await supabase.from('claims').select('*');
+      setClaims(claimsData || []);
+      
+      const { data: tasksData } = await supabase.from('agenda_tasks').select('*').order('due_date', { ascending: true });
+      setTasks(tasksData || []);
+
+      // Load recent activity
+      const { data: activityData } = await supabase
+        .from('audit_log')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      setRecentActivity(activityData || []);
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+    }
+
     setLoading(false);
   };
 
-  // Fetch activity logs
+  // Fetch Activity Logs
   const fetchActivityLogs = async () => {
-      if (!supabase) return;
-      setActivityLoading(true);
-      try {
-          const { data, error } = await supabase.rpc('search_audit_log', {
-              p_search: activitySearch || null,
-              p_action_category: activityCategory || null,
-              p_date_from: activityDateFrom ? new Date(activityDateFrom).toISOString() : null,
-              p_date_to: activityDateTo ? new Date(activityDateTo + 'T23:59:59').toISOString() : null,
-              p_limit: ACTIVITY_PAGE_SIZE,
-              p_offset: activityPage * ACTIVITY_PAGE_SIZE
-          });
-          
-          if (error) throw error;
-          
-          setActivityLogs(data || []);
-          if (data && data.length > 0) {
-              setActivityTotal(data[0].total_count);
-          } else {
-              setActivityTotal(0);
-          }
-      } catch (err) {
-          console.error('Error fetching activity logs:', err);
-      } finally {
-          setActivityLoading(false);
+    setActivityLogLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('search_audit_log', {
+        p_search: activitySearch || null,
+        p_action_category: activityCategory || null,
+        p_date_from: activityDateFrom ? new Date(activityDateFrom).toISOString() : null,
+        p_date_to: activityDateTo ? new Date(activityDateTo + 'T23:59:59').toISOString() : null,
+        p_limit: ACTIVITY_PAGE_SIZE,
+        p_offset: activityPage * ACTIVITY_PAGE_SIZE
+      });
+      
+      if (error) throw error;
+      
+      setActivityLogs(data || []);
+      if (data && data.length > 0) {
+        setActivityTotal(Number(data[0].total_count) || 0);
+      } else {
+        setActivityTotal(0);
       }
+    } catch (err) {
+      console.error('Error fetching activity logs:', err);
+      // Fallback to direct query if RPC doesn't exist
+      try {
+        const { data, count } = await supabase
+          .from('audit_log')
+          .select('*', { count: 'exact' })
+          .order('created_at', { ascending: false })
+          .range(activityPage * ACTIVITY_PAGE_SIZE, (activityPage + 1) * ACTIVITY_PAGE_SIZE - 1);
+        setActivityLogs(data || []);
+        setActivityTotal(count || 0);
+      } catch (fallbackErr) {
+        console.error('Fallback query also failed:', fallbackErr);
+      }
+    } finally {
+      setActivityLogLoading(false);
+    }
   };
 
   useEffect(() => {
     loadAllData();
   }, [activeSection, dbViewType, recycleType]);
 
-  // useEffect to fetch activity logs on filter change
   useEffect(() => {
-      if (activeSection === 'activity') {
-          fetchActivityLogs();
-      }
+    if (activeSection === 'activity-log') {
+      fetchActivityLogs();
+    }
   }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
+
+  // Helper functions
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
+
+  const formatDateTime = (dateString: string) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleString();
+  };
 
   const handleRestore = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -191,7 +255,6 @@ const AdminConsole: React.FC = () => {
     }
   };
 
-  // FX Handlers
   const handleAddFx = async () => {
       if (!newRate.rate || !newRate.currency) return;
       await DB.saveExchangeRate({
@@ -201,7 +264,7 @@ const AdminConsole: React.FC = () => {
           date: newRate.date || new Date().toISOString().split('T')[0]
       });
       loadAllData();
-      setNewRate({ ...newRate, rate: 0 }); // Reset rate
+      setNewRate({ ...newRate, rate: 0 });
   };
 
   const handleDeleteFx = async (id: string) => {
@@ -211,7 +274,6 @@ const AdminConsole: React.FC = () => {
       }
   };
 
-  // Template Handlers
   const handleEditTemplate = (tpl?: PolicyTemplate) => {
       if (tpl) {
           setCurrentTemplate(tpl);
@@ -238,44 +300,28 @@ const AdminConsole: React.FC = () => {
       }
   }
 
-  // Department Handlers
   const handleEditDepartment = (d?: Department) => {
       setSelectedDept(d);
       setShowDeptModal(true);
   };
 
   const handleDeleteDepartment = async (id: string, name: string) => {
-      if(confirm(`Are you sure you want to delete department "${name}"? Users assigned to this department will remain but the link will be broken.`)) {
+      if(confirm(`Delete department "${name}"?`)) {
           try {
               await UserService.deleteDepartment(id);
               loadAllData();
           } catch(e: any) {
-              alert("Error deleting department: " + e.message);
+              alert("Error: " + e.message);
           }
       }
   };
 
-  // User Handlers
   const handleEditUser = (u?: Profile) => {
       setNewUserPassword('');
       if (u) {
-          setCurrentUser({
-              ...u,
-              roleId: u.roleId || '',
-              departmentId: u.departmentId || '',
-          });
+          setCurrentUser({ ...u, roleId: u.roleId || '', departmentId: u.departmentId || '' });
       } else {
-          setCurrentUser({
-              fullName: '',
-              email: '',
-              role: 'Underwriter',
-              roleId: '',
-              department: '',
-              departmentId: '',
-              phone: '',
-              isActive: true,
-              avatarUrl: 'NU'
-          });
+          setCurrentUser({ fullName: '', email: '', role: 'Underwriter', roleId: '', department: '', departmentId: '', phone: '', isActive: true, avatarUrl: 'NU' });
       }
       setShowUserModal(true);
   };
@@ -285,118 +331,214 @@ const AdminConsole: React.FC = () => {
           alert("Name and Email are required");
           return;
       }
-
       setActionLoading(true);
       try {
-        if (!currentUser.id) {
-            // NEW USER
-            if (!newUserPassword) {
-                alert("Password required for new user");
-                setActionLoading(false);
-                return;
-            }
-            
-            // Register creates auth user and basic profile in 'profiles' via Auth Service
-            const newUser = await AuthService.register(
-                currentUser.email,
-                newUserPassword,
-                currentUser.fullName
-            );
-            
-            // Update profile with additional fields - use 'profiles' table
-            // Note: register returns User object, we access .id from it
-            if (newUser && newUser.id && supabase) {
-                const { error } = await supabase
-                    .from('profiles')  // CORRECT TABLE
-                    .update({
-                        full_name: currentUser.fullName,
-                        role_id: currentUser.roleId || null,
-                        department: currentUser.department || null,
-                        department_id: currentUser.departmentId || null,
-                        phone: currentUser.phone || null,
-                        is_active: currentUser.isActive !== false,
-                        role: roles?.find(r => r.id === currentUser.roleId)?.name || 'Underwriter'
-                    })
-                    .eq('id', newUser.id);
-                
-                if (error) throw error;
-            }
-        } else {
-            // EXISTING USER - use 'profiles' table
-            if (!supabase) throw new Error('No database connection');
-            
-            const { error } = await supabase
-                .from('profiles')  // CORRECT TABLE
-                .update({
-                    full_name: currentUser.fullName,
-                    role_id: currentUser.roleId || null,
-                    department: currentUser.department || null,
-                    department_id: currentUser.departmentId || null,
-                    phone: currentUser.phone || null,
-                    is_active: currentUser.isActive !== false,
-                    role: roles?.find(r => r.id === currentUser.roleId)?.name || currentUser.role
-                })
-                .eq('id', currentUser.id);
-            
-            if (error) throw error;
-        }
+        const selectedRoleObj = roles.find(r => r.id === currentUser.roleId);
+        const selectedDeptObj = departments.find(d => d.id === currentUser.departmentId);
         
+        if (!currentUser.id) {
+            if (!newUserPassword) { alert("Password required"); setActionLoading(false); return; }
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+                email: currentUser.email,
+                password: newUserPassword,
+                options: { data: { full_name: currentUser.fullName } }
+            });
+            if (authError) throw authError;
+            if (!authData.user) throw new Error("User creation failed");
+
+            await supabase.from('profiles').upsert({
+                id: authData.user.id,
+                email: currentUser.email,
+                full_name: currentUser.fullName,
+                role: selectedRoleObj?.name || 'Underwriter',
+                role_id: currentUser.roleId || null,
+                department: selectedDeptObj?.name || null,
+                department_id: currentUser.departmentId || null,
+                phone: currentUser.phone || null,
+                is_active: currentUser.isActive !== false,
+                avatar_url: currentUser.avatarUrl || currentUser.fullName.substring(0, 2).toUpperCase(),
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            });
+            alert("User created!");
+        } else {
+            await supabase.from('profiles').update({
+                full_name: currentUser.fullName,
+                role: selectedRoleObj?.name || currentUser.role,
+                role_id: currentUser.roleId || null,
+                department: selectedDeptObj?.name || null,
+                department_id: currentUser.departmentId || null,
+                phone: currentUser.phone || null,
+                is_active: currentUser.isActive,
+                updated_at: new Date().toISOString()
+            }).eq('id', currentUser.id);
+            alert("User updated!");
+        }
         setShowUserModal(false);
         refetchProfiles();
-        
-      } catch (error: any) {
-          console.error("Save failed:", error);
-          alert("Failed to save user: " + (error.message || "Unknown error"));
+      } catch (err: any) {
+          alert("Error: " + (err.message || JSON.stringify(err)));
       } finally {
           setActionLoading(false);
       }
   };
 
-  const handleDeleteUser = async (id: string, name: string) => {
-      if (confirm(`Are you sure you want to PERMANENTLY delete user "${name}"? This action cannot be undone and will remove login access.`)) {
-          setActionLoading(true);
-          try {
-              await UserService.deleteUser(id);
-              refetchProfiles();
-          } catch (error: any) {
-              alert("Failed to delete user: " + error.message);
-          } finally {
-              setActionLoading(false);
-          }
-      }
-  };
+  const handleEditRole = (role?: Role) => { setSelectedRole(role); setShowRoleModal(true); };
+  const handleRoleSaved = () => { setShowRoleModal(false); loadAllData(); };
 
-  // Role Handlers
-  const handleEditRole = (r?: Role) => {
-      setSelectedRole(r);
-      setShowRoleModal(true);
-  };
-
-  const handleRoleSaved = () => {
-      loadAllData();
-  };
-
-  // --- SUB-COMPONENT RENDERERS ---
+  // ==================== RENDER FUNCTIONS ====================
 
   const renderDashboardHome = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
-        <h2 className="text-2xl font-bold text-gray-800">System Overview</h2>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                <div className="text-gray-500 text-sm font-medium mb-2">Total Policies</div>
-                <div className="text-3xl font-bold text-gray-900">{stats.totalPolicies}</div>
+        <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-gray-800">System Overview</h2>
+            <button onClick={loadAllData} className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"><RefreshCw size={16}/> Refresh</button>
+        </div>
+
+        {/* Top Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+            {[
+              { label: 'Policies', value: stats.totalPolicies, icon: FileText, color: 'blue' },
+              { label: 'Slips', value: stats.totalSlips, icon: ScrollText, color: 'orange' },
+              { label: 'Open Claims', value: stats.activeClaims, icon: AlertCircle, color: 'red' },
+              { label: 'Pending Tasks', value: stats.pendingTasks, icon: Clock, color: 'yellow' },
+              { label: 'Users', value: stats.totalUsers, icon: Users, color: 'purple' },
+              { label: 'Deleted', value: stats.deletedItems, icon: Trash2, color: 'gray', textRed: true },
+            ].map((stat, i) => (
+              <div key={i} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 bg-${stat.color}-100 rounded-lg flex items-center justify-center`}>
+                    <stat.icon size={20} className={`text-${stat.color}-600`} />
+                  </div>
+                  <div>
+                    <div className="text-gray-500 text-xs font-medium">{stat.label}</div>
+                    <div className={`text-2xl font-bold ${stat.textRed ? 'text-red-600' : 'text-gray-900'}`}>{stat.value}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+
+        {/* Financial Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-green-100 text-sm">Total Premium</p>
+                        <p className="text-3xl font-bold mt-1">${totalPremium.toLocaleString()}</p>
+                        <p className="text-green-200 text-xs mt-2">{rawPolicies.length} policies</p>
+                    </div>
+                    <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center"><DollarSign size={28}/></div>
+                </div>
             </div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                <div className="text-gray-500 text-sm font-medium mb-2">Reinsurance Slips</div>
-                <div className="text-3xl font-bold text-gray-900">{stats.totalSlips}</div>
+            <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-red-100 text-sm">Claims Paid</p>
+                        <p className="text-3xl font-bold mt-1">${totalClaimsPaid.toLocaleString()}</p>
+                        <p className="text-red-200 text-xs mt-2">{claims.length} claims</p>
+                    </div>
+                    <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center"><TrendingDown size={28}/></div>
+                </div>
             </div>
-             <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                <div className="text-gray-500 text-sm font-medium mb-2">Clause Library</div>
-                <div className="text-3xl font-bold text-gray-900">{stats.totalClauses}</div>
+            <div className={`bg-gradient-to-br ${lossRatio > 70 ? 'from-amber-500 to-amber-600' : 'from-blue-500 to-blue-600'} rounded-xl p-6 text-white shadow-lg`}>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <p className="text-sm opacity-80">Loss Ratio</p>
+                        <p className="text-3xl font-bold mt-1">{lossRatio.toFixed(1)}%</p>
+                        <p className="text-xs opacity-70 mt-2">{lossRatio > 70 ? 'Above target' : 'Within target'}</p>
+                    </div>
+                    <div className="w-14 h-14 bg-white/20 rounded-full flex items-center justify-center"><PieChart size={28}/></div>
+                </div>
             </div>
-            <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-                <div className="text-gray-500 text-sm font-medium mb-2">Deleted Items</div>
-                <div className="text-3xl font-bold text-red-600">{stats.deletedItems}</div>
+        </div>
+
+        {/* Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Policy Status</h3>
+                <div className="flex items-center justify-center gap-8">
+                    <div className="relative w-40 h-40">
+                        <svg viewBox="0 0 36 36" className="w-40 h-40 transform -rotate-90">
+                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#e5e7eb" strokeWidth="3"/>
+                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#22c55e" strokeWidth="3" strokeDasharray={`${(activePolicies/Math.max(stats.totalPolicies,1))*100} 100`}/>
+                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#eab308" strokeWidth="3" strokeDasharray={`${(pendingPolicies/Math.max(stats.totalPolicies,1))*100} 100`} strokeDashoffset={`-${(activePolicies/Math.max(stats.totalPolicies,1))*100}`}/>
+                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke="#ef4444" strokeWidth="3" strokeDasharray={`${(expiredPolicies/Math.max(stats.totalPolicies,1))*100} 100`} strokeDashoffset={`-${((activePolicies+pendingPolicies)/Math.max(stats.totalPolicies,1))*100}`}/>
+                        </svg>
+                        <div className="absolute inset-0 flex items-center justify-center"><span className="text-2xl font-bold">{stats.totalPolicies}</span></div>
+                    </div>
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-3"><div className="w-4 h-4 rounded-full bg-green-500"></div><span className="text-sm">Active ({activePolicies})</span></div>
+                        <div className="flex items-center gap-3"><div className="w-4 h-4 rounded-full bg-yellow-500"></div><span className="text-sm">Pending ({pendingPolicies})</span></div>
+                        <div className="flex items-center gap-3"><div className="w-4 h-4 rounded-full bg-red-500"></div><span className="text-sm">Expired ({expiredPolicies})</span></div>
+                    </div>
+                </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Slip Status</h3>
+                <div className="space-y-3">
+                    {['DRAFT','PENDING','QUOTED','BOUND','CLOSED','DECLINED'].map(status => {
+                        const count = rawSlips.filter(s => s.status === status).length;
+                        const pct = stats.totalSlips > 0 ? (count/stats.totalSlips)*100 : 0;
+                        const colors: Record<string,string> = { DRAFT:'bg-gray-400', PENDING:'bg-blue-500', QUOTED:'bg-purple-500', BOUND:'bg-green-500', CLOSED:'bg-gray-600', DECLINED:'bg-red-500' };
+                        return (
+                            <div key={status} className="flex items-center gap-3">
+                                <div className="w-20 text-xs font-medium text-gray-600">{status}</div>
+                                <div className="flex-1 h-6 bg-gray-100 rounded-full overflow-hidden">
+                                    <div className={`h-full ${colors[status]}`} style={{width:`${pct}%`}}></div>
+                                </div>
+                                <div className="w-12 text-right text-sm font-medium">{count}</div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+
+        {/* Recent Activity & Tasks */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Recent Activity</h3>
+                    <button onClick={() => setActiveSection('activity-log')} className="text-sm text-blue-600 hover:text-blue-800">View All →</button>
+                </div>
+                <div className="space-y-3">
+                    {recentActivity.length === 0 ? (
+                        <div className="text-center py-8 text-gray-400"><Activity size={32} className="mx-auto mb-2 opacity-50"/><p className="text-sm">No recent activity</p></div>
+                    ) : recentActivity.slice(0,5).map((a,i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 hover:bg-gray-50 rounded-lg">
+                            <div className={`w-8 h-8 rounded-full flex items-center justify-center ${a.action==='INSERT'?'bg-green-100 text-green-600':a.action==='UPDATE'?'bg-blue-100 text-blue-600':a.action==='DELETE'?'bg-red-100 text-red-600':'bg-purple-100 text-purple-600'}`}>
+                                {a.action==='INSERT'?<Plus size={14}/>:a.action==='UPDATE'?<Edit size={14}/>:a.action==='DELETE'?<Trash2 size={14}/>:<RefreshCw size={14}/>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm text-gray-800 truncate">{a.action_description}</p>
+                                <p className="text-xs text-gray-500">{a.user_name||'System'} • {formatTimeAgo(a.created_at)}</p>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm border p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Pending Tasks</h3>
+                    <span className="px-2.5 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">{tasks.filter(t=>t.status==='PENDING').length} pending</span>
+                </div>
+                <div className="space-y-3">
+                    {tasks.filter(t=>t.status==='PENDING').length===0 ? (
+                        <div className="text-center py-8 text-gray-400"><CheckCircle size={32} className="mx-auto mb-2 opacity-50"/><p className="text-sm">All tasks done!</p></div>
+                    ) : tasks.filter(t=>t.status==='PENDING').slice(0,5).map((t,i) => (
+                        <div key={i} className="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className={`w-2 h-2 rounded-full ${t.priority==='HIGH'?'bg-red-500':t.priority==='MEDIUM'?'bg-yellow-500':'bg-green-500'}`}></div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-800 truncate">{t.title}</p>
+                                    <p className="text-xs text-gray-500">{t.assigned_to_name||'Unassigned'}</p>
+                                </div>
+                            </div>
+                            <span className="text-xs text-gray-500 ml-2">{t.due_date?formatDate(t.due_date):'No due date'}</span>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     </div>
@@ -404,159 +546,48 @@ const AdminConsole: React.FC = () => {
 
   const renderActivityLog = () => (
     <div className="space-y-4 animate-in fade-in duration-300">
-        {/* Header */}
         <div className="flex items-center justify-between">
-            <div>
-                <h2 className="text-xl font-bold text-gray-800">Activity Log</h2>
-                <p className="text-sm text-gray-500">Track all system activities and changes</p>
-            </div>
-            <button
-                onClick={fetchActivityLogs}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
-            >
-                <RefreshCw size={16} />
-                Refresh
-            </button>
+            <div><h2 className="text-xl font-bold text-gray-800">Activity Log</h2><p className="text-sm text-gray-500">Track all system activities</p></div>
+            <button onClick={fetchActivityLogs} className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"><RefreshCw size={16}/>Refresh</button>
         </div>
-
-        {/* Filters */}
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+        <div className="bg-white p-4 rounded-xl shadow-sm border">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                {/* Search */}
-                <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search logs..."
-                        value={activitySearch}
-                        onChange={(e) => { setActivitySearch(e.target.value); setActivityPage(0); }}
-                        className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                </div>
-                
-                {/* Category Filter */}
-                <select
-                    value={activityCategory}
-                    onChange={(e) => { setActivityCategory(e.target.value); setActivityPage(0); }}
-                    className="w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-                >
+                <input type="text" placeholder="Search..." value={activitySearch} onChange={e=>{setActivitySearch(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+                <select value={activityCategory} onChange={e=>{setActivityCategory(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
                     <option value="">All Categories</option>
                     <option value="POLICY">Policies</option>
                     <option value="SLIP">Slips</option>
                     <option value="CLAIM">Claims</option>
                     <option value="TASK">Tasks</option>
                     <option value="USER">Users</option>
-                    <option value="ENTITY">Legal Entities</option>
-                    <option value="ADMIN">Admin</option>
-                    <option value="AUTH">Authentication</option>
                 </select>
-                
-                {/* Date From */}
-                <input
-                    type="date"
-                    value={activityDateFrom}
-                    onChange={(e) => { setActivityDateFrom(e.target.value); setActivityPage(0); }}
-                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="From date"
-                />
-                
-                {/* Date To */}
-                <input
-                    type="date"
-                    value={activityDateTo}
-                    onChange={(e) => { setActivityDateTo(e.target.value); setActivityPage(0); }}
-                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    placeholder="To date"
-                />
+                <input type="date" value={activityDateFrom} onChange={e=>{setActivityDateFrom(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+                <input type="date" value={activityDateTo} onChange={e=>{setActivityDateTo(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
             </div>
-            
-            {/* Clear Filters */}
-            {(activitySearch || activityCategory || activityDateFrom || activityDateTo) && (
-                <button
-                    onClick={() => {
-                        setActivitySearch('');
-                        setActivityCategory('');
-                        setActivityDateFrom('');
-                        setActivityDateTo('');
-                        setActivityPage(0);
-                    }}
-                    className="mt-3 text-sm text-blue-600 hover:text-blue-800"
-                >
-                    Clear all filters
-                </button>
-            )}
+            {(activitySearch||activityCategory||activityDateFrom||activityDateTo) && <button onClick={()=>{setActivitySearch('');setActivityCategory('');setActivityDateFrom('');setActivityDateTo('');setActivityPage(0);}} className="mt-3 text-sm text-blue-600 hover:text-blue-800">Clear filters</button>}
         </div>
-
-        {/* Results Count */}
-        <div className="text-sm text-gray-500">
-            Showing {activityLogs.length} of {activityTotal} logs
-        </div>
-
-        {/* Activity Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            {activityLoading ? (
-                <div className="flex items-center justify-center py-12">
-                    <Loader2 className="animate-spin text-blue-600" size={32} />
-                </div>
-            ) : activityLogs.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                    <ScrollText size={48} className="mx-auto mb-4 text-gray-300" />
-                    <p>No activity logs found</p>
-                </div>
-            ) : (
+        <div className="text-sm text-gray-500">Showing {activityLogs.length} of {activityTotal} logs</div>
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            {activityLogLoading ? <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-blue-600" size={32}/></div> : activityLogs.length===0 ? <div className="text-center py-12 text-gray-500"><ScrollText size={48} className="mx-auto mb-4 text-gray-300"/><p>No logs found</p></div> : (
                 <div className="overflow-x-auto">
                     <table className="w-full">
-                        <thead className="bg-gray-50 border-b">
-                            <tr>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Time</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Category</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
-                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Reference</th>
-                            </tr>
-                        </thead>
+                        <thead className="bg-gray-50 border-b"><tr>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Time</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">User</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Action</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Category</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Description</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Reference</th>
+                        </tr></thead>
                         <tbody className="divide-y divide-gray-100">
-                            {activityLogs.map((log) => (
+                            {activityLogs.map(log => (
                                 <tr key={log.id} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                                        {formatDateTime(log.created_at)}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <div className="text-sm font-medium text-gray-900">{log.user_name || 'System'}</div>
-                                        <div className="text-xs text-gray-500">{log.user_email}</div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                            log.action === 'INSERT' ? 'bg-green-100 text-green-800' :
-                                            log.action === 'UPDATE' ? 'bg-blue-100 text-blue-800' :
-                                            log.action === 'DELETE' ? 'bg-red-100 text-red-800' :
-                                            log.action === 'STATUS_CHANGE' ? 'bg-purple-100 text-purple-800' :
-                                            log.action === 'LOGIN' ? 'bg-cyan-100 text-cyan-800' :
-                                            'bg-gray-100 text-gray-800'
-                                        }`}>
-                                            {log.action}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                                            log.action_category === 'POLICY' ? 'bg-indigo-50 text-indigo-700' :
-                                            log.action_category === 'SLIP' ? 'bg-orange-50 text-orange-700' :
-                                            log.action_category === 'CLAIM' ? 'bg-red-50 text-red-700' :
-                                            log.action_category === 'TASK' ? 'bg-yellow-50 text-yellow-700' :
-                                            log.action_category === 'USER' ? 'bg-pink-50 text-pink-700' :
-                                            log.action_category === 'AUTH' ? 'bg-cyan-50 text-cyan-700' :
-                                            'bg-gray-50 text-gray-700'
-                                        }`}>
-                                            {log.action_category}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 text-sm text-gray-700 max-w-md truncate" title={log.action_description}>
-                                        {log.action_description}
-                                    </td>
-                                    <td className="px-4 py-3 text-sm font-mono text-gray-600">
-                                        {log.entity_reference}
-                                    </td>
+                                    <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{formatDateTime(log.created_at)}</td>
+                                    <td className="px-4 py-3"><div className="text-sm font-medium text-gray-900">{log.user_name||'System'}</div><div className="text-xs text-gray-500">{log.user_email}</div></td>
+                                    <td className="px-4 py-3"><span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${log.action==='INSERT'?'bg-green-100 text-green-800':log.action==='UPDATE'?'bg-blue-100 text-blue-800':log.action==='DELETE'?'bg-red-100 text-red-800':log.action==='STATUS_CHANGE'?'bg-purple-100 text-purple-800':'bg-gray-100 text-gray-800'}`}>{log.action}</span></td>
+                                    <td className="px-4 py-3"><span className={`inline-flex px-2 py-1 rounded text-xs font-medium ${log.action_category==='POLICY'?'bg-indigo-50 text-indigo-700':log.action_category==='SLIP'?'bg-orange-50 text-orange-700':log.action_category==='CLAIM'?'bg-red-50 text-red-700':log.action_category==='TASK'?'bg-yellow-50 text-yellow-700':'bg-gray-50 text-gray-700'}`}>{log.action_category}</span></td>
+                                    <td className="px-4 py-3 text-sm text-gray-700 max-w-md truncate" title={log.action_description}>{log.action_description}</td>
+                                    <td className="px-4 py-3 text-sm font-mono text-gray-600">{log.entity_reference}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -564,452 +595,134 @@ const AdminConsole: React.FC = () => {
                 </div>
             )}
         </div>
-
-        {/* Pagination */}
         {activityTotal > ACTIVITY_PAGE_SIZE && (
             <div className="flex items-center justify-between">
-                <button
-                    onClick={() => setActivityPage(p => Math.max(0, p - 1))}
-                    disabled={activityPage === 0}
-                    className="px-4 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                    Previous
-                </button>
-                <span className="text-sm text-gray-600">
-                    Page {activityPage + 1} of {Math.ceil(activityTotal / ACTIVITY_PAGE_SIZE)}
-                </span>
-                <button
-                    onClick={() => setActivityPage(p => p + 1)}
-                    disabled={(activityPage + 1) * ACTIVITY_PAGE_SIZE >= activityTotal}
-                    className="px-4 py-2 border rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                    Next
-                </button>
+                <button onClick={()=>setActivityPage(p=>Math.max(0,p-1))} disabled={activityPage===0} className="px-4 py-2 border rounded-lg text-sm disabled:opacity-50">Previous</button>
+                <span className="text-sm text-gray-600">Page {activityPage+1} of {Math.ceil(activityTotal/ACTIVITY_PAGE_SIZE)}</span>
+                <button onClick={()=>setActivityPage(p=>p+1)} disabled={(activityPage+1)*ACTIVITY_PAGE_SIZE>=activityTotal} className="px-4 py-2 border rounded-lg text-sm disabled:opacity-50">Next</button>
             </div>
         )}
     </div>
   );
 
   const renderDepartments = () => (
-      <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center">
-              <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Departments</h2>
-                  <p className="text-sm text-gray-500">Manage organization structure.</p>
-              </div>
-              <button 
-                  onClick={() => handleEditDepartment()}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                  <Plus size={18}/> Add Department
-              </button>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-gray-700">
-                      <tr>
-                          <th className="px-6 py-4 w-12">Code</th>
-                          <th className="px-6 py-4">Department Name</th>
-                          <th className="px-6 py-4">Head of Department</th>
-                          <th className="px-6 py-4 text-center">Staff Count</th>
-                          <th className="px-6 py-4 text-center">Status</th>
-                          <th className="px-6 py-4 text-right">Actions</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                      {departments.map(dept => (
-                          <tr key={dept.id} className="hover:bg-gray-50 group">
-                              <td className="px-6 py-4 font-mono text-gray-500 font-bold">{dept.code}</td>
-                              <td className="px-6 py-4">
-                                  <div className="font-bold text-gray-900">{dept.name}</div>
-                                  <div className="text-xs text-gray-500">{dept.description}</div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-600 flex items-center gap-2">
-                                  {(dept as any).headName ? <Briefcase size={14} className="text-blue-500"/> : null}
-                                  {(dept as any).headName || '-'}
-                              </td>
-                              <td className="px-6 py-4 text-center text-sm">
-                                  {dept.currentStaffCount || 0} / {dept.maxStaff || '∞'}
-                              </td>
-                              <td className="px-6 py-4 text-center">
-                                  {dept.isActive 
-                                      ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span>
-                                      : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>
-                                  }
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                  <div className="flex justify-end gap-2">
-                                    <button onClick={() => handleEditDepartment(dept)} className="text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors"><Edit size={16}/></button>
-                                    <button onClick={() => handleDeleteDepartment(dept.id, dept.name)} className="text-red-600 hover:bg-red-50 p-2 rounded transition-colors"><Trash2 size={16}/></button>
-                                  </div>
-                              </td>
-                          </tr>
-                      ))}
-                      {departments.length === 0 && (
-                          <tr><td colSpan={6} className="text-center py-8 text-gray-400">No departments found.</td></tr>
-                      )}
-                  </tbody>
-              </table>
-          </div>
-          
-          {showDeptModal && (
-              <DepartmentEditModal 
-                  department={selectedDept}
-                  onClose={() => setShowDeptModal(false)}
-                  onSave={loadAllData}
-                  allUsers={profiles || []}
-              />
-          )}
-      </div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex justify-between items-center">
+            <div><h2 className="text-2xl font-bold text-gray-800">Departments</h2><p className="text-sm text-gray-500">Manage organization structure.</p></div>
+            <button onClick={()=>handleEditDepartment()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"><Plus size={18}/> Add Department</button>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-700"><tr><th className="px-6 py-4 w-12">Code</th><th className="px-6 py-4">Name</th><th className="px-6 py-4">Head</th><th className="px-6 py-4 text-center">Staff</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
+                <tbody className="divide-y">
+                    {departments.map(dept => (
+                        <tr key={dept.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 font-mono text-gray-500 font-bold">{dept.code}</td>
+                            <td className="px-6 py-4"><div className="font-bold text-gray-900">{dept.name}</div><div className="text-xs text-gray-500">{dept.description}</div></td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{(dept as any).headName || '-'}</td>
+                            <td className="px-6 py-4 text-center text-sm">{dept.currentStaffCount||0} / {dept.maxStaff||'∞'}</td>
+                            <td className="px-6 py-4 text-center">{dept.isActive ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span> : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>}</td>
+                            <td className="px-6 py-4 text-right"><div className="flex justify-end gap-2"><button onClick={()=>handleEditDepartment(dept)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><Edit size={16}/></button><button onClick={()=>handleDeleteDepartment(dept.id,dept.name)} className="text-red-600 hover:bg-red-50 p-2 rounded"><Trash2 size={16}/></button></div></td>
+                        </tr>
+                    ))}
+                    {departments.length===0 && <tr><td colSpan={6} className="text-center py-8 text-gray-400">No departments found.</td></tr>}
+                </tbody>
+            </table>
+        </div>
+        {showDeptModal && <DepartmentEditModal department={selectedDept} onClose={()=>setShowDeptModal(false)} onSave={loadAllData} allUsers={profiles||[]}/>}
+    </div>
   );
 
   const renderRoles = () => (
-      <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="flex justify-between items-center">
-              <div>
-                  <h2 className="text-2xl font-bold text-gray-800">RBAC Roles</h2>
-                  <p className="text-sm text-gray-500">Manage hierarchical roles and permissions.</p>
-              </div>
-              <button 
-                  onClick={() => handleEditRole()}
-                  className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-              >
-                  <Plus size={18}/> Add Role
-              </button>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-              <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-gray-700">
-                      <tr>
-                          <th className="px-6 py-4 w-12">Lvl</th>
-                          <th className="px-6 py-4">Role Name</th>
-                          <th className="px-6 py-4">Department</th>
-                          <th className="px-6 py-4 text-center">System</th>
-                          <th className="px-6 py-4 text-center">Status</th>
-                          <th className="px-6 py-4 text-right">Actions</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                      {roles.map(role => (
-                          <tr key={role.id} className="hover:bg-gray-50 group">
-                              <td className="px-6 py-4 font-mono text-gray-500 font-bold">{role.level}</td>
-                              <td className="px-6 py-4">
-                                  <div className="font-bold text-gray-900">{role.name}</div>
-                                  <div className="text-xs text-gray-500">{role.description}</div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-gray-600">{role.department || '-'}</td>
-                              <td className="px-6 py-4 text-center">
-                                  {role.isSystemRole && <span title="System Role"><Lock size={14} className="inline text-amber-500"/></span>}
-                              </td>
-                              <td className="px-6 py-4 text-center">
-                                  {role.isActive 
-                                      ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span>
-                                      : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>
-                                  }
-                              </td>
-                              <td className="px-6 py-4 text-right">
-                                  <button onClick={() => handleEditRole(role)} className="text-blue-600 hover:bg-blue-50 p-2 rounded transition-colors"><Edit size={16}/></button>
-                              </td>
-                          </tr>
-                      ))}
-                  </tbody>
-              </table>
-          </div>
-          
-          {showRoleModal && (
-              <RoleEditModal 
-                  role={selectedRole}
-                  onClose={() => setShowRoleModal(false)}
-                  onSave={handleRoleSaved}
-              />
-          )}
-      </div>
+    <div className="space-y-6 animate-in fade-in duration-300">
+        <div className="flex justify-between items-center">
+            <div><h2 className="text-2xl font-bold text-gray-800">RBAC Roles</h2><p className="text-sm text-gray-500">Manage roles and permissions.</p></div>
+            <button onClick={()=>handleEditRole()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"><Plus size={18}/> Add Role</button>
+        </div>
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-700"><tr><th className="px-6 py-4 w-12">Lvl</th><th className="px-6 py-4">Role</th><th className="px-6 py-4">Department</th><th className="px-6 py-4 text-center">System</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
+                <tbody className="divide-y">
+                    {roles.map(role => (
+                        <tr key={role.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 font-mono text-gray-500 font-bold">{role.level}</td>
+                            <td className="px-6 py-4"><div className="font-bold text-gray-900">{role.name}</div><div className="text-xs text-gray-500">{role.description}</div></td>
+                            <td className="px-6 py-4 text-sm text-gray-600">{role.department||'-'}</td>
+                            <td className="px-6 py-4 text-center">{role.isSystemRole && <Lock size={14} className="inline text-amber-500"/>}</td>
+                            <td className="px-6 py-4 text-center">{role.isActive ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span> : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>}</td>
+                            <td className="px-6 py-4 text-right"><button onClick={()=>handleEditRole(role)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><Edit size={16}/></button></td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+        </div>
+        {showRoleModal && <RoleEditModal role={selectedRole} onClose={()=>setShowRoleModal(false)} onSave={handleRoleSaved}/>}
+    </div>
   );
 
-  const renderUsers = () => {
-    return (
-     <div className="space-y-6 animate-in fade-in duration-300">
+  const renderUsers = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800">User Management</h2>
-            <button 
-                onClick={() => handleEditUser()}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-            >
-                <Plus size={18}/> Add User
-            </button>
+            <button onClick={()=>handleEditUser()} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"><Plus size={18}/> Add User</button>
         </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[300px]">
-            <div className="p-4 border-b bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
-                <ShieldCheck size={16} />
-                <span>Internal System Users ({profiles?.length || 0})</span>
-            </div>
-            {loadingProfiles ? (
-                <div className="p-12 text-center text-gray-500">
-                    <Loader2 className="animate-spin mx-auto mb-2" size={24}/>
-                    <p>Loading user directory...</p>
-                </div>
-            ) : (!profiles || profiles.length === 0) ? (
-                <div className="p-12 text-center bg-gray-50 text-gray-500">
-                    <Users className="mx-auto mb-4 opacity-20" size={48}/>
-                    <h3 className="font-bold text-gray-700">No Users Found</h3>
-                    <p className="text-sm mb-4">The public user directory appears empty. Check database permissions.</p>
-                    <button onClick={() => refetchProfiles()} className="text-blue-600 hover:underline text-sm font-bold flex items-center justify-center gap-2">
-                        <RefreshCw size={14}/> Retry Fetch
-                    </button>
-                </div>
-            ) : (
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden min-h-[300px]">
+            <div className="p-4 border-b bg-blue-50 text-blue-800 text-sm flex items-center gap-2"><ShieldCheck size={16}/><span>System Users ({profiles?.length||0})</span></div>
+            {loadingProfiles ? <div className="p-12 text-center text-gray-500"><Loader2 className="animate-spin mx-auto mb-2" size={24}/><p>Loading...</p></div> : (!profiles||profiles.length===0) ? <div className="p-12 text-center bg-gray-50 text-gray-500"><Users className="mx-auto mb-4 opacity-20" size={48}/><h3 className="font-bold text-gray-700">No Users</h3><button onClick={()=>refetchProfiles()} className="text-blue-600 hover:underline text-sm font-bold flex items-center justify-center gap-2 mt-2"><RefreshCw size={14}/> Retry</button></div> : (
                 <table className="w-full text-left">
-                    <thead className="bg-gray-50 text-gray-700">
-                        <tr>
-                            <th className="px-6 py-4">User Identity</th>
-                            <th className="px-6 py-4">Role & Department</th>
-                            <th className="px-6 py-4 text-center">Status</th>
-                            <th className="px-6 py-4 text-right">Actions</th>
-                        </tr>
-                    </thead>
+                    <thead className="bg-gray-50 text-gray-700"><tr><th className="px-6 py-4">User</th><th className="px-6 py-4">Role & Dept</th><th className="px-6 py-4 text-center">Status</th><th className="px-6 py-4 text-right">Actions</th></tr></thead>
                     <tbody className="divide-y">
                         {profiles.map(u => (
-                            <tr key={u.id} className="hover:bg-gray-50 group">
-                                <td className="px-6 py-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">
-                                            {u.avatarUrl || u.fullName.substring(0,2).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-gray-900">{u.fullName}</div>
-                                            <div className="text-sm text-gray-500">{u.email}</div>
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                                        u.role === 'Super Admin' ? 'bg-purple-100 text-purple-700' : 
-                                        u.role === 'Admin' ? 'bg-blue-100 text-blue-700' :
-                                        'bg-gray-100 text-gray-700'
-                                    }`}>
-                                        {u.role}
-                                    </span>
-                                    <div className="text-xs text-gray-500 mt-1">{u.department || 'No Dept'}</div>
-                                </td>
-                                <td className="px-6 py-4 text-center">
-                                    {u.isActive 
-                                        ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span>
-                                        : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>
-                                    }
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button 
-                                            onClick={() => handleEditUser(u)} 
-                                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                                            title="Edit User"
-                                        >
-                                            <Edit size={16}/>
-                                        </button>
-                                        <button 
-                                            onClick={() => handleDeleteUser(u.id, u.fullName)} 
-                                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                            title="Delete User"
-                                        >
-                                            <Trash2 size={16}/>
-                                        </button>
-                                    </div>
-                                </td>
+                            <tr key={u.id} className="hover:bg-gray-50">
+                                <td className="px-6 py-4"><div className="flex items-center gap-3"><div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center font-bold text-xs text-slate-600">{u.avatarUrl||u.fullName.substring(0,2).toUpperCase()}</div><div><div className="font-bold text-gray-900">{u.fullName}</div><div className="text-sm text-gray-500">{u.email}</div></div></div></td>
+                                <td className="px-6 py-4"><div className="text-sm font-medium text-gray-900">{u.role}</div><div className="text-xs text-gray-500">{u.department||'No Dept'}</div></td>
+                                <td className="px-6 py-4 text-center">{u.isActive ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span> : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-1 rounded-full">Inactive</span>}</td>
+                                <td className="px-6 py-4 text-right"><button onClick={()=>handleEditUser(u)} className="text-blue-600 hover:bg-blue-50 p-2 rounded"><Edit size={16}/></button></td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             )}
         </div>
-
-        {/* User Modal */}
         {showUserModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-                <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] overflow-y-auto">
-                    <div className="p-4 border-b bg-gray-50 flex justify-between items-center sticky top-0 bg-gray-50 z-10">
-                        <h3 className="font-bold text-gray-800">{currentUser.id ? 'Edit User Profile' : 'Create New User'}</h3>
-                        <button onClick={() => setShowUserModal(false)} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
-                    </div>
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
+                    <div className="p-6 border-b flex justify-between items-center"><h3 className="font-bold text-xl text-gray-800">{currentUser.id?'Edit User':'Create User'}</h3><button onClick={()=>setShowUserModal(false)} className="text-gray-400 hover:text-gray-600"><X size={24}/></button></div>
                     <div className="p-6 space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
-                            <input 
-                                className="w-full bg-white border rounded p-2 text-gray-900" 
-                                value={currentUser.fullName} 
-                                onChange={e => setCurrentUser({...currentUser, fullName: e.target.value})}
-                                placeholder="e.g. John Doe"
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Email (Login)</label>
-                            <input 
-                                className="w-full bg-white border rounded p-2 text-gray-900" 
-                                value={currentUser.email} 
-                                onChange={e => setCurrentUser({...currentUser, email: e.target.value})}
-                                placeholder="john@example.com"
-                                disabled={!!currentUser.id} 
-                            />
-                        </div>
-                        
-                        {!currentUser.id && (
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-                                <input 
-                                    type="password"
-                                    className="w-full bg-white border rounded p-2 text-gray-900" 
-                                    value={newUserPassword} 
-                                    onChange={e => setNewUserPassword(e.target.value)}
-                                    placeholder="Temp password..."
-                                />
-                            </div>
-                        )}
-
+                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Full Name *</label><input className="w-full p-2.5 border rounded-lg" value={currentUser.fullName||''} onChange={e=>setCurrentUser({...currentUser,fullName:e.target.value})}/></div>
+                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Email *</label><input type="email" className="w-full p-2.5 border rounded-lg" value={currentUser.email||''} onChange={e=>setCurrentUser({...currentUser,email:e.target.value})} disabled={!!currentUser.id}/></div>
+                        {!currentUser.id && <div><label className="block text-sm font-bold text-gray-700 mb-1">Password *</label><input type="password" className="w-full p-2.5 border rounded-lg" value={newUserPassword} onChange={e=>setNewUserPassword(e.target.value)}/></div>}
                         <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Role Assignment</label>
-                                <select 
-                                    className="w-full bg-white border rounded p-2 text-gray-900"
-                                    value={currentUser.roleId || ''}
-                                    onChange={e => setCurrentUser({...currentUser, roleId: e.target.value})}
-                                >
-                                    <option value="">Select Role...</option>
-                                    {roles.map(r => (
-                                        <option key={r.id} value={r.id}>{r.name} {r.department ? `(${r.department})` : ''}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Department</label>
-                                <select 
-                                    className="w-full bg-white border rounded p-2 text-gray-900"
-                                    value={currentUser.departmentId || ''}
-                                    onChange={e => {
-                                        const dept = departments.find(d => d.id === e.target.value);
-                                        setCurrentUser({
-                                            ...currentUser, 
-                                            departmentId: e.target.value,
-                                            department: dept?.name || ''
-                                        });
-                                    }}
-                                >
-                                    <option value="">Select Department...</option>
-                                    {departments.map(dept => (
-                                        <option key={dept.id} value={dept.id}>
-                                            {dept.name} {dept.code ? `(${dept.code})` : ''}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                            <div><label className="block text-sm font-bold text-gray-700 mb-1">Role</label><select className="w-full p-2.5 border rounded-lg bg-white" value={currentUser.roleId||''} onChange={e=>setCurrentUser({...currentUser,roleId:e.target.value})}><option value="">Select</option>{roles.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></div>
+                            <div><label className="block text-sm font-bold text-gray-700 mb-1">Department</label><select className="w-full p-2.5 border rounded-lg bg-white" value={currentUser.departmentId||''} onChange={e=>setCurrentUser({...currentUser,departmentId:e.target.value})}><option value="">Select</option>{departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}</select></div>
                         </div>
-
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Phone</label>
-                            <div className="relative">
-                                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                                <input 
-                                    className="w-full pl-9 bg-white border rounded p-2 text-gray-900" 
-                                    value={currentUser.phone} 
-                                    onChange={e => setCurrentUser({...currentUser, phone: e.target.value})}
-                                />
-                            </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 mt-2">
-                            <input 
-                                type="checkbox" 
-                                id="activeUser"
-                                checked={currentUser.isActive !== false}
-                                onChange={e => setCurrentUser({...currentUser, isActive: e.target.checked})}
-                            />
-                            <label htmlFor="activeUser" className="text-sm text-gray-700">User is Active (can login)</label>
-                        </div>
+                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Phone</label><input type="tel" className="w-full p-2.5 border rounded-lg" value={currentUser.phone||''} onChange={e=>setCurrentUser({...currentUser,phone:e.target.value})}/></div>
+                        <div className="flex items-center gap-2 pt-2"><input type="checkbox" id="activeChk" checked={currentUser.isActive!==false} onChange={e=>setCurrentUser({...currentUser,isActive:e.target.checked})} className="w-4 h-4 rounded border-gray-300 text-blue-600"/><label htmlFor="activeChk" className="text-sm text-gray-700">Active</label></div>
                     </div>
-                    <div className="p-4 border-t bg-gray-50 flex justify-end gap-2 sticky bottom-0 z-10">
-                        <button 
-                            onClick={() => setShowUserModal(false)} 
-                            className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg"
-                            disabled={actionLoading}
-                        >
-                            Cancel
-                        </button>
-                        <button 
-                            onClick={handleSaveUser} 
-                            disabled={actionLoading}
-                            className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 shadow-sm flex items-center gap-2 disabled:opacity-70"
-                        >
-                            {actionLoading ? <Loader2 className="animate-spin" size={16}/> : <Save size={16}/>}
-                            Save User
-                        </button>
+                    <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 rounded-b-xl">
+                        <button onClick={()=>setShowUserModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Cancel</button>
+                        <button onClick={handleSaveUser} disabled={actionLoading} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70">{actionLoading?<Loader2 className="animate-spin" size={16}/>:<Save size={16}/>}Save</button>
                     </div>
                 </div>
             </div>
         )}
-     </div>
-    );
-  };
+    </div>
+  );
 
   const renderDatabaseBrowser = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800">Database Browser</h2>
-            <div className="flex bg-white rounded-lg p-1 border shadow-sm">
-                {(['policies', 'slips', 'clauses'] as const).map(type => (
-                    <button
-                        key={type}
-                        onClick={() => setDbViewType(type)}
-                        className={`px-4 py-2 text-sm font-bold capitalize rounded-md transition-colors ${dbViewType === type ? 'bg-blue-100 text-blue-700' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        {type}
-                    </button>
-                ))}
-            </div>
+            <div className="flex bg-white rounded-lg p-1 border shadow-sm">{(['policies','slips','clauses'] as const).map(type=><button key={type} onClick={()=>setDbViewType(type)} className={`px-4 py-2 text-sm font-bold capitalize rounded-md transition-colors ${dbViewType===type?'bg-blue-100 text-blue-700':'text-gray-500 hover:text-gray-700'}`}>{type}</button>)}</div>
         </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <div className="max-h-[600px] overflow-auto">
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-50 text-gray-700 font-semibold sticky top-0">
-                        <tr>
-                            <th className="px-6 py-3 border-b">ID</th>
-                            <th className="px-6 py-3 border-b">Reference / Name</th>
-                            <th className="px-6 py-3 border-b">Status / Details</th>
-                            <th className="px-6 py-3 border-b text-right">Raw Data</th>
-                        </tr>
-                    </thead>
+                    <thead className="bg-gray-50 text-gray-700 font-semibold sticky top-0"><tr><th className="px-6 py-3 border-b">ID</th><th className="px-6 py-3 border-b">Reference</th><th className="px-6 py-3 border-b">Status</th><th className="px-6 py-3 border-b text-right">Raw</th></tr></thead>
                     <tbody className="divide-y divide-gray-100">
-                        {dbViewType === 'policies' && rawPolicies.map(p => (
-                            <tr key={p.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-3 font-mono text-xs text-gray-500">{p.id.substring(0,8)}...</td>
-                                <td className="px-6 py-3 font-medium">{p.policyNumber}</td>
-                                <td className="px-6 py-3">{p.status} | {p.insuredName}</td>
-                                <td className="px-6 py-3 text-right">
-                                    <button onClick={() => console.log(p)} className="text-blue-600 hover:underline text-xs">Log to Console</button>
-                                </td>
-                            </tr>
-                        ))}
-                        {dbViewType === 'slips' && rawSlips.map(s => (
-                            <tr key={s.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-3 font-mono text-xs text-gray-500">{s.id.substring(0,8)}...</td>
-                                <td className="px-6 py-3 font-medium">{s.slipNumber}</td>
-                                <td className="px-6 py-3">{s.status || 'Active'} | {s.insuredName}</td>
-                                <td className="px-6 py-3 text-right">
-                                    <button onClick={() => console.log(s)} className="text-blue-600 hover:underline text-xs">Log to Console</button>
-                                </td>
-                            </tr>
-                        ))}
-                        {dbViewType === 'clauses' && rawClauses.map(c => (
-                            <tr key={c.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-3 font-mono text-xs text-gray-500">{c.id.substring(0,8)}...</td>
-                                <td className="px-6 py-3 font-medium">{c.title}</td>
-                                <td className="px-6 py-3">{c.category}</td>
-                                <td className="px-6 py-3 text-right">
-                                    <button onClick={() => console.log(c)} className="text-blue-600 hover:underline text-xs">Log to Console</button>
-                                </td>
-                            </tr>
-                        ))}
+                        {dbViewType==='policies' && rawPolicies.map(p=><tr key={p.id} className="hover:bg-gray-50"><td className="px-6 py-3 font-mono text-xs text-gray-500">{p.id.substring(0,8)}...</td><td className="px-6 py-3 font-medium">{p.policyNumber}</td><td className="px-6 py-3">{p.status} | {p.insuredName}</td><td className="px-6 py-3 text-right"><button onClick={()=>console.log(p)} className="text-blue-600 hover:underline text-xs">Log</button></td></tr>)}
+                        {dbViewType==='slips' && rawSlips.map(s=><tr key={s.id} className="hover:bg-gray-50"><td className="px-6 py-3 font-mono text-xs text-gray-500">{s.id.substring(0,8)}...</td><td className="px-6 py-3 font-medium">{s.slipNumber}</td><td className="px-6 py-3">{s.status||'Active'} | {s.insuredName}</td><td className="px-6 py-3 text-right"><button onClick={()=>console.log(s)} className="text-blue-600 hover:underline text-xs">Log</button></td></tr>)}
+                        {dbViewType==='clauses' && rawClauses.map(c=><tr key={c.id} className="hover:bg-gray-50"><td className="px-6 py-3 font-mono text-xs text-gray-500">{c.id.substring(0,8)}...</td><td className="px-6 py-3 font-medium">{c.title}</td><td className="px-6 py-3">{c.category}</td><td className="px-6 py-3 text-right"><button onClick={()=>console.log(c)} className="text-blue-600 hover:underline text-xs">Log</button></td></tr>)}
                     </tbody>
                 </table>
             </div>
@@ -1020,75 +733,17 @@ const AdminConsole: React.FC = () => {
   const renderRecycleBin = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex justify-between items-center">
-            <div>
-                <h2 className="text-2xl font-bold text-gray-800">Recycle Bin</h2>
-                <p className="text-gray-500 text-sm">Recover deleted items or purge them permanently.</p>
-            </div>
-            <div className="flex bg-white rounded-lg p-1 border shadow-sm">
-                {(['policies', 'slips', 'clauses'] as const).map(type => (
-                    <button
-                        key={type}
-                        onClick={() => setRecycleType(type)}
-                        className={`px-4 py-2 text-sm font-bold capitalize rounded-md transition-colors ${recycleType === type ? 'bg-red-100 text-red-700' : 'text-gray-500 hover:text-gray-700'}`}
-                    >
-                        {type}
-                    </button>
-                ))}
-            </div>
+            <div><h2 className="text-2xl font-bold text-gray-800">Recycle Bin</h2><p className="text-gray-500 text-sm">Recover or purge deleted items.</p></div>
+            <div className="flex bg-white rounded-lg p-1 border shadow-sm">{(['policies','slips','clauses'] as const).map(type=><button key={type} onClick={()=>setRecycleType(type)} className={`px-4 py-2 text-sm font-bold capitalize rounded-md transition-colors ${recycleType===type?'bg-red-100 text-red-700':'text-gray-500 hover:text-gray-700'}`}>{type}</button>)}</div>
         </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-700">
-                    <tr>
-                        <th className="px-6 py-4">Item Details</th>
-                        <th className="px-6 py-4 text-center">Actions</th>
-                    </tr>
-                </thead>
+                <thead className="bg-gray-50 text-gray-700"><tr><th className="px-6 py-4">Item</th><th className="px-6 py-4 text-center">Actions</th></tr></thead>
                 <tbody className="divide-y divide-gray-100">
-                    {recycleType === 'policies' && deletedPolicies.map(p => (
-                        <tr key={p.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4">
-                                <div className="font-bold text-gray-900">{p.policyNumber}</div>
-                                <div className="text-sm text-gray-500">{p.insuredName}</div>
-                            </td>
-                            <td className="px-6 py-4 text-center flex justify-center gap-3">
-                                <button onClick={(e) => handleRestore(e, p.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><RefreshCw size={14}/> Restore</button>
-                                <button onClick={(e) => handleHardDelete(e, p.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><Trash2 size={14}/> Purge</button>
-                            </td>
-                        </tr>
-                    ))}
-                    {recycleType === 'slips' && deletedSlips.map(s => (
-                        <tr key={s.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4">
-                                <div className="font-bold text-gray-900">{s.slipNumber}</div>
-                                <div className="text-sm text-gray-500">{s.insuredName}</div>
-                            </td>
-                            <td className="px-6 py-4 text-center flex justify-center gap-3">
-                                <button onClick={(e) => handleRestore(e, s.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><RefreshCw size={14}/> Restore</button>
-                                <button onClick={(e) => handleHardDelete(e, s.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><Trash2 size={14}/> Purge</button>
-                            </td>
-                        </tr>
-                    ))}
-                    {recycleType === 'clauses' && deletedClauses.map(c => (
-                        <tr key={c.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4">
-                                <div className="font-bold text-gray-900">{c.title}</div>
-                                <div className="text-sm text-gray-500">{c.category}</div>
-                            </td>
-                            <td className="px-6 py-4 text-center flex justify-center gap-3">
-                                <button onClick={(e) => handleRestore(e, c.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><RefreshCw size={14}/> Restore</button>
-                                <button onClick={(e) => handleHardDelete(e, c.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><Trash2 size={14}/> Purge</button>
-                            </td>
-                        </tr>
-                    ))}
-                    {((recycleType === 'policies' && deletedPolicies.length === 0) || 
-                      (recycleType === 'slips' && deletedSlips.length === 0) ||
-                      (recycleType === 'clauses' && deletedClauses.length === 0)) && (
-                        <tr>
-                            <td colSpan={2} className="px-6 py-8 text-center text-gray-400 italic">No deleted items found in this category.</td>
-                        </tr>
-                    )}
+                    {recycleType==='policies' && deletedPolicies.map(p=><tr key={p.id} className="hover:bg-gray-50"><td className="px-6 py-4"><div className="font-bold text-gray-900">{p.policyNumber}</div><div className="text-sm text-gray-500">{p.insuredName}</div></td><td className="px-6 py-4 text-center flex justify-center gap-3"><button onClick={e=>handleRestore(e,p.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><RefreshCw size={14}/>Restore</button><button onClick={e=>handleHardDelete(e,p.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><Trash2 size={14}/>Purge</button></td></tr>)}
+                    {recycleType==='slips' && deletedSlips.map(s=><tr key={s.id} className="hover:bg-gray-50"><td className="px-6 py-4"><div className="font-bold text-gray-900">{s.slipNumber}</div><div className="text-sm text-gray-500">{s.insuredName}</div></td><td className="px-6 py-4 text-center flex justify-center gap-3"><button onClick={e=>handleRestore(e,s.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><RefreshCw size={14}/>Restore</button><button onClick={e=>handleHardDelete(e,s.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><Trash2 size={14}/>Purge</button></td></tr>)}
+                    {recycleType==='clauses' && deletedClauses.map(c=><tr key={c.id} className="hover:bg-gray-50"><td className="px-6 py-4"><div className="font-bold text-gray-900">{c.title}</div><div className="text-sm text-gray-500">{c.category}</div></td><td className="px-6 py-4 text-center flex justify-center gap-3"><button onClick={e=>handleRestore(e,c.id)} className="text-green-600 hover:bg-green-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><RefreshCw size={14}/>Restore</button><button onClick={e=>handleHardDelete(e,c.id)} className="text-red-600 hover:bg-red-50 px-3 py-1 rounded font-bold text-sm flex items-center gap-1"><Trash2 size={14}/>Purge</button></td></tr>)}
+                    {((recycleType==='policies'&&deletedPolicies.length===0)||(recycleType==='slips'&&deletedSlips.length===0)||(recycleType==='clauses'&&deletedClauses.length===0)) && <tr><td colSpan={2} className="px-6 py-8 text-center text-gray-400 italic">No deleted items.</td></tr>}
                 </tbody>
             </table>
         </div>
@@ -1099,68 +754,21 @@ const AdminConsole: React.FC = () => {
     <div className="space-y-6 animate-in fade-in duration-300">
         <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-800">Policy Templates</h2>
-            <button onClick={() => handleEditTemplate()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2">
-                <Plus size={18}/> New Template
-            </button>
+            <button onClick={()=>handleEditTemplate()} className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700 flex items-center gap-2"><Plus size={18}/>New</button>
         </div>
-
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {templates.map(t => (
-                <div key={t.id} className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-bold text-gray-800">{t.name}</h3>
-                        <div className="flex gap-2">
-                            <button onClick={() => handleEditTemplate(t)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit size={16}/></button>
-                            <button onClick={() => handleDeleteTemplate(t.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded"><Trash2 size={16}/></button>
-                        </div>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">{t.description || 'No description provided.'}</p>
-                    <div className="bg-gray-50 p-2 rounded text-xs font-mono text-gray-500 truncate">
-                        {t.id}
-                    </div>
-                </div>
-            ))}
+            {templates.map(t=><div key={t.id} className="bg-white p-5 rounded-xl border shadow-sm hover:shadow-md"><div className="flex justify-between items-start mb-3"><h3 className="font-bold text-gray-800">{t.name}</h3><div className="flex gap-2"><button onClick={()=>handleEditTemplate(t)} className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"><Edit size={16}/></button><button onClick={()=>handleDeleteTemplate(t.id)} className="text-red-600 hover:bg-red-50 p-1.5 rounded"><Trash2 size={16}/></button></div></div><p className="text-sm text-gray-600 mb-2">{t.description||'No description.'}</p><div className="bg-gray-50 p-2 rounded text-xs font-mono text-gray-500 truncate">{t.id}</div></div>)}
         </div>
-
-        {/* Template Editor Modal */}
         {isEditingTemplate && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl h-[80vh] flex flex-col">
-                    <div className="p-4 border-b flex justify-between items-center">
-                        <h3 className="font-bold text-gray-800">Edit Template</h3>
-                        <button onClick={() => setIsEditingTemplate(false)}><X size={20}/></button>
-                    </div>
+                    <div className="p-4 border-b flex justify-between items-center"><h3 className="font-bold text-gray-800">Edit Template</h3><button onClick={()=>setIsEditingTemplate(false)}><X size={20}/></button></div>
                     <div className="p-6 flex-1 overflow-y-auto space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Template Name</label>
-                            <input 
-                                className="w-full p-2 border rounded" 
-                                value={currentTemplate.name} 
-                                onChange={e => setCurrentTemplate({...currentTemplate, name: e.target.value})}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
-                            <input 
-                                className="w-full p-2 border rounded" 
-                                value={currentTemplate.description} 
-                                onChange={e => setCurrentTemplate({...currentTemplate, description: e.target.value})}
-                            />
-                        </div>
-                        <div className="flex-1 flex flex-col">
-                            <label className="block text-sm font-bold text-gray-700 mb-1">HTML Content</label>
-                            <textarea 
-                                className="w-full flex-1 p-2 border rounded font-mono text-xs min-h-[300px]" 
-                                value={currentTemplate.content} 
-                                onChange={e => setCurrentTemplate({...currentTemplate, content: e.target.value})}
-                            />
-                            <p className="text-xs text-gray-500 mt-1">Available vars: {'{{policyNumber}}, {{insuredName}}, {{inceptionDate}}'}, etc.</p>
-                        </div>
+                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Name</label><input className="w-full p-2 border rounded" value={currentTemplate.name} onChange={e=>setCurrentTemplate({...currentTemplate,name:e.target.value})}/></div>
+                        <div><label className="block text-sm font-bold text-gray-700 mb-1">Description</label><input className="w-full p-2 border rounded" value={currentTemplate.description} onChange={e=>setCurrentTemplate({...currentTemplate,description:e.target.value})}/></div>
+                        <div className="flex-1 flex flex-col"><label className="block text-sm font-bold text-gray-700 mb-1">HTML Content</label><textarea className="w-full flex-1 p-2 border rounded font-mono text-xs min-h-[300px]" value={currentTemplate.content} onChange={e=>setCurrentTemplate({...currentTemplate,content:e.target.value})}/></div>
                     </div>
-                    <div className="p-4 border-t flex justify-end gap-2">
-                        <button onClick={() => setIsEditingTemplate(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button>
-                        <button onClick={handleSaveTemplate} className="px-4 py-2 bg-blue-600 text-white font-bold rounded">Save Template</button>
-                    </div>
+                    <div className="p-4 border-t flex justify-end gap-2"><button onClick={()=>setIsEditingTemplate(false)} className="px-4 py-2 text-gray-600 font-medium">Cancel</button><button onClick={handleSaveTemplate} className="px-4 py-2 bg-blue-600 text-white font-bold rounded">Save</button></div>
                 </div>
             </div>
         )}
@@ -1170,64 +778,19 @@ const AdminConsole: React.FC = () => {
   const renderFxRates = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
         <h2 className="text-2xl font-bold text-gray-800">Exchange Rates</h2>
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
             <h3 className="font-bold text-gray-700 mb-4">Add New Rate</h3>
             <div className="flex gap-4 items-end">
-                <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label>
-                    <select 
-                        className="w-full p-2 border rounded"
-                        value={newRate.currency}
-                        onChange={e => setNewRate({...newRate, currency: e.target.value as Currency})}
-                    >
-                        {Object.values(Currency).map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-                <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rate (to UZS)</label>
-                    <input 
-                        type="number" 
-                        step="0.01"
-                        className="w-full p-2 border rounded"
-                        value={newRate.rate || ''}
-                        onChange={e => setNewRate({...newRate, rate: parseFloat(e.target.value)})}
-                    />
-                </div>
-                <div className="flex-1">
-                    <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label>
-                    <input 
-                        type="date" 
-                        className="w-full p-2 border rounded"
-                        value={newRate.date}
-                        onChange={e => setNewRate({...newRate, date: e.target.value})}
-                    />
-                </div>
-                <button onClick={handleAddFx} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700">Add Rate</button>
+                <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label><select className="w-full p-2 border rounded" value={newRate.currency} onChange={e=>setNewRate({...newRate,currency:e.target.value as Currency})}>{Object.values(Currency).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
+                <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rate (to UZS)</label><input type="number" step="0.01" className="w-full p-2 border rounded" value={newRate.rate||''} onChange={e=>setNewRate({...newRate,rate:parseFloat(e.target.value)})}/></div>
+                <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label><input type="date" className="w-full p-2 border rounded" value={newRate.date} onChange={e=>setNewRate({...newRate,date:e.target.value})}/></div>
+                <button onClick={handleAddFx} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700">Add</button>
             </div>
         </div>
-
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
             <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-700">
-                    <tr>
-                        <th className="px-6 py-3">Currency</th>
-                        <th className="px-6 py-3">Rate</th>
-                        <th className="px-6 py-3">Date</th>
-                        <th className="px-6 py-3 text-right">Action</th>
-                    </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                    {fxRates.map(r => (
-                        <tr key={r.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-3 font-bold">{r.currency}</td>
-                            <td className="px-6 py-3">{r.rate}</td>
-                            <td className="px-6 py-3 text-gray-500">{formatDate(r.date)}</td>
-                            <td className="px-6 py-3 text-right">
-                                <button onClick={() => handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
+                <thead className="bg-gray-50 text-gray-700"><tr><th className="px-6 py-3">Currency</th><th className="px-6 py-3">Rate</th><th className="px-6 py-3">Date</th><th className="px-6 py-3 text-right">Action</th></tr></thead>
+                <tbody className="divide-y divide-gray-100">{fxRates.map(r=><tr key={r.id} className="hover:bg-gray-50"><td className="px-6 py-3 font-bold">{r.currency}</td><td className="px-6 py-3">{r.rate}</td><td className="px-6 py-3 text-gray-500">{formatDate(r.date)}</td><td className="px-6 py-3 text-right"><button onClick={()=>handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></td></tr>)}</tbody>
             </table>
         </div>
     </div>
@@ -1235,75 +798,36 @@ const AdminConsole: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-100 flex">
-      {/* Admin Sidebar */}
-      <aside className={`bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen ? '' : '-ml-64'}`}>
-        <div className="p-6 border-b border-slate-800">
-          <h1 className="font-bold text-xl flex items-center gap-2">
-            <Lock className="text-red-500"/> Admin Console
-          </h1>
-        </div>
+      <aside className={`bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen?'':'-ml-64'}`}>
+        <div className="p-6 border-b border-slate-800"><h1 className="font-bold text-xl flex items-center gap-2"><Lock className="text-red-500"/>Admin Console</h1></div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <button onClick={() => setActiveSection('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'dashboard' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Activity size={20}/> Dashboard
-          </button>
-          
+          <button onClick={()=>setActiveSection('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='dashboard'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Activity size={20}/>Dashboard</button>
           <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Access Control</div>
-          <button onClick={() => setActiveSection('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'users' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Users size={20}/> Users
-          </button>
-          <button onClick={() => setActiveSection('roles')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'roles' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <ShieldCheck size={20}/> Roles & Permissions
-          </button>
-          <button onClick={() => setActiveSection('departments')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'departments' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Building2 size={20}/> Departments
-          </button>
-
+          <button onClick={()=>setActiveSection('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='users'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Users size={20}/>Users</button>
+          <button onClick={()=>setActiveSection('roles')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='roles'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><ShieldCheck size={20}/>Roles & Permissions</button>
+          <button onClick={()=>setActiveSection('departments')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='departments'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Building2 size={20}/>Departments</button>
           <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">System</div>
-          <button onClick={() => setActiveSection('database')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'database' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Table size={20}/> Database Browser
-          </button>
-          <button onClick={() => setActiveSection('recycle')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'recycle' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Trash2 size={20}/> Recycle Bin
-          </button>
-          <button onClick={() => setActiveSection('activity')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'activity' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <ScrollText size={20}/> Activity Log
-          </button>
-          
+          <button onClick={()=>setActiveSection('database')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='database'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Table size={20}/>Database Browser</button>
+          <button onClick={()=>setActiveSection('recycle')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='recycle'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Trash2 size={20}/>Recycle Bin</button>
+          <button onClick={()=>setActiveSection('activity-log')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='activity-log'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><ScrollText size={20}/>Activity Log</button>
           <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Configuration</div>
-          <button onClick={() => setActiveSection('templates')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'templates' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <FileText size={20}/> Policy Templates
-          </button>
-          <button onClick={() => setActiveSection('fx')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection === 'fx' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
-            <Coins size={20}/> Exchange Rates
-          </button>
-
-          <div className="pt-8 mt-auto">
-             <button onClick={() => navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors">
-                <LogOut size={20}/> Exit Console
-             </button>
-          </div>
+          <button onClick={()=>setActiveSection('templates')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='templates'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><FileText size={20}/>Policy Templates</button>
+          <button onClick={()=>setActiveSection('fx')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='fx'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Coins size={20}/>Exchange Rates</button>
+          <div className="pt-8 mt-auto"><button onClick={()=>navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"><LogOut size={20}/>Exit Console</button></div>
         </nav>
       </aside>
-
-      {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto h-screen">
-        {loading ? (
-            <div className="flex items-center justify-center h-full text-gray-500">
-                <Loader2 className="animate-spin mr-2" size={24}/> Loading system data...
-            </div>
-        ) : (
-            <>
-                {activeSection === 'dashboard' && renderDashboardHome()}
-                {activeSection === 'users' && renderUsers()}
-                {activeSection === 'roles' && renderRoles()}
-                {activeSection === 'departments' && renderDepartments()}
-                {activeSection === 'database' && renderDatabaseBrowser()}
-                {activeSection === 'recycle' && renderRecycleBin()}
-                {activeSection === 'activity' && renderActivityLog()}
-                {activeSection === 'templates' && renderTemplates()}
-                {activeSection === 'fx' && renderFxRates()}
-            </>
-        )}
+        {loading ? <div className="flex items-center justify-center h-full text-gray-500"><Loader2 className="animate-spin mr-2" size={24}/>Loading...</div> : <>
+          {activeSection==='dashboard' && renderDashboardHome()}
+          {activeSection==='users' && renderUsers()}
+          {activeSection==='roles' && renderRoles()}
+          {activeSection==='departments' && renderDepartments()}
+          {activeSection==='database' && renderDatabaseBrowser()}
+          {activeSection==='recycle' && renderRecycleBin()}
+          {activeSection==='activity-log' && renderActivityLog()}
+          {activeSection==='templates' && renderTemplates()}
+          {activeSection==='fx' && renderFxRates()}
+        </>}
       </main>
     </div>
   );
