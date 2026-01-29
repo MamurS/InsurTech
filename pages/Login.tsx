@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MosaicLogo } from '../components/MosaicLogo';
+import { supabase } from '../services/supabase';
 import { Lock, Loader2, CheckCircle, Mail, Key } from 'lucide-react';
 
 const Login: React.FC = () => {
@@ -16,8 +17,65 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  // Password Reset State
+  const [isResetMode, setIsResetMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+
   // Get the redirect path from location state, or default to home
   const from = (location.state as any)?.from?.pathname || '/';
+
+  useEffect(() => {
+    // Check if this is a password reset link
+    // Supabase sends: #access_token=xxx&type=recovery
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    const accessToken = hashParams.get('access_token');
+    const type = hashParams.get('type');
+    
+    if (type === 'recovery' && accessToken) {
+        setIsResetMode(true);
+    }
+  }, []);
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (newPassword !== confirmPassword) {
+        alert('Passwords do not match');
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        alert('Password must be at least 6 characters');
+        return;
+    }
+
+    if (!supabase) {
+        alert('Database connection not active.');
+        return;
+    }
+    
+    setResetLoading(true);
+    
+    try {
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        
+        if (error) throw error;
+        
+        alert('Password updated successfully! Please login with your new password.');
+        setIsResetMode(false);
+        setNewPassword('');
+        setConfirmPassword('');
+        window.location.hash = ''; // Clear the URL hash
+    } catch (err: any) {
+        alert('Error updating password: ' + err.message);
+    } finally {
+        setResetLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +100,87 @@ const Login: React.FC = () => {
       setLoading(false);
     }
   };
+
+  if (isResetMode) {
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4 font-sans">
+            <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-200">
+                <div className="text-center mb-8">
+                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4 bg-blue-50 text-blue-600">
+                        <Lock size={24} />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-800">Reset Password</h2>
+                    <p className="text-gray-500 mt-2 text-sm">Create a new secure password for your account.</p>
+                </div>
+                <form onSubmit={handlePasswordReset} className="space-y-5">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            New Password
+                        </label>
+                        <div className="relative">
+                            <Key size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                            <input
+                                type="password"
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900"
+                                placeholder="Enter new password"
+                                required
+                                minLength={6}
+                            />
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Confirm Password
+                        </label>
+                        <div className="relative">
+                            <Key size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                            <input
+                                type="password"
+                                value={confirmPassword}
+                                onChange={(e) => setConfirmPassword(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900"
+                                placeholder="Confirm new password"
+                                required
+                                minLength={6}
+                            />
+                        </div>
+                    </div>
+                    {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                        <div className="bg-red-50 text-red-600 p-2 rounded-lg text-sm text-center border border-red-100">
+                            Passwords do not match
+                        </div>
+                    )}
+                    <button
+                        type="submit"
+                        disabled={resetLoading || !newPassword || newPassword !== confirmPassword}
+                        className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
+                    >
+                        {resetLoading ? (
+                            <>
+                                <Loader2 className="animate-spin" size={20} />
+                                Updating...
+                            </>
+                        ) : (
+                            'Update Password'
+                        )}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsResetMode(false);
+                            window.location.hash = '';
+                        }}
+                        className="w-full py-2 text-gray-500 hover:text-gray-800 text-sm font-medium transition-colors"
+                    >
+                        Back to Login
+                    </button>
+                </form>
+            </div>
+        </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
