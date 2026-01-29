@@ -120,3 +120,7 @@ dist
 
 # Vite build output
 dist/
+
+# Electron Desktop App
+desktop/
+.github/workflows/build-windows.yml
