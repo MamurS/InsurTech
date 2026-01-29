@@ -228,6 +228,7 @@ const Agenda: React.FC = () => {
                 <DetailModal 
                     item={selectedSlip} 
                     onClose={() => setSelectedSlip(null)} 
+                    onRefresh={refetch}
                     title="Slip Details"
                 />
             )}
