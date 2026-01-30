@@ -7,7 +7,7 @@ import { PermissionService } from '../services/permissionService';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
-import { formatDate } from '../utils/dateUtils';
+import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { DepartmentEditModal } from '../components/DepartmentEditModal';
 import { supabase } from '../services/supabase';
@@ -230,11 +230,6 @@ const AdminConsole: React.FC = () => {
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
     if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
     return `${Math.floor(seconds / 86400)}d ago`;
-  };
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleString();
   };
 
   const handleRestore = async (e: React.MouseEvent, id: string) => {
