@@ -557,8 +557,8 @@ const AdminConsole: React.FC = () => {
                     <option value="TASK">Tasks</option>
                     <option value="USER">Users</option>
                 </select>
-                <input type="date" value={activityDateFrom} onChange={e=>{setActivityDateFrom(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
-                <input type="date" value={activityDateTo} onChange={e=>{setActivityDateTo(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
+                <DatePickerInput label="From" value={parseDate(activityDateFrom)} onChange={(date) => {setActivityDateFrom(toISODateString(date) || '');setActivityPage(0);}}/>
+                <DatePickerInput label="To" value={parseDate(activityDateTo)} onChange={(date) => {setActivityDateTo(toISODateString(date) || '');setActivityPage(0);}}/>
             </div>
             {(activitySearch||activityCategory||activityDateFrom||activityDateTo) && <button onClick={()=>{setActivitySearch('');setActivityCategory('');setActivityDateFrom('');setActivityDateTo('');setActivityPage(0);}} className="mt-3 text-sm text-blue-600 hover:text-blue-800">Clear filters</button>}
         </div>
