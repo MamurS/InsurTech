@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Policy, ReinsuranceSlip, Clause, PolicyStatus, TerminationDetails } from '../types';
 import { DB } from '../services/db';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 import { supabase } from '../services/supabase';
 import { 
   X, Building2, Calendar, DollarSign, 
@@ -199,8 +200,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
               </div>
               <div className="p-6 space-y-4">
                   <div>
-                      <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Termination Date</label>
-                      <input type="date" value={terminationData.terminationDate} onChange={(e) => setTerminationData({...terminationData, terminationDate: e.target.value})} className="w-full p-2 bg-white border rounded-lg text-sm text-gray-900"/>
+                      <DatePickerInput label="Termination Date" value={parseDate(terminationData.terminationDate)} onChange={(date) => setTerminationData({...terminationData, terminationDate: toISODateString(date) || ''})}/>
                   </div>
                   <div>
                       <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Initiated By</label>
