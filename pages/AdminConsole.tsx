@@ -10,6 +10,7 @@ import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { DepartmentEditModal } from '../components/DepartmentEditModal';
+import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 import { supabase } from '../services/supabase';
 import { 
   Trash2, RefreshCw, Users, 
@@ -778,7 +779,7 @@ const AdminConsole: React.FC = () => {
             <div className="flex gap-4 items-end">
                 <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label><select className="w-full p-2 border rounded" value={newRate.currency} onChange={e=>setNewRate({...newRate,currency:e.target.value as Currency})}>{Object.values(Currency).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
                 <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rate (to UZS)</label><input type="number" step="0.01" className="w-full p-2 border rounded" value={newRate.rate||''} onChange={e=>setNewRate({...newRate,rate:parseFloat(e.target.value)})}/></div>
-                <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Date</label><input type="date" className="w-full p-2 border rounded" value={newRate.date} onChange={e=>setNewRate({...newRate,date:e.target.value})}/></div>
+                <div className="flex-1"><DatePickerInput label="Date" value={parseDate(newRate.date)} onChange={(date) => setNewRate({...newRate, date: toISODateString(date) || ''})}/></div>
                 <button onClick={handleAddFx} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700">Add</button>
             </div>
         </div>
