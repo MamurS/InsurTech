@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Department, Profile } from '../types';
 import { UserService } from '../services/userService';
+import { useToast } from '../context/ToastContext';
 import { X, Save, Building2, Hash, Users, Loader2 } from 'lucide-react';
 
 interface DepartmentEditModalProps {
@@ -12,6 +13,7 @@ interface DepartmentEditModalProps {
 }
 
 export const DepartmentEditModal: React.FC<DepartmentEditModalProps> = ({ department, onClose, onSave, allUsers }) => {
+    const toast = useToast();
     const [formData, setFormData] = useState<Partial<Department>>({
         name: '',
         code: '',
@@ -36,7 +38,7 @@ export const DepartmentEditModal: React.FC<DepartmentEditModalProps> = ({ depart
             onSave();
             onClose();
         } catch (error: any) {
-            alert('Failed to save department: ' + error.message);
+            toast.error('Failed to save department: ' + error.message);
         } finally {
             setLoading(false);
         }
