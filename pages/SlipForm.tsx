@@ -5,12 +5,16 @@ import { DB } from '../services/db';
 import { supabase } from '../services/supabase';
 import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer, Currency } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Save, ArrowLeft, FileSpreadsheet, Building, Hash, Activity, Plus, Trash2, DollarSign, Send, FileText, CheckCircle, XCircle, Archive, RefreshCw, Settings } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
 const SlipForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
+  const [statusChangeConfirm, setStatusChangeConfirm] = useState<{ isOpen: boolean; status: string; message: string }>({ isOpen: false, status: '', message: '' });
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
   const [slipStatus, setSlipStatus] = useState<string>('DRAFT');
@@ -51,7 +55,7 @@ const SlipForm: React.FC = () => {
           });
           setSlipStatus(currentStatus === 'Active' ? 'BOUND' : currentStatus);
         } else {
-          alert('Slip not found');
+          toast.error('Slip not found');
           navigate('/slips');
         }
       }
@@ -99,50 +103,64 @@ const SlipForm: React.FC = () => {
     navigate('/slips');
   };
 
-  // Workflow status change handler
-  const handleSlipStatusChange = async (newStatus: string, additionalFields: any = {}) => {
+  // Status messages for confirmation dialogs
+  const statusMessages: Record<string, string> = {
+      'PENDING': 'Submit this slip for review?',
+      'QUOTED': 'Mark as quote received?',
+      'SIGNED': 'Mark as signed?',
+      'SENT': 'Mark as sent to reinsurer?',
+      'BOUND': 'Confirm this slip is bound?',
+      'CLOSED': 'Close this slip?',
+      'DECLINED': 'Decline this slip?',
+      'NTU': 'Mark as Not Taken Up?'
+  };
+
+  // Trigger confirmation dialog for status change
+  const requestStatusChange = (newStatus: string, additionalFields: any = {}) => {
     if (!id) return;
-    
-    const statusMessages: Record<string, string> = {
-        'PENDING': 'Submit this slip for review?',
-        'QUOTED': 'Mark as quote received?',
-        'SIGNED': 'Mark as signed?',
-        'SENT': 'Mark as sent to reinsurer?',
-        'BOUND': 'Confirm this slip is bound?',
-        'CLOSED': 'Close this slip?',
-        'DECLINED': 'Decline this slip?',
-        'NTU': 'Mark as Not Taken Up?'
-    };
-    
-    if (!window.confirm(statusMessages[newStatus] || `Change status to ${newStatus}?`)) return;
-    
+    setStatusChangeConfirm({
+      isOpen: true,
+      status: newStatus,
+      message: statusMessages[newStatus] || `Change status to ${newStatus}?`
+    });
+  };
+
+  // Perform the actual status change
+  const performStatusChange = async (newStatus: string, additionalFields: any = {}) => {
+    if (!id) return;
+
     try {
-        const updateData: any = { 
+        const updateData: any = {
             status: newStatus,
             updated_at: new Date().toISOString(),
             ...additionalFields
         };
-        
+
         if (supabase) {
             const { error } = await supabase
                 .from('slips')
                 .update(updateData)
                 .eq('id', id);
-                
+
             if (error) throw error;
         } else {
             // Local fallback
             const updatedSlip = { ...formData, ...updateData };
             await DB.saveSlip(updatedSlip);
         }
-        
+
         setSlipStatus(newStatus);
         setFormData(prev => ({ ...prev, status: newStatus as any }));
-        alert('Status updated successfully!');
+        toast.success('Status updated successfully!');
     } catch (err: any) {
         console.error('Error updating status:', err);
-        alert('Failed to update status: ' + (err.message || 'Unknown error'));
+        toast.error('Failed to update status: ' + (err.message || 'Unknown error'));
     }
+  };
+
+  // Legacy wrapper for direct calls (keeps old API working)
+  const handleSlipStatusChange = async (newStatus: string, additionalFields: any = {}) => {
+    requestStatusChange(newStatus, additionalFields);
   };
 
   // Decline handler with reason prompt
@@ -454,6 +472,16 @@ const SlipForm: React.FC = () => {
             </div>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={statusChangeConfirm.isOpen}
+        title="Confirm Status Change"
+        message={statusChangeConfirm.message}
+        onConfirm={() => { setStatusChangeConfirm({ isOpen: false, status: '', message: '' }); performStatusChange(statusChangeConfirm.status); }}
+        onCancel={() => setStatusChangeConfirm({ isOpen: false, status: '', message: '' })}
+        variant="warning"
+        confirmText="Confirm"
+      />
     </div>
   );
 };
