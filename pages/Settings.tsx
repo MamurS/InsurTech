@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
-import { 
-  Save, Download, Upload, Database, 
-  Building, Globe, Moon, Bell, Shield, 
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import {
+  Save, Download, Upload, Database,
+  Building, Globe, Moon, Bell, Shield,
   HardDrive, Check
 } from 'lucide-react';
 
@@ -33,6 +35,8 @@ const Settings: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS);
   const [storageStats, setStorageStats] = useState<{ used: string; items: number }>({ used: '0 KB', items: 0 });
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
+  const [restoreConfirm, setRestoreConfirm] = useState<{ isOpen: boolean; file: File | null }>({ isOpen: false, file: null });
+  const toast = useToast();
 
   useEffect(() => {
     // Load Settings
@@ -98,18 +102,19 @@ const Settings: React.FC = () => {
   const handleRestore = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setRestoreConfirm({ isOpen: true, file });
+    event.target.value = ''; // Reset input
+  };
 
-    if (!confirm('Restoring data will overwrite your current database. Continue?')) {
-        event.target.value = ''; // Reset input
-        return;
-    }
+  const performRestore = () => {
+    if (!restoreConfirm.file) return;
 
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const raw = e.target?.result as string;
         const json = JSON.parse(raw);
-        
+
         // Basic validation
         if (!json.data || !json.data.policies) throw new Error("Invalid backup format");
 
@@ -117,19 +122,20 @@ const Settings: React.FC = () => {
         localStorage.setItem('insurtech_policies', JSON.stringify(json.data.policies));
         localStorage.setItem('insurtech_slips', JSON.stringify(json.data.slips));
         localStorage.setItem('insurtech_clauses', JSON.stringify(json.data.clauses));
-        
+
         if (json.settings) {
             localStorage.setItem(SETTINGS_KEY, JSON.stringify(json.settings));
         }
 
-        alert('System restored successfully. The page will now reload.');
-        window.location.reload();
+        toast.success('System restored successfully. The page will now reload.');
+        setTimeout(() => window.location.reload(), 1500);
       } catch (err) {
         console.error(err);
-        alert('Failed to restore data. The file might be corrupted or incompatible.');
+        toast.error('Failed to restore data. The file might be corrupted or incompatible.');
       }
     };
-    reader.readAsText(file);
+    reader.readAsText(restoreConfirm.file);
+    setRestoreConfirm({ isOpen: false, file: null });
   };
 
   return (
@@ -306,6 +312,16 @@ const Settings: React.FC = () => {
             </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        isOpen={restoreConfirm.isOpen}
+        title="Restore Data?"
+        message="Restoring data will overwrite your current database. This action cannot be undone. Continue?"
+        onConfirm={performRestore}
+        onCancel={() => setRestoreConfirm({ isOpen: false, file: null })}
+        variant="warning"
+        confirmText="Restore"
+      />
     </div>
   );
 };

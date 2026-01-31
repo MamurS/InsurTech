@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
 import { Clause } from '../types';
 import { generateClause } from '../services/geminiService';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Plus, Trash2, Sparkles, Loader2 } from 'lucide-react';
 
 const ClauseManager: React.FC = () => {
@@ -10,6 +11,7 @@ const ClauseManager: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: '' });
   
   // New Clause Form State
   const [newClause, setNewClause] = useState<Omit<Clause, 'id'>>({
@@ -31,11 +33,14 @@ const ClauseManager: React.FC = () => {
     refreshClauses();
   }, []);
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Delete this clause template?')) {
-      await DB.deleteClause(id);
-      refreshClauses();
-    }
+  const handleDelete = (id: string) => {
+    setDeleteConfirm({ isOpen: true, id });
+  };
+
+  const confirmDelete = async () => {
+    await DB.deleteClause(deleteConfirm.id);
+    setDeleteConfirm({ isOpen: false, id: '' });
+    refreshClauses();
   };
 
   const handleSave = async () => {
@@ -199,6 +204,16 @@ const ClauseManager: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Clause?"
+        message="Are you sure you want to delete this clause template?"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: '' })}
+        variant="danger"
+        confirmText="Delete"
+      />
     </div>
   );
 };

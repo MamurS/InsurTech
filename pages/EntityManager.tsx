@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { LegalEntity } from '../types';
 import { EntityDetailModal } from '../components/EntityDetailModal';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Plus, Search, Building2, MapPin, Eye, Edit, Trash2 } from 'lucide-react';
 
 const EntityManager: React.FC = () => {
@@ -11,6 +12,7 @@ const EntityManager: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedEntity, setSelectedEntity] = useState<LegalEntity | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: '' });
   const navigate = useNavigate();
 
   const loadData = async () => {
@@ -24,12 +26,15 @@ const EntityManager: React.FC = () => {
     loadData();
   }, []);
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
+  const handleDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if(confirm("Are you sure you want to delete this legal entity? It will be moved to the Admin Recycle Bin.")) {
-        await DB.deleteLegalEntity(id);
-        loadData();
-    }
+    setDeleteConfirm({ isOpen: true, id });
+  };
+
+  const confirmDelete = async () => {
+    await DB.deleteLegalEntity(deleteConfirm.id);
+    setDeleteConfirm({ isOpen: false, id: '' });
+    loadData();
   };
 
   const filteredEntities = entities.filter(e => 
@@ -123,10 +128,20 @@ const EntityManager: React.FC = () => {
         </div>
       </div>
 
-      <EntityDetailModal 
-        entity={selectedEntity} 
-        onClose={() => setSelectedEntity(null)} 
+      <EntityDetailModal
+        entity={selectedEntity}
+        onClose={() => setSelectedEntity(null)}
         onEdit={(id) => { setSelectedEntity(null); navigate(`/entities/edit/${id}`); }}
+      />
+
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Entity?"
+        message="Are you sure you want to delete this legal entity? It will be moved to the Admin Recycle Bin."
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: '' })}
+        variant="danger"
+        confirmText="Delete"
       />
     </div>
   );
