@@ -8,21 +8,21 @@ import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
+import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department, InwardReinsurancePreset } from '../types';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
 import { DepartmentEditModal } from '../components/DepartmentEditModal';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 import { supabase } from '../services/supabase';
-import { 
-  Trash2, RefreshCw, Users, 
-  Lock, Table, Code, 
+import {
+  Trash2, RefreshCw, Users,
+  Lock, Table, Code,
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
   Coins, LogOut, Key, Building2, Briefcase, DollarSign, TrendingDown, TrendingUp,
-  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText
+  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List
 } from 'lucide-react';
 
-type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log';
+type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
 type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
@@ -113,6 +113,15 @@ const AdminConsole: React.FC = () => {
   const [activityPage, setActivityPage] = useState(0);
   const [activityTotal, setActivityTotal] = useState(0);
   const ACTIVITY_PAGE_SIZE = 50;
+
+  // Inward Reinsurance Presets State
+  const [presets, setPresets] = useState<InwardReinsurancePreset[]>([]);
+  const [presetsLoading, setPresetsLoading] = useState(false);
+  const [presetCategory, setPresetCategory] = useState<'TYPE_OF_COVER' | 'CLASS_OF_COVER' | 'INDUSTRY'>('TYPE_OF_COVER');
+  const [newPresetValue, setNewPresetValue] = useState('');
+  const [newPresetDescription, setNewPresetDescription] = useState('');
+  const [editingPreset, setEditingPreset] = useState<InwardReinsurancePreset | null>(null);
+  const [deletePresetConfirm, setDeletePresetConfirm] = useState<{ show: boolean; id: string; value: string }>({ show: false, id: '', value: '' });
 
   // Stats for Dashboard
   const stats = {
@@ -230,6 +239,131 @@ const AdminConsole: React.FC = () => {
       fetchActivityLogs();
     }
   }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
+
+  // Load presets when section is active
+  useEffect(() => {
+    if (activeSection === 'presets') {
+      fetchPresets();
+    }
+  }, [activeSection, presetCategory]);
+
+  // Fetch Presets
+  const fetchPresets = async () => {
+    setPresetsLoading(true);
+    try {
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('inward_reinsurance_presets')
+          .select('*')
+          .eq('category', presetCategory)
+          .order('sort_order', { ascending: true });
+
+        if (error) throw error;
+
+        const mapped: InwardReinsurancePreset[] = (data || []).map((row: any) => ({
+          id: row.id,
+          category: row.category,
+          value: row.value,
+          description: row.description,
+          isActive: row.is_active,
+          sortOrder: row.sort_order,
+          createdAt: row.created_at
+        }));
+        setPresets(mapped);
+      }
+    } catch (err) {
+      console.error('Failed to load presets:', err);
+      toast.error('Failed to load presets');
+    } finally {
+      setPresetsLoading(false);
+    }
+  };
+
+  // Add preset
+  const handleAddPreset = async () => {
+    if (!newPresetValue.trim()) {
+      toast.error('Value is required');
+      return;
+    }
+
+    try {
+      const maxOrder = presets.reduce((max, p) => Math.max(max, p.sortOrder || 0), 0);
+
+      if (supabase) {
+        const { error } = await supabase.from('inward_reinsurance_presets').insert([{
+          id: crypto.randomUUID(),
+          category: presetCategory,
+          value: newPresetValue.trim(),
+          description: newPresetDescription.trim() || null,
+          is_active: true,
+          sort_order: maxOrder + 1,
+          created_at: new Date().toISOString()
+        }]);
+
+        if (error) throw error;
+      }
+
+      toast.success('Preset added successfully');
+      setNewPresetValue('');
+      setNewPresetDescription('');
+      fetchPresets();
+    } catch (err: any) {
+      console.error('Failed to add preset:', err);
+      toast.error('Failed to add preset: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  // Update preset
+  const handleUpdatePreset = async () => {
+    if (!editingPreset) return;
+
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('inward_reinsurance_presets')
+          .update({
+            value: editingPreset.value,
+            description: editingPreset.description,
+            is_active: editingPreset.isActive
+          })
+          .eq('id', editingPreset.id);
+
+        if (error) throw error;
+      }
+
+      toast.success('Preset updated successfully');
+      setEditingPreset(null);
+      fetchPresets();
+    } catch (err: any) {
+      toast.error('Failed to update preset: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  // Delete preset
+  const handleDeletePreset = (id: string, value: string) => {
+    setDeletePresetConfirm({ show: true, id, value });
+  };
+
+  const confirmDeletePreset = async () => {
+    const { id } = deletePresetConfirm;
+    setDeletePresetConfirm({ show: false, id: '', value: '' });
+
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('inward_reinsurance_presets')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+      }
+
+      toast.success('Preset deleted successfully');
+      fetchPresets();
+    } catch (err: any) {
+      toast.error('Failed to delete preset: ' + (err.message || 'Unknown error'));
+    }
+  };
 
   // Helper functions
   const formatTimeAgo = (dateString: string) => {
@@ -818,6 +952,196 @@ const AdminConsole: React.FC = () => {
     </div>
   );
 
+  const renderPresets = () => (
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">Inward Reinsurance Presets</h2>
+          <p className="text-sm text-gray-500 mt-1">Manage dropdown options for Type of Cover, Class of Cover, and Industry</p>
+        </div>
+        <button onClick={fetchPresets} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Refresh">
+          <RefreshCw size={18} />
+        </button>
+      </div>
+
+      {/* Category Tabs */}
+      <div className="flex gap-2 border-b">
+        <button
+          onClick={() => setPresetCategory('TYPE_OF_COVER')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            presetCategory === 'TYPE_OF_COVER'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Type of Cover
+        </button>
+        <button
+          onClick={() => setPresetCategory('CLASS_OF_COVER')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            presetCategory === 'CLASS_OF_COVER'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Class of Cover
+        </button>
+        <button
+          onClick={() => setPresetCategory('INDUSTRY')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            presetCategory === 'INDUSTRY'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Industry
+        </button>
+      </div>
+
+      {/* Add New Preset */}
+      <div className="bg-white rounded-xl shadow-sm border p-6">
+        <h3 className="font-bold text-gray-700 mb-4">Add New {presetCategory.replace(/_/g, ' ').toLowerCase()}</h3>
+        <div className="flex gap-4 items-end">
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Value *</label>
+            <input
+              type="text"
+              placeholder="e.g., Property, Casualty, Marine..."
+              className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={newPresetValue}
+              onChange={(e) => setNewPresetValue(e.target.value)}
+            />
+          </div>
+          <div className="flex-1">
+            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+            <input
+              type="text"
+              placeholder="Optional description..."
+              className="w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+              value={newPresetDescription}
+              onChange={(e) => setNewPresetDescription(e.target.value)}
+            />
+          </div>
+          <button
+            onClick={handleAddPreset}
+            className="bg-green-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-green-700 flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add
+          </button>
+        </div>
+      </div>
+
+      {/* Presets List */}
+      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+        {presetsLoading ? (
+          <div className="p-8 text-center text-gray-500">
+            <Loader2 className="animate-spin inline mr-2" size={20} />
+            Loading presets...
+          </div>
+        ) : presets.length === 0 ? (
+          <div className="p-8 text-center text-gray-400">
+            <List size={40} className="mx-auto mb-2 opacity-50" />
+            <p>No presets found for this category</p>
+            <p className="text-sm mt-1">Add your first preset above</p>
+          </div>
+        ) : (
+          <table className="w-full text-left">
+            <thead className="bg-gray-50 text-gray-700">
+              <tr>
+                <th className="px-6 py-3 text-xs font-bold uppercase">Value</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase">Description</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase text-center">Status</th>
+                <th className="px-6 py-3 text-xs font-bold uppercase text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {presets.map((preset) => (
+                <tr key={preset.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3">
+                    {editingPreset?.id === preset.id ? (
+                      <input
+                        type="text"
+                        className="w-full p-1.5 border rounded"
+                        value={editingPreset.value}
+                        onChange={(e) => setEditingPreset({ ...editingPreset, value: e.target.value })}
+                      />
+                    ) : (
+                      <span className="font-medium text-gray-900">{preset.value}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-3">
+                    {editingPreset?.id === preset.id ? (
+                      <input
+                        type="text"
+                        className="w-full p-1.5 border rounded"
+                        value={editingPreset.description || ''}
+                        onChange={(e) => setEditingPreset({ ...editingPreset, description: e.target.value })}
+                      />
+                    ) : (
+                      <span className="text-gray-500">{preset.description || '-'}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-3 text-center">
+                    {editingPreset?.id === preset.id ? (
+                      <select
+                        className="p-1.5 border rounded"
+                        value={editingPreset.isActive ? 'true' : 'false'}
+                        onChange={(e) => setEditingPreset({ ...editingPreset, isActive: e.target.value === 'true' })}
+                      >
+                        <option value="true">Active</option>
+                        <option value="false">Inactive</option>
+                      </select>
+                    ) : (
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        preset.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {preset.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-6 py-3 text-right">
+                    {editingPreset?.id === preset.id ? (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={handleUpdatePreset}
+                          className="text-green-600 hover:bg-green-50 p-1.5 rounded"
+                        >
+                          <Save size={16} />
+                        </button>
+                        <button
+                          onClick={() => setEditingPreset(null)}
+                          className="text-gray-500 hover:bg-gray-100 p-1.5 rounded"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => setEditingPreset(preset)}
+                          className="text-blue-600 hover:bg-blue-50 p-1.5 rounded"
+                        >
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeletePreset(preset.id, preset.value)}
+                          className="text-red-600 hover:bg-red-50 p-1.5 rounded"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <aside className={`bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen?'':'-ml-64'}`}>
@@ -835,6 +1159,7 @@ const AdminConsole: React.FC = () => {
           <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Configuration</div>
           <button onClick={()=>setActiveSection('templates')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='templates'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><FileText size={20}/>Policy Templates</button>
           <button onClick={()=>setActiveSection('fx')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='fx'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Coins size={20}/>Exchange Rates</button>
+          <button onClick={()=>setActiveSection('presets')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='presets'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><List size={20}/>Reinsurance Presets</button>
           <div className="pt-8 mt-auto"><button onClick={()=>navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"><LogOut size={20}/>Exit Console</button></div>
         </nav>
       </aside>
@@ -849,6 +1174,7 @@ const AdminConsole: React.FC = () => {
           {activeSection==='activity-log' && renderActivityLog()}
           {activeSection==='templates' && renderTemplates()}
           {activeSection==='fx' && renderFxRates()}
+          {activeSection==='presets' && renderPresets()}
         </>}
       </main>
 
@@ -889,6 +1215,16 @@ const AdminConsole: React.FC = () => {
         message={`Are you sure you want to delete department "${deleteDeptConfirm.name}"?`}
         onConfirm={confirmDeleteDepartment}
         onCancel={() => setDeleteDeptConfirm({ show: false, id: '', name: '' })}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={deletePresetConfirm.show}
+        title="Delete Preset"
+        message={`Are you sure you want to delete preset "${deletePresetConfirm.value}"?`}
+        onConfirm={confirmDeletePreset}
+        onCancel={() => setDeletePresetConfirm({ show: false, id: '', value: '' })}
         confirmText="Delete"
         variant="danger"
       />

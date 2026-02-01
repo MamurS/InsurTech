@@ -3,10 +3,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { MosaicLogo } from './MosaicLogo';
-import { 
-  LayoutDashboard, FileText, Settings, 
-  FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen, 
-  LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList
+import {
+  LayoutDashboard, FileText, Settings,
+  FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
+  LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
+  ChevronDown, ChevronRight, ArrowDownRight, Globe, Home
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -18,6 +19,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
   const { user, signOut } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isInwardReinsuranceOpen, setIsInwardReinsuranceOpen] = useState(
+    location.pathname.includes('/inward-reinsurance')
+  );
 
   const handleSignOut = async () => {
     await signOut();
@@ -77,14 +81,65 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <span>Reinsurance Slips</span>
           </Link>
 
-          <Link 
-              to="/claims" 
+          <Link
+              to="/claims"
               className={getLinkClass('/claims')}
               title="Claims Center"
           >
               <AlertOctagon size={20} className="flex-shrink-0" />
               <span>Claims Center</span>
           </Link>
+
+          {/* Inward Reinsurance Collapsible Section */}
+          <div className="pt-2">
+            <button
+              onClick={() => setIsInwardReinsuranceOpen(!isInwardReinsuranceOpen)}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${
+                location.pathname.includes('/inward-reinsurance')
+                  ? 'bg-blue-600/20 text-blue-300'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+              title="Inward Reinsurance"
+            >
+              <ArrowDownRight size={20} className="flex-shrink-0" />
+              <span className="flex-1 text-left">Inward Reinsurance</span>
+              {isInwardReinsuranceOpen ? (
+                <ChevronDown size={16} className="flex-shrink-0" />
+              ) : (
+                <ChevronRight size={16} className="flex-shrink-0" />
+              )}
+            </button>
+
+            {/* Nested Links */}
+            {isInwardReinsuranceOpen && (
+              <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-700 pl-2">
+                <Link
+                  to="/inward-reinsurance/foreign"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm whitespace-nowrap ${
+                    location.pathname.includes('/inward-reinsurance/foreign')
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                  title="Foreign/Overseas"
+                >
+                  <Globe size={16} className="flex-shrink-0" />
+                  <span>Foreign</span>
+                </Link>
+                <Link
+                  to="/inward-reinsurance/domestic"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm whitespace-nowrap ${
+                    location.pathname.includes('/inward-reinsurance/domestic')
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                  title="Domestic"
+                >
+                  <Home size={16} className="flex-shrink-0" />
+                  <span>Domestic</span>
+                </Link>
+              </div>
+            )}
+          </div>
 
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
             Configuration

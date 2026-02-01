@@ -367,6 +367,86 @@ export interface ClaimFilters {
     pageSize: number;
 }
 
+// --- INWARD REINSURANCE TYPES ---
+
+export type InwardReinsuranceOrigin = 'FOREIGN' | 'DOMESTIC';
+export type InwardReinsuranceType = 'FAC' | 'TREATY';
+export type InwardReinsuranceStructure = 'PROPORTIONAL' | 'NON_PROPORTIONAL';
+export type InwardReinsuranceStatus = 'DRAFT' | 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
+
+export interface InwardReinsurance {
+  id: string;
+  contractNumber: string;
+  origin: InwardReinsuranceOrigin;
+  type: InwardReinsuranceType;
+  structure: InwardReinsuranceStructure;
+  status: InwardReinsuranceStatus;
+
+  // Cedant/Source Info
+  cedantName: string;
+  cedantEntityId?: string;
+  cedantCountry?: string;
+  brokerName?: string;
+  brokerEntityId?: string;
+
+  // Contract Period
+  inceptionDate: string;
+  expiryDate: string;
+  uwYear?: number;
+
+  // Coverage Details
+  typeOfCover: string;
+  classOfCover: string;
+  industry?: string;
+  territory?: string;
+  originalInsuredName?: string;
+  riskDescription?: string;
+
+  // Financial Terms
+  currency: Currency;
+  limitOfLiability: number;
+  deductible?: number;
+  retention?: number;
+  ourShare: number; // Percentage
+
+  // Premium
+  grossPremium: number;
+  commissionPercent?: number;
+  netPremium?: number;
+  minimumPremium?: number;
+  depositPremium?: number;
+  adjustablePremium?: boolean;
+
+  // Treaty-specific (for TREATY type)
+  treatyName?: string;
+  treatyNumber?: string;
+  layerNumber?: number;
+  excessPoint?: number;
+
+  // Non-Proportional specific
+  aggregateLimit?: number;
+  aggregateDeductible?: number;
+  reinstatements?: number;
+  reinstatementPremium?: number;
+
+  // Metadata
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  isDeleted?: boolean;
+}
+
+export interface InwardReinsurancePreset {
+  id: string;
+  category: 'TYPE_OF_COVER' | 'CLASS_OF_COVER' | 'INDUSTRY';
+  value: string;
+  description?: string;
+  isActive: boolean;
+  sortOrder?: number;
+  createdAt: string;
+}
+
 export interface Policy {
   id: string;
   channel: Channel;

@@ -1,0 +1,457 @@
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../services/supabase';
+import { InwardReinsurance, InwardReinsuranceOrigin, Currency } from '../types';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
+import {
+  Plus, Search, Filter, RefreshCw, Trash2, Edit, Eye,
+  Globe, Home, FileSpreadsheet, Layers, Calendar, DollarSign,
+  ChevronLeft, ChevronRight, MoreVertical
+} from 'lucide-react';
+
+const InwardReinsuranceList: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToast();
+
+  // Determine origin from URL path
+  const origin: InwardReinsuranceOrigin = location.pathname.includes('/foreign') ? 'FOREIGN' : 'DOMESTIC';
+
+  const [loading, setLoading] = useState(true);
+  const [contracts, setContracts] = useState<InwardReinsurance[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'ALL' | 'FAC' | 'TREATY'>('ALL');
+  const [structureFilter, setStructureFilter] = useState<'ALL' | 'PROPORTIONAL' | 'NON_PROPORTIONAL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const pageSize = 20;
+
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string; number: string }>({
+    isOpen: false, id: '', number: ''
+  });
+  const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+
+  // Fetch contracts
+  const fetchContracts = async () => {
+    setLoading(true);
+    try {
+      if (supabase) {
+        let query = supabase
+          .from('inward_reinsurance')
+          .select('*', { count: 'exact' })
+          .eq('origin', origin)
+          .eq('is_deleted', false)
+          .order('created_at', { ascending: false });
+
+        if (typeFilter !== 'ALL') {
+          query = query.eq('type', typeFilter);
+        }
+        if (structureFilter !== 'ALL') {
+          query = query.eq('structure', structureFilter);
+        }
+        if (statusFilter !== 'ALL') {
+          query = query.eq('status', statusFilter);
+        }
+        if (searchTerm) {
+          query = query.or(`contract_number.ilike.%${searchTerm}%,cedant_name.ilike.%${searchTerm}%,broker_name.ilike.%${searchTerm}%`);
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+        query = query.range(from, to);
+
+        const { data, error, count } = await query;
+
+        if (error) throw error;
+
+        const mapped: InwardReinsurance[] = (data || []).map((row: any) => ({
+          id: row.id,
+          contractNumber: row.contract_number,
+          origin: row.origin,
+          type: row.type,
+          structure: row.structure,
+          status: row.status,
+          cedantName: row.cedant_name,
+          cedantEntityId: row.cedant_entity_id,
+          cedantCountry: row.cedant_country,
+          brokerName: row.broker_name,
+          brokerEntityId: row.broker_entity_id,
+          inceptionDate: row.inception_date,
+          expiryDate: row.expiry_date,
+          uwYear: row.uw_year,
+          typeOfCover: row.type_of_cover,
+          classOfCover: row.class_of_cover,
+          industry: row.industry,
+          territory: row.territory,
+          originalInsuredName: row.original_insured_name,
+          riskDescription: row.risk_description,
+          currency: row.currency,
+          limitOfLiability: row.limit_of_liability,
+          deductible: row.deductible,
+          retention: row.retention,
+          ourShare: row.our_share,
+          grossPremium: row.gross_premium,
+          commissionPercent: row.commission_percent,
+          netPremium: row.net_premium,
+          minimumPremium: row.minimum_premium,
+          depositPremium: row.deposit_premium,
+          adjustablePremium: row.adjustable_premium,
+          treatyName: row.treaty_name,
+          treatyNumber: row.treaty_number,
+          layerNumber: row.layer_number,
+          excessPoint: row.excess_point,
+          aggregateLimit: row.aggregate_limit,
+          aggregateDeductible: row.aggregate_deductible,
+          reinstatements: row.reinstatements,
+          reinstatementPremium: row.reinstatement_premium,
+          notes: row.notes,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          createdBy: row.created_by,
+          isDeleted: row.is_deleted
+        }));
+
+        setContracts(mapped);
+        setTotalCount(count || 0);
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch contracts:', err);
+      toast.error('Failed to load contracts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchContracts();
+  }, [origin, typeFilter, structureFilter, statusFilter, searchTerm, page]);
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!deleteConfirm.id) return;
+
+    try {
+      if (supabase) {
+        const { error } = await supabase
+          .from('inward_reinsurance')
+          .update({ is_deleted: true, updated_at: new Date().toISOString() })
+          .eq('id', deleteConfirm.id);
+
+        if (error) throw error;
+      }
+
+      toast.success('Contract deleted successfully');
+      setDeleteConfirm({ isOpen: false, id: '', number: '' });
+      fetchContracts();
+    } catch (err: any) {
+      toast.error('Failed to delete: ' + (err.message || 'Unknown error'));
+    }
+  };
+
+  // Format currency
+  const formatAmount = (amount: number, currency: Currency) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+
+  // Format date
+  const formatDate = (dateStr: string) => {
+    if (!dateStr) return '-';
+    return new Date(dateStr).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
+  // Status badge
+  const getStatusBadge = (status: string) => {
+    const styles: Record<string, string> = {
+      DRAFT: 'bg-gray-100 text-gray-700',
+      PENDING: 'bg-yellow-100 text-yellow-700',
+      ACTIVE: 'bg-green-100 text-green-700',
+      EXPIRED: 'bg-red-100 text-red-700',
+      CANCELLED: 'bg-slate-100 text-slate-700'
+    };
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-700'}`}>
+        {status}
+      </span>
+    );
+  };
+
+  // Type badge
+  const getTypeBadge = (type: string, structure: string) => {
+    return (
+      <div className="flex flex-col gap-1">
+        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+          type === 'FAC' ? 'bg-blue-100 text-blue-700' : 'bg-indigo-100 text-indigo-700'
+        }`}>
+          {type}
+        </span>
+        <span className={`px-2 py-0.5 rounded text-xs ${
+          structure === 'PROPORTIONAL' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+        }`}>
+          {structure === 'PROPORTIONAL' ? 'Prop' : 'Non-Prop'}
+        </span>
+      </div>
+    );
+  };
+
+  const totalPages = Math.ceil(totalCount / pageSize);
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            {origin === 'FOREIGN' ? <Globe size={28} /> : <Home size={28} />}
+            {origin === 'FOREIGN' ? 'Foreign' : 'Domestic'} Inward Reinsurance
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {origin === 'FOREIGN' ? 'Overseas/International' : 'Domestic'} reinsurance contracts
+          </p>
+        </div>
+        <button
+          onClick={() => navigate(`/inward-reinsurance/${origin.toLowerCase()}/new`)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm"
+        >
+          <Plus size={18} />
+          New Contract
+        </button>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by contract number, cedant, broker..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+            />
+          </div>
+
+          {/* Type Filter */}
+          <select
+            value={typeFilter}
+            onChange={(e) => { setTypeFilter(e.target.value as any); setPage(1); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+          >
+            <option value="ALL">All Types</option>
+            <option value="FAC">Facultative</option>
+            <option value="TREATY">Treaty</option>
+          </select>
+
+          {/* Structure Filter */}
+          <select
+            value={structureFilter}
+            onChange={(e) => { setStructureFilter(e.target.value as any); setPage(1); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+          >
+            <option value="ALL">All Structures</option>
+            <option value="PROPORTIONAL">Proportional</option>
+            <option value="NON_PROPORTIONAL">Non-Proportional</option>
+          </select>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+          >
+            <option value="ALL">All Status</option>
+            <option value="DRAFT">Draft</option>
+            <option value="PENDING">Pending</option>
+            <option value="ACTIVE">Active</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+
+          {/* Refresh */}
+          <button
+            onClick={fetchContracts}
+            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+            title="Refresh"
+          >
+            <RefreshCw size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center text-gray-500">Loading contracts...</div>
+        ) : contracts.length === 0 ? (
+          <div className="p-12 text-center">
+            <FileSpreadsheet size={48} className="mx-auto text-gray-300 mb-4" />
+            <p className="text-gray-500">No contracts found</p>
+            <button
+              onClick={() => navigate(`/inward-reinsurance/${origin.toLowerCase()}/new`)}
+              className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+            >
+              Create your first contract
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contract #</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cedant</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Coverage</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Period</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Limit</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Share</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {contracts.map((contract) => (
+                  <tr key={contract.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{contract.contractNumber}</div>
+                      <div className="text-xs text-gray-500">UW {contract.uwYear}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      {getTypeBadge(contract.type, contract.structure)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{contract.cedantName}</div>
+                      {contract.brokerName && (
+                        <div className="text-xs text-gray-500">via {contract.brokerName}</div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">{contract.typeOfCover}</div>
+                      <div className="text-xs text-gray-500">{contract.classOfCover}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="text-sm text-gray-900">{formatDate(contract.inceptionDate)}</div>
+                      <div className="text-xs text-gray-500">to {formatDate(contract.expiryDate)}</div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="font-medium text-gray-900">
+                        {formatAmount(contract.limitOfLiability, contract.currency)}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="font-medium text-gray-900">{contract.ourShare}%</span>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      {getStatusBadge(contract.status)}
+                    </td>
+                    <td className="px-4 py-3 text-center relative">
+                      <button
+                        onClick={() => setActionMenuOpen(actionMenuOpen === contract.id ? null : contract.id)}
+                        className="p-1 text-gray-400 hover:text-gray-600 rounded"
+                      >
+                        <MoreVertical size={16} />
+                      </button>
+                      {actionMenuOpen === contract.id && (
+                        <div className="absolute right-4 top-10 bg-white border shadow-lg rounded-lg py-1 z-10 min-w-[120px]">
+                          <button
+                            onClick={() => {
+                              navigate(`/inward-reinsurance/${origin.toLowerCase()}/view/${contract.id}`);
+                              setActionMenuOpen(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Eye size={14} /> View
+                          </button>
+                          <button
+                            onClick={() => {
+                              navigate(`/inward-reinsurance/${origin.toLowerCase()}/edit/${contract.id}`);
+                              setActionMenuOpen(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                          >
+                            <Edit size={14} /> Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeleteConfirm({ isOpen: true, id: contract.id, number: contract.contractNumber });
+                              setActionMenuOpen(null);
+                            }}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+                          >
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, totalCount)} of {totalCount} contracts
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={20} />
+              </button>
+              <span className="text-sm text-gray-700">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="p-1 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Delete Confirmation */}
+      <ConfirmDialog
+        isOpen={deleteConfirm.isOpen}
+        title="Delete Contract"
+        message={`Are you sure you want to delete contract "${deleteConfirm.number}"? This action cannot be undone.`}
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteConfirm({ isOpen: false, id: '', number: '' })}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      {/* Click outside to close action menu */}
+      {actionMenuOpen && (
+        <div
+          className="fixed inset-0 z-0"
+          onClick={() => setActionMenuOpen(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+export default InwardReinsuranceList;
