@@ -210,8 +210,7 @@ export const ClaimsService = {
 
     createClaim: async (claim: Partial<Claim> & { initialReserve?: number; currency?: string; ourSharePercentage?: number }): Promise<string | null> => {
         if (!supabase) {
-            alert("Database connection required for Claims Module");
-            return null;
+            throw new Error("Database connection required for Claims Module");
         }
 
         const payload = {
