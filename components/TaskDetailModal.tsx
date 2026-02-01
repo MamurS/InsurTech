@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { X, Calendar, User, CheckCircle, Trash2, Paperclip, Download, FileText, Image, File as FileIcon, Loader2, ArrowRight } from 'lucide-react';
 import { AgendaTask, TaskStatus, TaskPriority } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from './ConfirmDialog';
 import { useUpdateTaskStatus, useDeleteTask, useTaskAttachments, useUploadAttachment, useDeleteAttachment } from '../hooks/useAgenda';
 
 interface TaskDetailModalProps {
@@ -13,6 +15,9 @@ interface TaskDetailModalProps {
 
 const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose }) => {
     const [isUploading, setIsUploading] = useState(false);
+    const [deleteTaskConfirm, setDeleteTaskConfirm] = useState(false);
+    const [deleteAttachmentConfirm, setDeleteAttachmentConfirm] = useState<string | null>(null);
+    const toast = useToast();
     
     // Hooks
     const updateStatusMutation = useUpdateTaskStatus();
@@ -30,11 +35,14 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     };
 
     const handleDeleteTask = () => {
-        if (confirm("Are you sure you want to delete this task?")) {
-            deleteTaskMutation.mutate(task.id, {
-                onSuccess: onClose
-            });
-        }
+        setDeleteTaskConfirm(true);
+    };
+
+    const confirmDeleteTask = () => {
+        deleteTaskMutation.mutate(task.id, {
+            onSuccess: onClose
+        });
+        setDeleteTaskConfirm(false);
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,7 +58,7 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                 }
             } catch (err) {
                 console.error("Upload failed", err);
-                alert("Failed to upload file(s).");
+                toast.error("Failed to upload file(s).");
             } finally {
                 setIsUploading(false);
                 // Clear input
@@ -60,8 +68,13 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
     };
 
     const handleDeleteFile = (id: string) => {
-        if (confirm("Remove this attachment?")) {
-            deleteAttachmentMutation.mutate({ attachmentId: id, taskId: task.id });
+        setDeleteAttachmentConfirm(id);
+    };
+
+    const confirmDeleteAttachment = () => {
+        if (deleteAttachmentConfirm) {
+            deleteAttachmentMutation.mutate({ attachmentId: deleteAttachmentConfirm, taskId: task.id });
+            setDeleteAttachmentConfirm(null);
         }
     };
 
@@ -227,6 +240,27 @@ const TaskDetailModal: React.FC<TaskDetailModalProps> = ({ task, isOpen, onClose
                     </div>
                 </div>
             </div>
+
+            {/* Confirm Dialogs */}
+            <ConfirmDialog
+                isOpen={deleteTaskConfirm}
+                title="Delete Task"
+                message="Are you sure you want to delete this task? This action cannot be undone."
+                onConfirm={confirmDeleteTask}
+                onCancel={() => setDeleteTaskConfirm(false)}
+                confirmText="Delete"
+                variant="danger"
+            />
+
+            <ConfirmDialog
+                isOpen={!!deleteAttachmentConfirm}
+                title="Remove Attachment"
+                message="Are you sure you want to remove this attachment?"
+                onConfirm={confirmDeleteAttachment}
+                onCancel={() => setDeleteAttachmentConfirm(null)}
+                confirmText="Remove"
+                variant="danger"
+            />
         </div>
     );
 };
