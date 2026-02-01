@@ -112,7 +112,7 @@ export interface RBACPermissions {
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-export type EntityType = 'POLICY' | 'SLIP' | 'CLAIM' | 'ENTITY' | 'OTHER';
+export type EntityType = 'POLICY' | 'SLIP' | 'CLAIM' | 'ENTITY' | 'INSURER' | 'OTHER';
 
 export interface Department {
     id: string;

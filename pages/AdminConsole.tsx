@@ -579,6 +579,7 @@ const AdminConsole: React.FC = () => {
                     <option value="POLICY">Policies</option>
                     <option value="SLIP">Slips</option>
                     <option value="CLAIM">Claims</option>
+                    <option value="INSURER">Insurers</option>
                     <option value="TASK">Tasks</option>
                     <option value="USER">Users</option>
                 </select>
