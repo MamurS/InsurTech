@@ -7,6 +7,7 @@ import { ReinsuranceSlip, PolicyStatus, PolicyReinsurer, Currency } from '../typ
 import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EntitySearchInput } from '../components/EntitySearchInput';
 import { Save, ArrowLeft, FileSpreadsheet, Building, Hash, Activity, Plus, Trash2, DollarSign, Send, FileText, CheckCircle, XCircle, Archive, RefreshCw, Settings } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
@@ -383,15 +384,12 @@ const SlipForm: React.FC = () => {
                     </div>
 
                     <div>
-                        <label className={labelClass}><span className="flex items-center gap-2"><Building size={14}/> Insured Name</span></label>
-                        <input 
+                        <EntitySearchInput
+                            label="Insured Name (Legal Entity)"
+                            value={formData.insuredName}
+                            onChange={(name, entityId) => setFormData(prev => ({ ...prev, insuredName: name, insuredEntityId: entityId }))}
+                            placeholder="Search for legal entity..."
                             required
-                            type="text" 
-                            name="insuredName" 
-                            value={formData.insuredName} 
-                            onChange={handleChange}
-                            placeholder="e.g. Company A"
-                            className={inputClass}
                         />
                     </div>
 
