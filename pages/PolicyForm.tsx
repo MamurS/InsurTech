@@ -6,6 +6,7 @@ import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryTyp
 import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { EntitySearchInput } from '../components/EntitySearchInput';
 import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Briefcase, Globe, Plus, Trash2, RefreshCw, CreditCard, Calendar } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
@@ -631,13 +632,11 @@ const PolicyForm: React.FC = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div className="md:col-span-2">
-                             <SearchableInput 
-                                label="Original Insured Name" 
-                                name="insuredName" 
-                                value={formData.insuredName || ''} 
-                                options={[]}
-                                onChange={handleChange} 
-                                placeholder="The ultimate policyholder"
+                             <EntitySearchInput
+                                label="Original Insured Name (Legal Entity)"
+                                value={formData.insuredName || ''}
+                                onChange={(name, entityId) => setFormData(prev => ({ ...prev, insuredName: name, insuredEntityId: entityId }))}
+                                placeholder="Search for legal entity..."
                                 required
                             />
                         </div>

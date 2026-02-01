@@ -86,7 +86,7 @@ export const EntityDetailModal: React.FC<EntityDetailModalProps> = ({ entity, on
            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                <div><span className="text-gray-500 block text-xs uppercase">Bank Name</span> <span className="font-medium text-gray-900">{entity.bankName || '-'}</span></div>
                <div><span className="text-gray-500 block text-xs uppercase">Account Number</span> <span className="font-mono font-medium text-gray-900 bg-gray-50 px-2 py-1 rounded inline-block">{entity.bankAccount || '-'}</span></div>
-               <div><span className="text-gray-500 block text-xs uppercase">MFO / SWIFT</span> <span className="font-mono font-medium text-gray-900">{entity.bankMFO || '-'}</span></div>
+               <div><span className="text-gray-500 block text-xs uppercase">MFO / SWIFT / IBAN</span> <span className="font-mono font-medium text-gray-900">{entity.bankMFO || '-'}</span></div>
                <div><span className="text-gray-500 block text-xs uppercase">Bank Address</span> <span className="font-medium text-gray-900">{entity.bankAddress || '-'}</span></div>
            </div>
        </div>

@@ -7,6 +7,7 @@ import { ClaimLiabilityType } from '../types';
 import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
+import { EntitySearchInput } from './EntitySearchInput';
 
 interface RegisterClaimModalProps {
     isOpen: boolean;
@@ -331,13 +332,11 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                     {/* Claimant and Location Row */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Claimant Name</label>
-                            <input
-                                type="text"
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                            <EntitySearchInput
+                                label="Claimant Name"
                                 value={claimantName}
-                                onChange={(e) => setClaimantName(e.target.value)}
-                                placeholder="If different from insured"
+                                onChange={(name) => setClaimantName(name)}
+                                placeholder="If different from insured (search legal entities)"
                             />
                         </div>
                         <div>

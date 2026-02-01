@@ -174,7 +174,7 @@ const EntityForm: React.FC = () => {
                         <input type="text" name="bankAccount" value={formData.bankAccount} onChange={handleChange} className={inputClass}/>
                     </div>
                     <div>
-                        <label className={labelClass}>MFO / SWIFT</label>
+                        <label className={labelClass}>MFO / SWIFT / IBAN</label>
                         <input type="text" name="bankMFO" value={formData.bankMFO} onChange={handleChange} className={inputClass}/>
                     </div>
                     <div>
