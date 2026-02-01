@@ -19,6 +19,8 @@ import EntityForm from './pages/EntityForm';
 import ClaimsList from './pages/ClaimsList';
 import ClaimDetail from './pages/ClaimDetail';
 import Agenda from './pages/Agenda';
+import InwardReinsuranceList from './pages/InwardReinsuranceList';
+import InwardReinsuranceForm from './pages/InwardReinsuranceForm';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -91,7 +93,17 @@ const AppRoutes = () => {
               
               {/* Agenda / Tasks */}
               <Route path="/agenda" element={<Agenda />} />
-              
+
+              {/* Inward Reinsurance Routes */}
+              <Route path="/inward-reinsurance/foreign" element={<InwardReinsuranceList />} />
+              <Route path="/inward-reinsurance/foreign/new" element={<InwardReinsuranceForm />} />
+              <Route path="/inward-reinsurance/foreign/edit/:id" element={<InwardReinsuranceForm />} />
+              <Route path="/inward-reinsurance/foreign/view/:id" element={<InwardReinsuranceForm />} />
+              <Route path="/inward-reinsurance/domestic" element={<InwardReinsuranceList />} />
+              <Route path="/inward-reinsurance/domestic/new" element={<InwardReinsuranceForm />} />
+              <Route path="/inward-reinsurance/domestic/edit/:id" element={<InwardReinsuranceForm />} />
+              <Route path="/inward-reinsurance/domestic/view/:id" element={<InwardReinsuranceForm />} />
+
               <Route path="/settings" element={<Settings />} />
               
               <Route path="*" element={<Navigate to="/" replace />} />
