@@ -5,6 +5,7 @@ import { useCreateClaim, usePoliciesDropdown } from '../hooks/useClaims';
 import { determineLiability } from '../services/claimsService';
 import { ClaimLiabilityType } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { useToast } from '../context/ToastContext';
 import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 
 interface RegisterClaimModalProps {
@@ -22,6 +23,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
     // Fetch policies for dropdown
     const { data: policies, isLoading: policiesLoading } = usePoliciesDropdown();
     const createClaimMutation = useCreateClaim();
+    const toast = useToast();
 
     // Form state
     const [selectedPolicyId, setSelectedPolicyId] = useState('');
@@ -119,7 +121,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
         const reportDateStr = toISODateString(reportDate);
 
         if (!selectedPolicyId || !lossDateStr || !reportDateStr || !description || !liabilityType || !claimNumber) {
-            alert('Please fill in all required fields (Policy, Claim No, Loss Date, Report Date, Description).');
+            toast.error('Please fill in all required fields (Policy, Claim No, Loss Date, Report Date, Description).');
             return;
         }
 
@@ -141,7 +143,7 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                 onClose();
             },
             onError: (error) => {
-                alert('Error creating claim: ' + error.message);
+                toast.error('Error creating claim: ' + error.message);
             }
         });
     };

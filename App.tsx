@@ -4,6 +4,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { PermissionProvider } from './context/PermissionContext';
+import { ToastProvider } from './context/ToastContext';
 import Dashboard from './pages/Dashboard';
 import PolicyForm from './pages/PolicyForm';
 import PolicyWording from './pages/PolicyWording';
@@ -104,13 +105,15 @@ const AppRoutes = () => {
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <PermissionProvider>
-        <HashRouter>
-          <AppRoutes />
-        </HashRouter>
-      </PermissionProvider>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <PermissionProvider>
+          <HashRouter>
+            <AppRoutes />
+          </HashRouter>
+        </PermissionProvider>
+      </AuthProvider>
+    </ToastProvider>
   );
 };
 

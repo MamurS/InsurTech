@@ -5,6 +5,7 @@ import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, LegalEntity, Installment } from '../types';
 import { ExcelService } from '../services/excel';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
 import { EntityDetailModal } from '../components/EntityDetailModal';
@@ -46,6 +47,10 @@ const Dashboard: React.FC = () => {
 
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
+
+  // Create Entity Confirmation State
+  const [createEntityConfirm, setCreateEntityConfirm] = useState<{ isOpen: boolean; name: string }>({ isOpen: false, name: '' });
 
   const fetchData = async () => {
     setLoading(true);
@@ -86,7 +91,7 @@ const Dashboard: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     if (user?.role !== 'Super Admin') {
-        alert("Only Super Admins can restore deleted records.");
+        toast.warning("Only Super Admins can restore deleted records.");
         return;
     }
     try {
@@ -120,10 +125,8 @@ const Dashboard: React.FC = () => {
       if (entity) {
           setSelectedEntity(entity);
       } else {
-          // Optional: Prompt to create?
-          if(confirm(`Entity "${name}" not found in database. Create it?`)) {
-              navigate('/entities/new');
-          }
+          // Prompt to create
+          setCreateEntityConfirm({ isOpen: true, name });
       }
   };
 
@@ -728,12 +731,24 @@ const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      <ConfirmDialog 
+      <ConfirmDialog
         isOpen={!!deleteId}
         title="Delete Policy?"
         message="Are you sure you want to delete this policy? It will be moved to the Deleted Records bin."
         onConfirm={confirmDelete}
         onCancel={() => setDeleteId(null)}
+        variant="danger"
+        confirmText="Delete"
+      />
+
+      <ConfirmDialog
+        isOpen={createEntityConfirm.isOpen}
+        title="Entity Not Found"
+        message={`Entity "${createEntityConfirm.name}" not found in database. Would you like to create it?`}
+        onConfirm={() => { setCreateEntityConfirm({ isOpen: false, name: '' }); navigate('/entities/new'); }}
+        onCancel={() => setCreateEntityConfirm({ isOpen: false, name: '' })}
+        variant="info"
+        confirmText="Create Entity"
       />
 
       {selectedPolicy && (

@@ -4,6 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, PaymentStatus, Channel, IntermediaryType, PolicyReinsurer, Installment } from '../types';
 import { formatDate } from '../utils/dateUtils';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Briefcase, Globe, Plus, Trash2, RefreshCw, CreditCard, Calendar } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
@@ -190,8 +192,10 @@ const SearchableInput: React.FC<SearchableInputProps> = ({ label, name, value, o
 const PolicyForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
+  const [showActivateConfirm, setShowActivateConfirm] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -281,7 +285,7 @@ const PolicyForm: React.FC = () => {
             territory: loadedData.territory || 'Uzbekistan'
           });
         } else {
-          alert('Policy not found');
+          toast.error('Policy not found');
           navigate('/');
         }
       } else {
@@ -444,11 +448,7 @@ const PolicyForm: React.FC = () => {
   };
 
   // Workflow Actions
-  const handleActivate = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (!selectedFile && !formData.signedDocument) {
-        if(!window.confirm("Activating without a signed slip. Continue?")) return;
-    }
+  const doActivate = async () => {
     setProcessingAction('activate');
     try {
         const updatedData = { ...formData, status: PolicyStatus.ACTIVE, activationDate: new Date().toISOString() };
@@ -461,10 +461,19 @@ const PolicyForm: React.FC = () => {
         }
         await DB.savePolicy(updatedData);
         navigate('/');
-    } catch (error: any) { 
-        console.error(error); 
-        alert(`Failed to activate: ${error.message || 'Unknown error'}`);
+    } catch (error: any) {
+        console.error(error);
+        toast.error(`Failed to activate: ${error.message || 'Unknown error'}`);
     } finally { setProcessingAction(null); }
+  };
+
+  const handleActivate = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (!selectedFile && !formData.signedDocument) {
+        setShowActivateConfirm(true);
+        return;
+    }
+    doActivate();
   };
 
   const handleNTU = async (e: React.MouseEvent) => {
@@ -473,7 +482,7 @@ const PolicyForm: React.FC = () => {
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.NTU });
         navigate('/');
-    } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
+    } catch (error: any) { console.error(error); toast.error(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
   const handleCancel = async (e: React.MouseEvent) => {
@@ -482,7 +491,7 @@ const PolicyForm: React.FC = () => {
     try {
         await DB.savePolicy({ ...formData, status: PolicyStatus.CANCELLED });
         navigate('/');
-    } catch (error: any) { console.error(error); alert(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
+    } catch (error: any) { console.error(error); toast.error(`Failed: ${error.message}`); } finally { setProcessingAction(null); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -493,7 +502,7 @@ const PolicyForm: React.FC = () => {
         navigate('/');
     } catch (error: any) { 
         console.error(error); 
-        alert(`Failed to save: ${error.message || 'Check console for details.'}`); 
+        toast.error(`Failed to save: ${error.message || 'Check console for details.'}`);
     } finally { setProcessingAction(null); }
   };
 
@@ -1242,6 +1251,16 @@ const PolicyForm: React.FC = () => {
             </div>
         </div>
       </form>
+
+      <ConfirmDialog
+        isOpen={showActivateConfirm}
+        title="Activate Without Signed Slip?"
+        message="You are about to activate this policy without uploading a signed slip document. Are you sure you want to continue?"
+        onConfirm={() => { setShowActivateConfirm(false); doActivate(); }}
+        onCancel={() => setShowActivateConfirm(false)}
+        variant="warning"
+        confirmText="Activate Anyway"
+      />
     </div>
   );
 };

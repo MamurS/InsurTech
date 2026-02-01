@@ -4,12 +4,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ClaimTransactionType } from '../types';
 import { useClaimDetail, useAddTransaction } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ArrowLeft, FileText, Plus, Wallet, Loader2, CheckCircle, XCircle, RefreshCw, Settings } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
 const ClaimDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const toast = useToast();
+  const [statusConfirm, setStatusConfirm] = useState<{ isOpen: boolean; status: string; message: string }>({ isOpen: false, status: '', message: '' });
   
   // React Query Hooks
   const { data: claim, isLoading: loading, error, refetch } = useClaimDetail(id);
@@ -24,47 +28,55 @@ const ClaimDetail: React.FC = () => {
       notes: ''
   });
 
-  const handleStatusChange = async (newStatus: string) => {
+  const requestStatusChange = (newStatus: string) => {
     if (!supabase || !claim) return;
-    
-    const confirmMessage = newStatus === 'CLOSED' 
-        ? 'Are you sure you want to close this claim?' 
+
+    const confirmMessage = newStatus === 'CLOSED'
+        ? 'Are you sure you want to close this claim?'
         : newStatus === 'DENIED'
         ? 'Are you sure you want to deny this claim?'
         : 'Are you sure you want to reopen this claim?';
-    
-    if (!window.confirm(confirmMessage)) return;
-    
+
+    setStatusConfirm({ isOpen: true, status: newStatus, message: confirmMessage });
+  };
+
+  const performStatusChange = async (newStatus: string) => {
+    if (!supabase || !claim) return;
+
     try {
-        const updateData: any = { 
+        const updateData: any = {
             status: newStatus,
             updated_at: new Date().toISOString()
         };
-        
+
         // Set or clear closed_date based on status
         if (newStatus === 'CLOSED' || newStatus === 'DENIED') {
             updateData.closed_date = new Date().toISOString().split('T')[0];
         } else if (newStatus === 'REOPENED') {
             updateData.closed_date = null;
         }
-        
+
         const { error } = await supabase
             .from('claims')
             .update(updateData)
             .eq('id', claim.id);
-        
+
         if (error) throw error;
-        
+
         // SUCCESS - Now refresh the UI
-        alert(`Claim ${newStatus.toLowerCase()} successfully`);
-        
+        toast.success(`Claim ${newStatus.toLowerCase()} successfully`);
+
         // Force page reload to show updated data
         window.location.reload();
-        
+
     } catch (error: any) {
         console.error('Error updating claim status:', error);
-        alert('Failed to update claim: ' + (error.message || 'Unknown error'));
+        toast.error('Failed to update claim: ' + (error.message || 'Unknown error'));
     }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    requestStatusChange(newStatus);
   };
 
   const handleAddTransaction = () => {
@@ -85,7 +97,7 @@ const ClaimDetail: React.FC = () => {
               setNewTrans(prev => ({ ...prev, amount: 0, notes: '' }));
           },
           onError: (err) => {
-              alert("Error adding transaction: " + err.message);
+              toast.error("Error adding transaction: " + err.message);
           }
       });
   };
@@ -379,6 +391,16 @@ const ClaimDetail: React.FC = () => {
                </div>
            </div>
        )}
+
+       <ConfirmDialog
+         isOpen={statusConfirm.isOpen}
+         title="Confirm Status Change"
+         message={statusConfirm.message}
+         onConfirm={() => { setStatusConfirm({ isOpen: false, status: '', message: '' }); performStatusChange(statusConfirm.status); }}
+         onCancel={() => setStatusConfirm({ isOpen: false, status: '', message: '' })}
+         variant="warning"
+         confirmText="Confirm"
+       />
     </div>
   );
 };

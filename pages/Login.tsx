@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { MosaicLogo } from '../components/MosaicLogo';
 import { supabase } from '../services/supabase';
 import { Lock, Loader2, CheckCircle, Mail, Key } from 'lucide-react';
@@ -10,6 +11,7 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn } = useAuth();
+  const toast = useToast();
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -42,17 +44,17 @@ const Login: React.FC = () => {
     e.preventDefault();
     
     if (newPassword !== confirmPassword) {
-        alert('Passwords do not match');
+        toast.error('Passwords do not match');
         return;
     }
-    
+
     if (newPassword.length < 6) {
-        alert('Password must be at least 6 characters');
+        toast.error('Password must be at least 6 characters');
         return;
     }
 
     if (!supabase) {
-        alert('Database connection not active.');
+        toast.error('Database connection not active.');
         return;
     }
     
@@ -64,14 +66,14 @@ const Login: React.FC = () => {
         });
         
         if (error) throw error;
-        
-        alert('Password updated successfully! Please login with your new password.');
+
+        toast.success('Password updated successfully! Please login with your new password.');
         setIsResetMode(false);
         setNewPassword('');
         setConfirmPassword('');
         window.location.hash = ''; // Clear the URL hash
     } catch (err: any) {
-        alert('Error updating password: ' + err.message);
+        toast.error('Error updating password: ' + err.message);
     } finally {
         setResetLoading(false);
     }
