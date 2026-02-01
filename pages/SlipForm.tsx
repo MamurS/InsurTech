@@ -15,6 +15,8 @@ const SlipForm: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const [statusChangeConfirm, setStatusChangeConfirm] = useState<{ isOpen: boolean; status: string; message: string }>({ isOpen: false, status: '', message: '' });
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
   const isEdit = Boolean(id);
   const [loading, setLoading] = useState(true);
   const [slipStatus, setSlipStatus] = useState<string>('DRAFT');
@@ -163,13 +165,17 @@ const SlipForm: React.FC = () => {
     requestStatusChange(newStatus, additionalFields);
   };
 
-  // Decline handler with reason prompt
-  const handleSlipDecline = async () => {
-    const reason = window.prompt('Please enter the reason for declining:');
-    if (reason === null) return;
-    
-    await handleSlipStatusChange('DECLINED', { 
-        decline_reason: reason,
+  // Decline handler - show modal
+  const handleSlipDecline = () => {
+    setDeclineReason('');
+    setShowDeclineModal(true);
+  };
+
+  // Confirm decline with reason
+  const confirmSlipDecline = async () => {
+    setShowDeclineModal(false);
+    await performStatusChange('DECLINED', {
+        decline_reason: declineReason,
         declined_date: new Date().toISOString()
     });
   };
@@ -482,6 +488,34 @@ const SlipForm: React.FC = () => {
         variant="warning"
         confirmText="Confirm"
       />
+
+      {/* Decline Slip Modal */}
+      {showDeclineModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-gray-200 overflow-hidden">
+            <div className="bg-red-50 p-4 border-b border-red-100 flex items-center gap-3">
+              <div className="bg-red-100 p-2 rounded-full text-red-600"><XCircle size={20}/></div>
+              <h3 className="font-bold text-gray-800">Decline Slip</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason for Declining</label>
+                <textarea
+                  rows={3}
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  placeholder="Please enter the reason for declining..."
+                  className="w-full p-2 bg-white border rounded-lg text-sm resize-none text-gray-900"
+                />
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
+              <button onClick={() => setShowDeclineModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm">Cancel</button>
+              <button onClick={confirmSlipDecline} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 text-sm shadow-sm">Decline Slip</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
