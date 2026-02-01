@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Role, Permission, AuthorityLimit, Currency } from '../types';
 import { PermissionService } from '../services/permissionService';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from './ConfirmDialog';
 import { X, Save, Plus, Trash2, CheckSquare, Square } from 'lucide-react';
 
 interface RoleEditModalProps {
@@ -11,6 +13,7 @@ interface RoleEditModalProps {
 
 export const RoleEditModal: React.FC<RoleEditModalProps> = ({ role, onClose, onSave }) => {
     const [activeTab, setActiveTab] = useState<'details' | 'permissions' | 'limits'>('details');
+    const toast = useToast();
     const [formData, setFormData] = useState<Partial<Role>>({
         name: '',
         description: '',
@@ -18,13 +21,16 @@ export const RoleEditModal: React.FC<RoleEditModalProps> = ({ role, onClose, onS
         level: 1,
         isActive: true
     });
-    
+
     // Permission State
     const [allPermissions, setAllPermissions] = useState<Permission[]>([]);
     const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
-    
+
     // Limits State
     const [limits, setLimits] = useState<Partial<AuthorityLimit>[]>([]);
+
+    // Confirm dialog for delete limit
+    const [deleteLimitConfirm, setDeleteLimitConfirm] = useState<{ show: boolean; index: number; limitId?: string }>({ show: false, index: -1 });
 
     useEffect(() => {
         const load = async () => {
@@ -73,8 +79,15 @@ export const RoleEditModal: React.FC<RoleEditModalProps> = ({ role, onClose, onS
             onClose();
         } catch (e) {
             console.error("Failed to save role", e);
-            alert("Error saving role");
+            toast.error("Error saving role");
         }
+    };
+
+    const confirmDeleteLimit = () => {
+        const { index, limitId } = deleteLimitConfirm;
+        setLimits(prev => prev.filter((_, i) => i !== index));
+        if (limitId) PermissionService.deleteAuthorityLimit(limitId);
+        setDeleteLimitConfirm({ show: false, index: -1 });
     };
 
     const togglePermission = (id: string) => {
@@ -213,14 +226,9 @@ export const RoleEditModal: React.FC<RoleEditModalProps> = ({ role, onClose, onS
                                         <h4 className="font-bold text-gray-800 uppercase text-sm">
                                             {limit.limitType === 'policy_lol' ? 'Policy Limit of Liability' : 'Claim Payment Limit'}
                                         </h4>
-                                        <button 
-                                            className="text-red-500 hover:text-red-700" 
-                                            onClick={() => {
-                                                if (confirm('Remove limit?')) {
-                                                    setLimits(prev => prev.filter((_, i) => i !== idx));
-                                                    if(limit.id) PermissionService.deleteAuthorityLimit(limit.id);
-                                                }
-                                            }}
+                                        <button
+                                            className="text-red-500 hover:text-red-700"
+                                            onClick={() => setDeleteLimitConfirm({ show: true, index: idx, limitId: limit.id })}
                                         >
                                             <Trash2 size={16}/>
                                         </button>
@@ -282,6 +290,16 @@ export const RoleEditModal: React.FC<RoleEditModalProps> = ({ role, onClose, onS
                         <Save size={16}/> Save Role
                     </button>
                 </div>
+
+                <ConfirmDialog
+                    isOpen={deleteLimitConfirm.show}
+                    title="Remove Limit"
+                    message="Are you sure you want to remove this limit?"
+                    onConfirm={confirmDeleteLimit}
+                    onCancel={() => setDeleteLimitConfirm({ show: false, index: -1 })}
+                    confirmText="Remove"
+                    variant="danger"
+                />
             </div>
         </div>
     );

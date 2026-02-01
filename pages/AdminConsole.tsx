@@ -6,6 +6,8 @@ import { UserService } from '../services/userService';
 import { PermissionService } from '../services/permissionService';
 import { useAuth } from '../context/AuthContext';
 import { useProfiles, useUpdateProfile } from '../hooks/useUsers';
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { Policy, ReinsuranceSlip, Clause, PolicyTemplate, UserRole, ExchangeRate, Currency, Profile, Role, Department } from '../types';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { RoleEditModal } from '../components/RoleEditModal';
@@ -27,8 +29,15 @@ type DbViewType = 'policies' | 'slips' | 'clauses';
 const AdminConsole: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [activeSection, setActiveSection] = useState<Section>('dashboard'); 
+  const toast = useToast();
+  const [activeSection, setActiveSection] = useState<Section>('dashboard');
   const [isSidebarOpen] = useState(true);
+
+  // Confirm dialog states
+  const [hardDeleteConfirm, setHardDeleteConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
+  const [deleteFxConfirm, setDeleteFxConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
+  const [deleteTemplateConfirm, setDeleteTemplateConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
+  const [deleteDeptConfirm, setDeleteDeptConfirm] = useState<{ show: boolean; id: string; name: string }>({ show: false, id: '', name: '' });
   
   // Roles Management State
   const [roles, setRoles] = useState<Role[]>([]);
@@ -241,14 +250,18 @@ const AdminConsole: React.FC = () => {
     loadAllData();
   };
 
-  const handleHardDelete = async (e: React.MouseEvent, id: string) => {
+  const handleHardDelete = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (confirm("Are you sure? This action is irreversible.")) {
-        if (recycleType === 'policies') await DB.hardDeletePolicy(id);
-        if (recycleType === 'slips') await DB.hardDeleteSlip(id);
-        if (recycleType === 'clauses') await DB.hardDeleteClause(id);
-        loadAllData();
-    }
+    setHardDeleteConfirm({ show: true, id });
+  };
+
+  const confirmHardDelete = async () => {
+    const { id } = hardDeleteConfirm;
+    setHardDeleteConfirm({ show: false, id: '' });
+    if (recycleType === 'policies') await DB.hardDeletePolicy(id);
+    if (recycleType === 'slips') await DB.hardDeleteSlip(id);
+    if (recycleType === 'clauses') await DB.hardDeleteClause(id);
+    loadAllData();
   };
 
   const handleAddFx = async () => {
@@ -263,11 +276,15 @@ const AdminConsole: React.FC = () => {
       setNewRate({ ...newRate, rate: 0 });
   };
 
-  const handleDeleteFx = async (id: string) => {
-      if(confirm("Delete this exchange rate?")) {
-          await DB.deleteExchangeRate(id);
-          loadAllData();
-      }
+  const handleDeleteFx = (id: string) => {
+      setDeleteFxConfirm({ show: true, id });
+  };
+
+  const confirmDeleteFx = async () => {
+      const { id } = deleteFxConfirm;
+      setDeleteFxConfirm({ show: false, id: '' });
+      await DB.deleteExchangeRate(id);
+      loadAllData();
   };
 
   const handleEditTemplate = (tpl?: PolicyTemplate) => {
@@ -281,7 +298,7 @@ const AdminConsole: React.FC = () => {
 
   const handleSaveTemplate = async () => {
       if (!currentTemplate.name || !currentTemplate.content) {
-          alert("Name and Content are required");
+          toast.error("Name and Content are required");
           return;
       }
       await DB.saveTemplate(currentTemplate);
@@ -289,26 +306,34 @@ const AdminConsole: React.FC = () => {
       loadAllData();
   };
 
-  const handleDeleteTemplate = async (id: string) => {
-      if(confirm("Delete this template?")) {
-          await DB.deleteTemplate(id);
-          loadAllData();
-      }
-  }
+  const handleDeleteTemplate = (id: string) => {
+      setDeleteTemplateConfirm({ show: true, id });
+  };
+
+  const confirmDeleteTemplate = async () => {
+      const { id } = deleteTemplateConfirm;
+      setDeleteTemplateConfirm({ show: false, id: '' });
+      await DB.deleteTemplate(id);
+      loadAllData();
+  };
 
   const handleEditDepartment = (d?: Department) => {
       setSelectedDept(d);
       setShowDeptModal(true);
   };
 
-  const handleDeleteDepartment = async (id: string, name: string) => {
-      if(confirm(`Delete department "${name}"?`)) {
-          try {
-              await UserService.deleteDepartment(id);
-              loadAllData();
-          } catch(e: any) {
-              alert("Error: " + e.message);
-          }
+  const handleDeleteDepartment = (id: string, name: string) => {
+      setDeleteDeptConfirm({ show: true, id, name });
+  };
+
+  const confirmDeleteDepartment = async () => {
+      const { id } = deleteDeptConfirm;
+      setDeleteDeptConfirm({ show: false, id: '', name: '' });
+      try {
+          await UserService.deleteDepartment(id);
+          loadAllData();
+      } catch(e: any) {
+          toast.error("Error: " + e.message);
       }
   };
 
@@ -324,16 +349,16 @@ const AdminConsole: React.FC = () => {
 
   const handleSaveUser = async () => {
       if (!currentUser.fullName || !currentUser.email) {
-          alert("Name and Email are required");
+          toast.error("Name and Email are required");
           return;
       }
       setActionLoading(true);
       try {
         const selectedRoleObj = roles.find(r => r.id === currentUser.roleId);
         const selectedDeptObj = departments.find(d => d.id === currentUser.departmentId);
-        
+
         if (!currentUser.id) {
-            if (!newUserPassword) { alert("Password required"); setActionLoading(false); return; }
+            if (!newUserPassword) { toast.error("Password required"); setActionLoading(false); return; }
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: currentUser.email,
                 password: newUserPassword,
@@ -356,7 +381,7 @@ const AdminConsole: React.FC = () => {
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             });
-            alert("User created!");
+            toast.success("User created!");
         } else {
             await supabase.from('profiles').update({
                 full_name: currentUser.fullName,
@@ -368,12 +393,12 @@ const AdminConsole: React.FC = () => {
                 is_active: currentUser.isActive,
                 updated_at: new Date().toISOString()
             }).eq('id', currentUser.id);
-            alert("User updated!");
+            toast.success("User updated!");
         }
         setShowUserModal(false);
         refetchProfiles();
       } catch (err: any) {
-          alert("Error: " + (err.message || JSON.stringify(err)));
+          toast.error("Error: " + (err.message || JSON.stringify(err)));
       } finally {
           setActionLoading(false);
       }
@@ -825,6 +850,47 @@ const AdminConsole: React.FC = () => {
           {activeSection==='fx' && renderFxRates()}
         </>}
       </main>
+
+      {/* Confirmation Dialogs */}
+      <ConfirmDialog
+        isOpen={hardDeleteConfirm.show}
+        title="Permanently Delete"
+        message="Are you sure? This action is irreversible and the item will be permanently removed."
+        onConfirm={confirmHardDelete}
+        onCancel={() => setHardDeleteConfirm({ show: false, id: '' })}
+        confirmText="Delete Forever"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={deleteFxConfirm.show}
+        title="Delete Exchange Rate"
+        message="Are you sure you want to delete this exchange rate?"
+        onConfirm={confirmDeleteFx}
+        onCancel={() => setDeleteFxConfirm({ show: false, id: '' })}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={deleteTemplateConfirm.show}
+        title="Delete Template"
+        message="Are you sure you want to delete this template?"
+        onConfirm={confirmDeleteTemplate}
+        onCancel={() => setDeleteTemplateConfirm({ show: false, id: '' })}
+        confirmText="Delete"
+        variant="danger"
+      />
+
+      <ConfirmDialog
+        isOpen={deleteDeptConfirm.show}
+        title="Delete Department"
+        message={`Are you sure you want to delete department "${deleteDeptConfirm.name}"?`}
+        onConfirm={confirmDeleteDepartment}
+        onCancel={() => setDeleteDeptConfirm({ show: false, id: '', name: '' })}
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 };

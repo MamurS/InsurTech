@@ -5,9 +5,11 @@ import { DB } from '../services/db';
 import { formatDate } from '../utils/dateUtils';
 import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 import { supabase } from '../services/supabase';
-import { 
-  X, Building2, Calendar, DollarSign, 
-  CheckCircle, FileText, Upload, AlertCircle, XCircle, AlertTriangle, 
+import { useToast } from '../context/ToastContext';
+import { ConfirmDialog } from './ConfirmDialog';
+import {
+  X, Building2, Calendar, DollarSign,
+  CheckCircle, FileText, Upload, AlertCircle, XCircle, AlertTriangle,
   MapPin, Shield, Settings, Send, RefreshCw, Archive
 } from 'lucide-react';
 
@@ -22,11 +24,24 @@ interface DetailModalProps {
 export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefresh, title }) => {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+  const toast = useToast();
+
   // Modal States
   const [showTerminationConfirm, setShowTerminationConfirm] = useState(false);
   const [showNTUConfirm, setShowNTUConfirm] = useState(false);
   const [showActivateConfirm, setShowActivateConfirm] = useState(false);
+
+  // Slip workflow confirmation state
+  const [slipStatusConfirm, setSlipStatusConfirm] = useState<{
+    show: boolean;
+    newStatus: string;
+    additionalFields?: any;
+    message: string;
+  }>({ show: false, newStatus: '', message: '' });
+
+  // Decline modal state
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [declineReason, setDeclineReason] = useState('');
 
   const [terminationData, setTerminationData] = useState<TerminationDetails>({
       terminationDate: new Date().toISOString().split('T')[0],
@@ -70,7 +85,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         onClose();
     } catch (e) {
         console.error("Error updating status:", e);
-        alert("Error updating status");
+        toast.error("Error updating status");
     } finally {
         setIsProcessing(false);
     }
@@ -78,95 +93,109 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
   // --- SLIP WORKFLOW HANDLERS ---
 
-  const handleSlipStatusChange = async (newStatus: string, additionalFields: any = {}) => {
+  const statusLabels: Record<string, string> = {
+      'PENDING': 'submit for review',
+      'QUOTED': 'mark as quoted',
+      'SIGNED': 'sign',
+      'SENT': 'send to reinsurer',
+      'BOUND': 'confirm as bound',
+      'CLOSED': 'close',
+      'DECLINED': 'decline',
+      'NTU': 'mark as not taken up',
+      'CANCELLED': 'cancel'
+  };
+
+  const requestSlipStatusChange = (newStatus: string, additionalFields: any = {}) => {
     if (!item || !('slipNumber' in item)) {
-        alert('Error: No slip selected');
+        toast.error('Error: No slip selected');
         return;
     }
+    setSlipStatusConfirm({
+        show: true,
+        newStatus,
+        additionalFields,
+        message: `Are you sure you want to ${statusLabels[newStatus] || newStatus.toLowerCase()} this slip?`
+    });
+  };
+
+  const confirmSlipStatusChange = async () => {
+    if (!item || !('slipNumber' in item)) return;
     const slip = item as ReinsuranceSlip;
-    
-    const statusLabels: Record<string, string> = {
-        'PENDING': 'submit for review',
-        'QUOTED': 'mark as quoted',
-        'SIGNED': 'sign',
-        'SENT': 'send to reinsurer',
-        'BOUND': 'confirm as bound',
-        'CLOSED': 'close',
-        'DECLINED': 'decline',
-        'NTU': 'mark as not taken up',
-        'CANCELLED': 'cancel'
-    };
-    
-    if (!window.confirm(`Are you sure you want to ${statusLabels[newStatus] || newStatus.toLowerCase()} this slip?`)) {
-        return;
-    }
-    
+    const { newStatus, additionalFields } = slipStatusConfirm;
+
+    setSlipStatusConfirm({ show: false, newStatus: '', message: '' });
+
     try {
-        const updateData: any = { 
+        const updateData: any = {
             status: newStatus,
             updated_at: new Date().toISOString(),
             ...additionalFields
         };
-        
+
         if (supabase) {
             const { error } = await supabase
                 .from('slips')
                 .update(updateData)
                 .eq('id', slip.id);
-            
+
             if (error) throw error;
         } else {
             // Local fallback
             const updatedSlip = { ...slip, ...updateData };
             await DB.saveSlip(updatedSlip);
         }
-        
-        alert(`Slip ${statusLabels[newStatus] || 'updated'} successfully!`);
+
+        toast.success(`Slip ${statusLabels[newStatus] || 'updated'} successfully!`);
         window.location.reload();
-        
+
     } catch (error: any) {
         console.error('Error updating slip status:', error);
-        alert('Failed to update slip: ' + (error.message || 'Unknown error'));
+        toast.error('Failed to update slip: ' + (error.message || 'Unknown error'));
     }
   };
 
-  const handleSlipDecline = async () => {
+  const handleSlipDecline = () => {
+    if (!item || !('slipNumber' in item)) return;
+    setDeclineReason('');
+    setShowDeclineModal(true);
+  };
+
+  const confirmSlipDecline = async () => {
     if (!item || !('slipNumber' in item)) return;
     const slip = item as ReinsuranceSlip;
-    
-    const reason = window.prompt('Please enter the reason for declining:');
-    if (reason === null) return; // User cancelled
-    
+
+    setShowDeclineModal(false);
+
     try {
         if (supabase) {
             const { error } = await supabase
                 .from('slips')
                 .update({
                     status: 'DECLINED',
-                    decline_reason: reason, // Assuming column exists or handled by flexibility
+                    decline_reason: declineReason,
                     declined_date: new Date().toISOString().split('T')[0],
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', slip.id);
-            
+
             if (error) throw error;
         } else {
              // Local fallback
-             const updatedSlip = { 
-                 ...slip, 
-                 status: 'DECLINED' as any, 
-                 decline_reason: reason,
+             const updatedSlip = {
+                 ...slip,
+                 status: 'DECLINED' as any,
+                 decline_reason: declineReason,
                  declined_date: new Date().toISOString().split('T')[0]
              };
              await DB.saveSlip(updatedSlip);
         }
-        
-        alert('Slip declined successfully!');
+
+        toast.success('Slip declined successfully!');
         window.location.reload();
-        
+
     } catch (error: any) {
         console.error('Error declining slip:', error);
-        alert('Failed to decline slip: ' + (error.message || 'Unknown error'));
+        toast.error('Failed to decline slip: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -388,7 +417,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {/* DRAFT status */}
                 {(!slip.status || currentStatus === 'DRAFT') && (
                     <button 
-                        onClick={() => handleSlipStatusChange('PENDING')}
+                        onClick={() => requestSlipStatusChange('PENDING')}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
                         <Send size={16} />
@@ -400,7 +429,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {currentStatus === 'PENDING' && (
                     <>
                         <button 
-                            onClick={() => handleSlipStatusChange('QUOTED')}
+                            onClick={() => requestSlipStatusChange('QUOTED')}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <FileText size={16} />
@@ -420,14 +449,14 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {currentStatus === 'QUOTED' && (
                     <>
                         <button 
-                            onClick={() => handleSlipStatusChange('SIGNED', { signed_date: new Date().toISOString().split('T')[0] })}
+                            onClick={() => requestSlipStatusChange('SIGNED', { signed_date: new Date().toISOString().split('T')[0] })}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <CheckCircle size={16} />
                             Accept & Sign
                         </button>
                         <button 
-                            onClick={() => handleSlipStatusChange('NTU')}
+                            onClick={() => requestSlipStatusChange('NTU')}
                             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <XCircle size={16} />
@@ -439,7 +468,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {/* SIGNED status */}
                 {currentStatus === 'SIGNED' && (
                     <button 
-                        onClick={() => handleSlipStatusChange('SENT', { sent_date: new Date().toISOString().split('T')[0] })}
+                        onClick={() => requestSlipStatusChange('SENT', { sent_date: new Date().toISOString().split('T')[0] })}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
                         <Send size={16} />
@@ -451,14 +480,14 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {currentStatus === 'SENT' && (
                     <>
                         <button 
-                            onClick={() => handleSlipStatusChange('BOUND', { bound_date: new Date().toISOString().split('T')[0] })}
+                            onClick={() => requestSlipStatusChange('BOUND', { bound_date: new Date().toISOString().split('T')[0] })}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <CheckCircle size={16} />
                             Confirm Bound
                         </button>
                         <button 
-                            onClick={() => handleSlipStatusChange('NTU')}
+                            onClick={() => requestSlipStatusChange('NTU')}
                             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <XCircle size={16} />
@@ -470,7 +499,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {/* BOUND status */}
                 {currentStatus === 'BOUND' && (
                     <button 
-                        onClick={() => handleSlipStatusChange('CLOSED', { closed_date: new Date().toISOString().split('T')[0] })}
+                        onClick={() => requestSlipStatusChange('CLOSED', { closed_date: new Date().toISOString().split('T')[0] })}
                         className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
                         <Archive size={16} />
@@ -481,7 +510,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                 {/* DECLINED, NTU, CANCELLED status */}
                 {['DECLINED', 'NTU', 'CANCELLED'].includes(currentStatus) && (
                     <button 
-                        onClick={() => handleSlipStatusChange('PENDING')}
+                        onClick={() => requestSlipStatusChange('PENDING')}
                         className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
                         <RefreshCw size={16} />
@@ -586,6 +615,45 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
         {showTerminationConfirm && renderTerminationModal()}
         {showNTUConfirm && renderNTUModal()}
         {showActivateConfirm && renderActivateModal()}
+
+        {/* Slip Status Change Confirm Dialog */}
+        <ConfirmDialog
+            isOpen={slipStatusConfirm.show}
+            title="Confirm Action"
+            message={slipStatusConfirm.message}
+            onConfirm={confirmSlipStatusChange}
+            onCancel={() => setSlipStatusConfirm({ show: false, newStatus: '', message: '' })}
+            confirmText="Confirm"
+            variant="warning"
+        />
+
+        {/* Decline Slip Modal */}
+        {showDeclineModal && (
+            <div className="absolute inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-200" onClick={(e) => e.stopPropagation()}>
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border border-gray-200 overflow-hidden">
+                    <div className="bg-red-50 p-4 border-b border-red-100 flex items-center gap-3">
+                        <div className="bg-red-100 p-2 rounded-full text-red-600"><XCircle size={20}/></div>
+                        <h3 className="font-bold text-gray-800">Decline Slip</h3>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Reason for Declining</label>
+                            <textarea
+                                rows={3}
+                                value={declineReason}
+                                onChange={(e) => setDeclineReason(e.target.value)}
+                                placeholder="Please enter the reason for declining..."
+                                className="w-full p-2 bg-white border rounded-lg text-sm resize-none text-gray-900"
+                            />
+                        </div>
+                    </div>
+                    <div className="p-4 bg-gray-50 border-t flex justify-end gap-2">
+                        <button onClick={() => setShowDeclineModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg text-sm">Cancel</button>
+                        <button onClick={confirmSlipDecline} className="px-4 py-2 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 text-sm shadow-sm">Decline Slip</button>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
     </div>
   );
