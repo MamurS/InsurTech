@@ -493,14 +493,14 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
           {/* Contract Type Selector */}
           <div className="p-4 border-b border-gray-100">
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Contract Type</label>
-            <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+            <div className="inline-flex p-1.5 bg-gray-200 rounded-lg gap-1">
               <button
                 type="button"
                 onClick={() => handleTypeChange('FAC')}
-                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 ${
                   activeType === 'FAC'
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <FileSpreadsheet size={16} />
@@ -509,10 +509,10 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
               <button
                 type="button"
                 onClick={() => handleTypeChange('TREATY')}
-                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-semibold transition-all duration-200 ${
                   activeType === 'TREATY'
-                    ? 'bg-white text-blue-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-blue-600 text-white shadow-md'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <Layers size={16} />
@@ -527,30 +527,30 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
           {/* Structure Selector */}
           <div className="p-4 bg-gray-50/50">
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Structure</label>
-            <div className="inline-flex p-1 bg-gray-200/70 rounded-lg">
+            <div className="inline-flex p-1.5 bg-gray-200 rounded-lg gap-1">
               <button
                 type="button"
                 onClick={() => handleStructureChange('PROPORTIONAL')}
-                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
                   activeStructure === 'PROPORTIONAL'
-                    ? 'bg-white text-emerald-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <span>Proportional</span>
-                <span className="text-xs opacity-70">(Quota Share / Surplus)</span>
+                <span className={`text-xs ${activeStructure === 'PROPORTIONAL' ? 'text-emerald-100' : 'text-gray-400'}`}>(Quota Share / Surplus)</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleStructureChange('NON_PROPORTIONAL')}
-                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold transition-all duration-200 ${
                   activeStructure === 'NON_PROPORTIONAL'
-                    ? 'bg-white text-amber-700 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-amber-600 text-white shadow-md'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <span>Non-Proportional</span>
-                <span className="text-xs opacity-70">(XoL / Stop Loss)</span>
+                <span className={`text-xs ${activeStructure === 'NON_PROPORTIONAL' ? 'text-amber-100' : 'text-gray-400'}`}>(XoL / Stop Loss)</span>
               </button>
             </div>
           </div>
