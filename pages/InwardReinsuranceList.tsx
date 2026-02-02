@@ -121,7 +121,20 @@ const InwardReinsuranceList: React.FC = () => {
     } catch (err: any) {
       console.error('Failed to fetch contracts:', err);
       // Check if the error is due to missing table (migration not run)
-      if (err?.code === 'PGRST205' || err?.message?.includes('inward_reinsurance')) {
+      const errorStr = JSON.stringify(err);
+      const isMigrationError =
+        err?.code === 'PGRST205' ||
+        err?.code === '42P01' ||
+        err?.status === 404 ||
+        err?.statusCode === 404 ||
+        err?.message?.includes('inward_reinsurance') ||
+        err?.message?.includes('schema cache') ||
+        err?.message?.includes('does not exist') ||
+        errorStr?.includes('PGRST205') ||
+        errorStr?.includes('inward_reinsurance') ||
+        errorStr?.includes('schema cache');
+
+      if (isMigrationError) {
         setMigrationRequired(true);
       } else {
         toast.error('Failed to load contracts');
