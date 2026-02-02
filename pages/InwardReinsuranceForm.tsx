@@ -531,26 +531,24 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
               <button
                 type="button"
                 onClick={() => handleStructureChange('PROPORTIONAL')}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 px-4 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
                   activeStructure === 'PROPORTIONAL'
                     ? 'bg-emerald-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <span>Proportional</span>
-                <span className={`text-xs font-normal normal-case ${activeStructure === 'PROPORTIONAL' ? 'text-emerald-100' : 'text-gray-400'}`}>(Quota Share / Surplus)</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleStructureChange('NON_PROPORTIONAL')}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 px-4 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
                   activeStructure === 'NON_PROPORTIONAL'
                     ? 'bg-amber-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
                 <span>Non-Proportional</span>
-                <span className={`text-xs font-normal normal-case ${activeStructure === 'NON_PROPORTIONAL' ? 'text-amber-100' : 'text-gray-400'}`}>(XoL / Stop Loss)</span>
               </button>
             </div>
           </div>
