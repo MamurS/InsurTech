@@ -46,6 +46,9 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
   const [classOfCoverOptions, setClassOfCoverOptions] = useState<InwardReinsurancePreset[]>([]);
   const [industryOptions, setIndustryOptions] = useState<InwardReinsurancePreset[]>([]);
 
+  // Migration state
+  const [migrationRequired, setMigrationRequired] = useState(false);
+
   // Form state
   const [formData, setFormData] = useState<Partial<InwardReinsurance>>({
     id: crypto.randomUUID(),
@@ -126,14 +129,26 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
           .eq('is_active', true)
           .order('sort_order', { ascending: true });
 
-        if (!error && data) {
+        if (error) {
+          // Check if the error is due to missing table (migration not run)
+          if (error.code === 'PGRST205' || error.message?.includes('inward_reinsurance')) {
+            setMigrationRequired(true);
+          }
+          console.error('Failed to load presets:', error);
+          return;
+        }
+
+        if (data) {
           setTypeOfCoverOptions(data.filter(p => p.category === 'TYPE_OF_COVER'));
           setClassOfCoverOptions(data.filter(p => p.category === 'CLASS_OF_COVER'));
           setIndustryOptions(data.filter(p => p.category === 'INDUSTRY'));
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load presets:', err);
+      if (err?.code === 'PGRST205' || err?.message?.includes('inward_reinsurance')) {
+        setMigrationRequired(true);
+      }
     }
   };
 
@@ -147,7 +162,16 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
           .eq('id', contractId)
           .single();
 
-        if (!error && data) {
+        if (error) {
+          // Check if the error is due to missing table (migration not run)
+          if (error.code === 'PGRST205' || error.message?.includes('inward_reinsurance')) {
+            setMigrationRequired(true);
+          }
+          console.error('Failed to load contract:', error);
+          return null;
+        }
+
+        if (data) {
           return {
             id: data.id,
             contractNumber: data.contract_number,
@@ -312,7 +336,13 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
       navigate(`/inward-reinsurance/${pathOrigin.toLowerCase()}`);
     } catch (err: any) {
       console.error('Save error:', err);
-      toast.error('Failed to save: ' + (err.message || 'Unknown error'));
+      // Check if the error is due to missing table (migration not run)
+      if (err?.code === 'PGRST205' || err?.message?.includes('inward_reinsurance')) {
+        setMigrationRequired(true);
+        toast.error('Database tables not found. Please run the migration script.');
+      } else {
+        toast.error('Failed to save: ' + (err.message || 'Unknown error'));
+      }
     } finally {
       setSaving(false);
     }
@@ -320,6 +350,54 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
 
   if (loading) {
     return <div className="p-8 text-center text-gray-500">Loading...</div>;
+  }
+
+  // Show migration required message
+  if (migrationRequired) {
+    return (
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center gap-4 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate(`/inward-reinsurance/${pathOrigin.toLowerCase()}`)}
+            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-800">
+            {pathOrigin === 'FOREIGN' ? 'Foreign' : 'Domestic'} Inward Reinsurance
+          </h1>
+        </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+              <FileSpreadsheet size={20} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-amber-800">Database Setup Required</h3>
+              <p className="text-amber-700 mt-1">
+                The Inward Reinsurance tables have not been created in the database yet.
+              </p>
+              <p className="text-amber-600 mt-2 text-sm">
+                To use this feature, please run the migration script in your Supabase SQL Editor:
+              </p>
+              <code className="block mt-2 p-3 bg-amber-100 rounded-lg text-sm text-amber-900 font-mono">
+                supabase_inward_reinsurance_migration.sql
+              </code>
+              <p className="text-amber-600 mt-3 text-sm">
+                You can find this file in the root directory of the project. Copy its contents and execute it in the Supabase Dashboard SQL Editor.
+              </p>
+              <button
+                onClick={() => { setMigrationRequired(false); window.location.reload(); }}
+                className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+              >
+                Retry After Running Migration
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Priority currencies

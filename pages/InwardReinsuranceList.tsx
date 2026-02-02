@@ -33,6 +33,7 @@ const InwardReinsuranceList: React.FC = () => {
     isOpen: false, id: '', number: ''
   });
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  const [migrationRequired, setMigrationRequired] = useState(false);
 
   // Fetch contracts
   const fetchContracts = async () => {
@@ -119,7 +120,12 @@ const InwardReinsuranceList: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to fetch contracts:', err);
-      toast.error('Failed to load contracts');
+      // Check if the error is due to missing table (migration not run)
+      if (err?.code === 'PGRST205' || err?.message?.includes('inward_reinsurance')) {
+        setMigrationRequired(true);
+      } else {
+        toast.error('Failed to load contracts');
+      }
     } finally {
       setLoading(false);
     }
@@ -291,7 +297,40 @@ const InwardReinsuranceList: React.FC = () => {
         </div>
       </div>
 
+      {/* Migration Required Message */}
+      {migrationRequired && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+              <FileSpreadsheet size={20} className="text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-amber-800">Database Setup Required</h3>
+              <p className="text-amber-700 mt-1">
+                The Inward Reinsurance tables have not been created in the database yet.
+              </p>
+              <p className="text-amber-600 mt-2 text-sm">
+                To use this feature, please run the migration script in your Supabase SQL Editor:
+              </p>
+              <code className="block mt-2 p-3 bg-amber-100 rounded-lg text-sm text-amber-900 font-mono">
+                supabase_inward_reinsurance_migration.sql
+              </code>
+              <p className="text-amber-600 mt-3 text-sm">
+                You can find this file in the root directory of the project. Copy its contents and execute it in the Supabase Dashboard SQL Editor.
+              </p>
+              <button
+                onClick={() => { setMigrationRequired(false); fetchContracts(); }}
+                className="mt-4 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 text-sm font-medium"
+              >
+                Retry After Running Migration
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
+      {!migrationRequired && (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-gray-500">Loading contracts...</div>
@@ -431,6 +470,7 @@ const InwardReinsuranceList: React.FC = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Delete Confirmation */}
       <ConfirmDialog
