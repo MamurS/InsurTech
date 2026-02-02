@@ -107,11 +107,22 @@ The application follows a **Client-Server architecture** where the React fronten
     SUPABASE_URL="your_supabase_project_url"
     SUPABASE_KEY="your_supabase_anon_key"
     ```
-4.  **Run Development Server:**
+4.  **Database Setup:**
+    Run the following SQL migration scripts in your Supabase SQL Editor (in order):
+    - `supabase_schema.sql` - Base schema
+    - `supabase_migration.sql` - Initial migration
+    - `supabase_departments_migration.sql` - Departments module
+    - `supabase_claims_migration.sql` - Claims module
+    - `supabase_agenda_migration.sql` - Agenda/Tasks module
+    - `supabase_inward_reinsurance_migration.sql` - Inward Reinsurance module
+
+    **Note:** If you see an error like "Could not find the table 'public.inward_reinsurance' in the schema cache", you need to run the corresponding migration script in Supabase.
+
+5.  **Run Development Server:**
     ```bash
     npm run dev
     ```
-5.  **Build for Production:**
+6.  **Build for Production:**
     ```bash
     npm run build
     ```
