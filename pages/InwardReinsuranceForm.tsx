@@ -493,47 +493,42 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
           {/* Contract Type Selector */}
           <div className="p-4 border-b border-gray-100">
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Contract Type</label>
-            <div className="flex p-1.5 bg-gray-200 rounded-lg gap-1">
+            <div className="flex p-1 bg-gray-200 rounded-lg gap-1">
               <button
                 type="button"
                 onClick={() => handleTypeChange('FAC')}
-                className={`flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
                   activeType === 'FAC'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <FileSpreadsheet size={18} />
-                <span>Facultative (FAC)</span>
+                <span>Facultative</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleTypeChange('TREATY')}
-                className={`flex-1 flex items-center justify-center gap-2 px-5 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
                   activeType === 'TREATY'
                     ? 'bg-blue-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
-                <Layers size={18} />
                 <span>Treaty</span>
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-2">
-              {activeType === 'FAC' ? 'Individual risk placement' : 'Portfolio/program placement'}
-            </p>
           </div>
 
           {/* Structure Selector */}
           <div className="p-4 bg-gray-50/50">
             <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Structure</label>
-            <div className="flex p-1.5 bg-gray-200 rounded-lg gap-1">
+            <div className="flex p-1 bg-gray-200 rounded-lg gap-1">
               <button
                 type="button"
                 onClick={() => handleStructureChange('PROPORTIONAL')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
                   activeStructure === 'PROPORTIONAL'
-                    ? 'bg-emerald-600 text-white shadow-md'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
@@ -542,9 +537,9 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
               <button
                 type="button"
                 onClick={() => handleStructureChange('NON_PROPORTIONAL')}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
+                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md text-sm font-bold uppercase tracking-wide transition-all duration-200 ${
                   activeStructure === 'NON_PROPORTIONAL'
-                    ? 'bg-amber-600 text-white shadow-md'
+                    ? 'bg-blue-600 text-white shadow-md'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                 }`}
               >
