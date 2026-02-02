@@ -490,63 +490,69 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
 
         {/* Type Tabs (FAC / TREATY) */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-6">
-          <div className="flex border-b">
-            <button
-              type="button"
-              onClick={() => handleTypeChange('FAC')}
-              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
-                activeType === 'FAC'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <FileSpreadsheet size={18} />
+          {/* Contract Type Selector */}
+          <div className="p-4 border-b border-gray-100">
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Contract Type</label>
+            <div className="inline-flex p-1 bg-gray-100 rounded-lg">
+              <button
+                type="button"
+                onClick={() => handleTypeChange('FAC')}
+                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  activeType === 'FAC'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <FileSpreadsheet size={16} />
                 <span>Facultative (FAC)</span>
-              </div>
-              <p className="text-xs font-normal mt-1 opacity-70">Individual risk placement</p>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleTypeChange('TREATY')}
-              className={`flex-1 py-4 px-6 text-center font-semibold transition-colors ${
-                activeType === 'TREATY'
-                  ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Layers size={18} />
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTypeChange('TREATY')}
+                className={`relative flex items-center gap-2 px-5 py-2.5 rounded-md text-sm font-medium transition-all duration-200 ${
+                  activeType === 'TREATY'
+                    ? 'bg-white text-blue-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <Layers size={16} />
                 <span>Treaty</span>
-              </div>
-              <p className="text-xs font-normal mt-1 opacity-70">Portfolio/program placement</p>
-            </button>
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              {activeType === 'FAC' ? 'Individual risk placement' : 'Portfolio/program placement'}
+            </p>
           </div>
 
-          {/* Structure Tabs (PROPORTIONAL / NON-PROPORTIONAL) */}
-          <div className="flex border-b bg-gray-50">
-            <button
-              type="button"
-              onClick={() => handleStructureChange('PROPORTIONAL')}
-              className={`flex-1 py-3 px-6 text-center font-medium transition-colors text-sm ${
-                activeStructure === 'PROPORTIONAL'
-                  ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Proportional (Quota Share / Surplus)
-            </button>
-            <button
-              type="button"
-              onClick={() => handleStructureChange('NON_PROPORTIONAL')}
-              className={`flex-1 py-3 px-6 text-center font-medium transition-colors text-sm ${
-                activeStructure === 'NON_PROPORTIONAL'
-                  ? 'text-emerald-600 border-b-2 border-emerald-600 bg-white'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              Non-Proportional (XoL / Stop Loss)
-            </button>
+          {/* Structure Selector */}
+          <div className="p-4 bg-gray-50/50">
+            <label className="block text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Structure</label>
+            <div className="inline-flex p-1 bg-gray-200/70 rounded-lg">
+              <button
+                type="button"
+                onClick={() => handleStructureChange('PROPORTIONAL')}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  activeStructure === 'PROPORTIONAL'
+                    ? 'bg-white text-emerald-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <span>Proportional</span>
+                <span className="text-xs opacity-70">(Quota Share / Surplus)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleStructureChange('NON_PROPORTIONAL')}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  activeStructure === 'NON_PROPORTIONAL'
+                    ? 'bg-white text-amber-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                <span>Non-Proportional</span>
+                <span className="text-xs opacity-70">(XoL / Stop Loss)</span>
+              </button>
+            </div>
           </div>
 
           {/* Form Content */}
