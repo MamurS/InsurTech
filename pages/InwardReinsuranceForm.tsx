@@ -131,7 +131,18 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
 
         if (error) {
           // Check if the error is due to missing table (migration not run)
-          if (error.code === 'PGRST205' || error.message?.includes('inward_reinsurance')) {
+          const errorStr = JSON.stringify(error);
+          const isMigrationError =
+            error.code === 'PGRST205' ||
+            error.code === '42P01' ||
+            (error as any).status === 404 ||
+            (error as any).statusCode === 404 ||
+            error.message?.includes('inward_reinsurance') ||
+            error.message?.includes('schema cache') ||
+            error.message?.includes('does not exist') ||
+            errorStr?.includes('PGRST205') ||
+            errorStr?.includes('inward_reinsurance');
+          if (isMigrationError) {
             setMigrationRequired(true);
           }
           console.error('Failed to load presets:', error);
@@ -146,7 +157,17 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
       }
     } catch (err: any) {
       console.error('Failed to load presets:', err);
-      if (err?.code === 'PGRST205' || err?.message?.includes('inward_reinsurance')) {
+      const errorStr = JSON.stringify(err);
+      const isMigrationError =
+        err?.code === 'PGRST205' ||
+        err?.code === '42P01' ||
+        err?.status === 404 ||
+        err?.statusCode === 404 ||
+        err?.message?.includes('inward_reinsurance') ||
+        err?.message?.includes('schema cache') ||
+        errorStr?.includes('PGRST205') ||
+        errorStr?.includes('inward_reinsurance');
+      if (isMigrationError) {
         setMigrationRequired(true);
       }
     }
@@ -164,7 +185,18 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
 
         if (error) {
           // Check if the error is due to missing table (migration not run)
-          if (error.code === 'PGRST205' || error.message?.includes('inward_reinsurance')) {
+          const errorStr = JSON.stringify(error);
+          const isMigrationError =
+            error.code === 'PGRST205' ||
+            error.code === '42P01' ||
+            (error as any).status === 404 ||
+            (error as any).statusCode === 404 ||
+            error.message?.includes('inward_reinsurance') ||
+            error.message?.includes('schema cache') ||
+            error.message?.includes('does not exist') ||
+            errorStr?.includes('PGRST205') ||
+            errorStr?.includes('inward_reinsurance');
+          if (isMigrationError) {
             setMigrationRequired(true);
           }
           console.error('Failed to load contract:', error);
@@ -337,7 +369,18 @@ const InwardReinsuranceForm: React.FC<InwardReinsuranceFormProps> = () => {
     } catch (err: any) {
       console.error('Save error:', err);
       // Check if the error is due to missing table (migration not run)
-      if (err?.code === 'PGRST205' || err?.message?.includes('inward_reinsurance')) {
+      const errorStr = JSON.stringify(err);
+      const isMigrationError =
+        err?.code === 'PGRST205' ||
+        err?.code === '42P01' ||
+        err?.status === 404 ||
+        err?.statusCode === 404 ||
+        err?.message?.includes('inward_reinsurance') ||
+        err?.message?.includes('schema cache') ||
+        err?.message?.includes('does not exist') ||
+        errorStr?.includes('PGRST205') ||
+        errorStr?.includes('inward_reinsurance');
+      if (isMigrationError) {
         setMigrationRequired(true);
         toast.error('Database tables not found. Please run the migration script.');
       } else {
