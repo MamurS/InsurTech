@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MosaicLogo } from './MosaicLogo';
 import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
@@ -216,10 +215,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </button>
                 </div>
 
-                {/* TOP RIGHT MOSAIC LOGO */}
-                <div className="flex items-center opacity-90 hover:opacity-100 transition-opacity">
-                    <MosaicLogo className="h-10 w-auto" variant="color" withText={true} />
-                </div>
           </header>
 
           {/* Scrollable Page Content */}

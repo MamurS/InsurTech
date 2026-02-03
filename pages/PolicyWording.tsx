@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate } from '../types';
-import { MosaicLogo } from '../components/MosaicLogo';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
 import { Printer, ArrowLeft, Settings2, FileText } from 'lucide-react';
 
@@ -56,7 +55,7 @@ const DEFAULT_TEMPLATE: PolicyTemplate = {
         </div>
 
         <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #cbd5e0;">
-            <p style="margin-bottom: 40px;">Signed for and on behalf of <strong>InsurTech Solutions</strong></p>
+            <p style="margin-bottom: 40px;">Signed for and on behalf of <strong>Policy Manager</strong></p>
             <div style="width: 200px; border-bottom: 1px solid #000; margin-bottom: 10px;"></div>
             <p style="font-size: 12px; color: #718096;">Authorized Signatory<br/>Date: {{issueDate}}</p>
         </div>
@@ -153,17 +152,14 @@ const PolicyWording: React.FC = () => {
 
     return (
         <div className="max-w-[210mm] mx-auto bg-white p-[20mm] shadow-lg min-h-[297mm] print:shadow-none print:w-full relative overflow-hidden">
-            {/* Watermark */}
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[60%] opacity-[0.03] pointer-events-none print:block hidden">
-                <MosaicLogo className="w-full h-full" variant="monochrome" />
-            </div>
-
              {/* Header */}
             <div className="border-b-2 border-slate-900 pb-4 mb-8 flex justify-between items-start relative z-10">
                 <div className="flex items-center gap-4">
-                    <MosaicLogo className="w-16 h-16" />
+                    <div className="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center">
+                        <FileText className="w-6 h-6 text-white" />
+                    </div>
                     <div>
-                        <h1 className="text-2xl font-serif font-bold text-slate-900">InsurTech Solutions</h1>
+                        <h1 className="text-2xl font-serif font-bold text-slate-900">Policy Manager</h1>
                         <p className="text-slate-500 text-sm uppercase tracking-widest">{template.name}</p>
                     </div>
                 </div>
@@ -191,12 +187,14 @@ const PolicyWording: React.FC = () => {
   const renderReinsuranceSlip = (policy: Policy) => (
     <div className="max-w-[210mm] mx-auto bg-white p-[20mm] shadow-lg min-h-[297mm] print:shadow-none print:w-full font-serif relative">
         <div className="flex justify-center mb-6">
-            <MosaicLogo className="w-12 h-12" />
+            <div className="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" />
+            </div>
         </div>
-        
+
         <div className="text-center mb-8 border-b-4 border-double border-gray-800 pb-4">
             <h1 className="text-2xl font-bold uppercase tracking-widest">Reinsurance Slip</h1>
-            <p className="text-sm text-gray-600 uppercase mt-1">InsurTech Solutions - {policy.channel}</p>
+            <p className="text-sm text-gray-600 uppercase mt-1">{policy.channel}</p>
         </div>
 
         <div className="grid grid-cols-4 gap-4 mb-6 text-sm relative z-10">
@@ -204,7 +202,7 @@ const PolicyWording: React.FC = () => {
             <div className="col-span-3 font-bold">{policy.classOfInsurance}</div>
 
             <div className="font-bold text-right text-gray-600">REINSURED:</div>
-            <div className="col-span-3">{policy.channel === 'Inward' ? policy.cedantName : 'InsurTech Solutions'}</div>
+            <div className="col-span-3">{policy.channel === 'Inward' ? policy.cedantName : 'Policy Manager'}</div>
 
             <div className="font-bold text-right text-gray-600">ORIGINAL INSURED:</div>
             <div className="col-span-3">{policy.insuredName}</div>
@@ -235,7 +233,7 @@ const PolicyWording: React.FC = () => {
             <h3 className="font-bold text-sm mb-4">SECURITY / MARKET:</h3>
             <div className="border p-4 rounded text-sm">
                 <div className="flex justify-between mb-2">
-                    <span>{policy.channel === 'Inward' ? 'InsurTech Solutions' : policy.reinsurerName}</span>
+                    <span>{policy.channel === 'Inward' ? 'Policy Manager' : policy.reinsurerName}</span>
                     <span className="font-bold">{policy.ourShare}% Line</span>
                 </div>
                 <div className="text-xs text-gray-500">
@@ -249,9 +247,11 @@ const PolicyWording: React.FC = () => {
   const renderRegistrySlipNote = (slip: ReinsuranceSlip) => (
     <div className="max-w-[210mm] mx-auto bg-white p-[20mm] shadow-lg min-h-[297mm] print:shadow-none print:w-full font-sans relative">
          <div className="flex items-center gap-4 border-b pb-6 mb-10">
-            <MosaicLogo className="w-14 h-14" />
+            <div className="w-12 h-12 rounded-lg bg-slate-900 flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" />
+            </div>
             <div>
-                 <h1 className="text-xl font-bold text-slate-900">InsurTech Solutions</h1>
+                 <h1 className="text-xl font-bold text-slate-900">Policy Manager</h1>
                  <p className="text-slate-500 text-sm">INTERNAL SLIP ALLOCATION NOTE</p>
             </div>
         </div>
