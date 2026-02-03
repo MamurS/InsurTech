@@ -17,8 +17,8 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { ContextBar } from '../components/ContextBar';
 import {
   ArrowLeft, FileText, Building, Hash, DollarSign,
-  Globe, Home, Layers, ArrowDownRight, Calendar, Percent,
-  User, Shield
+  Globe, Home, Layers, ArrowDownRight, Percent,
+  User, Shield, AlertCircle
 } from 'lucide-react';
 
 // Form Section Card Component (non-collapsible, matching prototype)
@@ -50,6 +50,21 @@ const FormSection: React.FC<FormSectionProps> = ({
   );
 };
 
+// Error message component
+interface FieldErrorProps {
+  error?: string;
+}
+
+const FieldError: React.FC<FieldErrorProps> = ({ error }) => {
+  if (!error) return null;
+  return (
+    <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+      <AlertCircle size={12} />
+      {error}
+    </p>
+  );
+};
+
 // Background gradient classes based on type + structure
 const backgroundGradients: Record<string, string> = {
   'FAC-PROPORTIONAL': 'bg-gradient-to-br from-amber-50/50 via-blue-50/30 to-slate-50',
@@ -57,6 +72,9 @@ const backgroundGradients: Record<string, string> = {
   'TREATY-PROPORTIONAL': 'bg-gradient-to-br from-emerald-50/50 via-blue-50/30 to-slate-50',
   'TREATY-NON_PROPORTIONAL': 'bg-gradient-to-br from-emerald-50/50 via-violet-50/30 to-slate-50',
 };
+
+// Validation errors type
+type FormErrors = Record<string, string>;
 
 const InwardReinsuranceForm: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -71,6 +89,9 @@ const InwardReinsuranceForm: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveState, setSaveState] = useState<'unsaved' | 'saving' | 'saved'>('unsaved');
+
+  // Validation errors state
+  const [errors, setErrors] = useState<FormErrors>({});
 
   // Tab states
   const [activeType, setActiveType] = useState<InwardReinsuranceType>('FAC');
@@ -146,6 +167,87 @@ const InwardReinsuranceForm: React.FC = () => {
       errorStr?.includes('inward_reinsurance') ||
       errorStr?.includes('schema cache')
     );
+  };
+
+  // Validate form
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    // Contract Number - Required
+    if (!formData.contractNumber?.trim()) {
+      newErrors.contractNumber = 'Contract number is required';
+    }
+
+    // Cedant Name - Required
+    if (!formData.cedantName?.trim()) {
+      newErrors.cedantName = 'Cedant name is required';
+    }
+
+    // Inception Date - Required
+    if (!formData.inceptionDate) {
+      newErrors.inceptionDate = 'Inception date is required';
+    }
+
+    // Expiry Date - Required, must be after inception
+    if (!formData.expiryDate) {
+      newErrors.expiryDate = 'Expiry date is required';
+    } else if (formData.inceptionDate && formData.expiryDate < formData.inceptionDate) {
+      newErrors.expiryDate = 'Expiry date must be after inception date';
+    }
+
+    // Type of Cover - Required
+    if (!formData.typeOfCover) {
+      newErrors.typeOfCover = 'Type of cover is required';
+    }
+
+    // Class of Cover - Required
+    if (!formData.classOfCover) {
+      newErrors.classOfCover = 'Class of cover is required';
+    }
+
+    // Our Share - Required, 0-100
+    if (formData.ourShare === undefined || formData.ourShare === null) {
+      newErrors.ourShare = 'Our share is required';
+    } else if (formData.ourShare < 0 || formData.ourShare > 100) {
+      newErrors.ourShare = 'Our share must be between 0 and 100';
+    }
+
+    // Limit of Liability - Required for Non-Proportional
+    if (activeStructure === 'NON_PROPORTIONAL') {
+      if (!formData.limitOfLiability || formData.limitOfLiability <= 0) {
+        newErrors.limitOfLiability = 'Limit is required for non-proportional contracts';
+      }
+    }
+
+    // FAC-specific: Original Insured Name required
+    if (activeType === 'FAC' && !formData.originalInsuredName?.trim()) {
+      newErrors.originalInsuredName = 'Original insured name is required for facultative contracts';
+    }
+
+    setErrors(newErrors);
+
+    // Scroll to first error
+    if (Object.keys(newErrors).length > 0) {
+      setTimeout(() => {
+        const firstErrorField = document.querySelector('[data-error="true"]');
+        if (firstErrorField) {
+          firstErrorField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Clear specific error when field changes
+  const clearError = (fieldName: string) => {
+    if (errors[fieldName]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[fieldName];
+        return newErrors;
+      });
+    }
   };
 
   // Load data
@@ -293,6 +395,7 @@ const InwardReinsuranceForm: React.FC = () => {
               type === 'number' ? Number(value) : value
     }));
     setSaveState('unsaved');
+    clearError(name);
   };
 
   // Handle type change
@@ -320,6 +423,13 @@ const InwardReinsuranceForm: React.FC = () => {
   // Handle form submit
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+
+    // Validate form first
+    if (!validateForm()) {
+      toast.error('Please fix the highlighted errors before saving');
+      return;
+    }
+
     setSaving(true);
     setSaveState('saving');
 
@@ -470,7 +580,9 @@ const InwardReinsuranceForm: React.FC = () => {
 
   const labelClass = "block text-xs font-medium text-slate-500 mb-1.5";
   const inputClass = "w-full h-10 px-3 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow";
+  const inputErrorClass = "border-red-500 ring-2 ring-red-500/20 focus:border-red-500 focus:ring-red-500/30";
   const selectClass = "w-full h-10 px-3 rounded-lg border border-slate-300 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow bg-white";
+  const selectErrorClass = "border-red-500 ring-2 ring-red-500/20 focus:border-red-500 focus:ring-red-500/30";
 
   // Get save state text
   const getSaveStateText = () => {
@@ -553,11 +665,12 @@ const InwardReinsuranceForm: React.FC = () => {
                     name="contractNumber"
                     value={formData.contractNumber}
                     onChange={handleChange}
-                    required
+                    data-error={!!errors.contractNumber}
                     placeholder="e.g., IR-2026-001"
-                    className={`${inputClass} pl-8`}
+                    className={`${inputClass} pl-8 ${errors.contractNumber ? inputErrorClass : ''}`}
                   />
                 </div>
+                <FieldError error={errors.contractNumber} />
               </div>
 
               <div className="w-28">
@@ -645,11 +758,12 @@ const InwardReinsuranceForm: React.FC = () => {
                       name="originalInsuredName"
                       value={formData.originalInsuredName || ''}
                       onChange={handleChange}
+                      data-error={!!errors.originalInsuredName}
                       placeholder="Company name"
-                      required
-                      className={`${inputClass} pl-8`}
+                      className={`${inputClass} pl-8 ${errors.originalInsuredName ? inputErrorClass : ''}`}
                     />
                   </div>
+                  <FieldError error={errors.originalInsuredName} />
                 </div>
                 <div>
                   <label className={labelClass}>Risk Location</label>
@@ -669,20 +783,25 @@ const InwardReinsuranceForm: React.FC = () => {
           {/* Cedant / Source Information */}
           <FormSection icon={<Building className="w-4 h-4" />} title="Cedant / Source Information">
             <div className="grid grid-cols-2 gap-5">
-              <EntitySearchInput
-                label="Cedant Name"
-                value={formData.cedantName || ''}
-                onChange={(name, entityId) => {
-                  setFormData(prev => ({
-                    ...prev,
-                    cedantName: name,
-                    cedantEntityId: entityId
-                  }));
-                  setSaveState('unsaved');
-                }}
-                placeholder="Insurance company name"
-                required
-              />
+              <div>
+                <EntitySearchInput
+                  label="Cedant Name"
+                  value={formData.cedantName || ''}
+                  onChange={(name, entityId) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      cedantName: name,
+                      cedantEntityId: entityId
+                    }));
+                    setSaveState('unsaved');
+                    clearError('cedantName');
+                  }}
+                  placeholder="Insurance company name"
+                  required
+                  className={errors.cedantName ? 'has-error' : ''}
+                />
+                <FieldError error={errors.cedantName} />
+              </div>
               <EntitySearchInput
                 label="Broker (if applicable)"
                 value={formData.brokerName || ''}
@@ -752,8 +871,8 @@ const InwardReinsuranceForm: React.FC = () => {
                   name="typeOfCover"
                   value={formData.typeOfCover}
                   onChange={handleChange}
-                  required
-                  className={selectClass}
+                  data-error={!!errors.typeOfCover}
+                  className={`${selectClass} ${errors.typeOfCover ? selectErrorClass : ''}`}
                 >
                   <option value="">Select...</option>
                   {typeOfCoverOptions.length > 0 ? (
@@ -771,6 +890,7 @@ const InwardReinsuranceForm: React.FC = () => {
                     </>
                   )}
                 </select>
+                <FieldError error={errors.typeOfCover} />
               </div>
               <div>
                 <label className={labelClass}>
@@ -780,8 +900,8 @@ const InwardReinsuranceForm: React.FC = () => {
                   name="classOfCover"
                   value={formData.classOfCover}
                   onChange={handleChange}
-                  required
-                  className={selectClass}
+                  data-error={!!errors.classOfCover}
+                  className={`${selectClass} ${errors.classOfCover ? selectErrorClass : ''}`}
                 >
                   <option value="">Select...</option>
                   {classOfCoverOptions.length > 0 ? (
@@ -799,6 +919,7 @@ const InwardReinsuranceForm: React.FC = () => {
                     </>
                   )}
                 </select>
+                <FieldError error={errors.classOfCover} />
               </div>
               <div>
                 <label className={labelClass}>Currency</label>
@@ -815,24 +936,34 @@ const InwardReinsuranceForm: React.FC = () => {
               </div>
             </div>
             <div className="grid grid-cols-3 gap-5">
-              <DatePickerInput
-                label="Period From"
-                value={formData.inceptionDate ? new Date(formData.inceptionDate) : null}
-                onChange={(date) => {
-                  setFormData(prev => ({ ...prev, inceptionDate: toISODateString(date) || '' }));
-                  setSaveState('unsaved');
-                }}
-                required
-              />
-              <DatePickerInput
-                label="Period To"
-                value={formData.expiryDate ? new Date(formData.expiryDate) : null}
-                onChange={(date) => {
-                  setFormData(prev => ({ ...prev, expiryDate: toISODateString(date) || '' }));
-                  setSaveState('unsaved');
-                }}
-                required
-              />
+              <div>
+                <DatePickerInput
+                  label="Period From"
+                  value={formData.inceptionDate ? new Date(formData.inceptionDate) : null}
+                  onChange={(date) => {
+                    setFormData(prev => ({ ...prev, inceptionDate: toISODateString(date) || '' }));
+                    setSaveState('unsaved');
+                    clearError('inceptionDate');
+                  }}
+                  required
+                  className={errors.inceptionDate ? 'border-red-500 ring-2 ring-red-500/20' : ''}
+                />
+                <FieldError error={errors.inceptionDate} />
+              </div>
+              <div>
+                <DatePickerInput
+                  label="Period To"
+                  value={formData.expiryDate ? new Date(formData.expiryDate) : null}
+                  onChange={(date) => {
+                    setFormData(prev => ({ ...prev, expiryDate: toISODateString(date) || '' }));
+                    setSaveState('unsaved');
+                    clearError('expiryDate');
+                  }}
+                  required
+                  className={errors.expiryDate ? 'border-red-500 ring-2 ring-red-500/20' : ''}
+                />
+                <FieldError error={errors.expiryDate} />
+              </div>
               <div>
                 <label className={labelClass}>Gross Premium</label>
                 <input
@@ -854,21 +985,23 @@ const InwardReinsuranceForm: React.FC = () => {
             {activeStructure === 'PROPORTIONAL' ? (
               <div className="grid grid-cols-3 gap-5">
                 <div>
-                  <label className={labelClass}>Our Share %</label>
+                  <label className={labelClass}>Our Share %<span className="text-red-500 ml-0.5">*</span></label>
                   <div className="relative">
                     <input
                       type="number"
                       name="ourShare"
                       value={formData.ourShare}
                       onChange={handleChange}
+                      data-error={!!errors.ourShare}
                       min={0}
                       max={100}
                       step="0.01"
                       placeholder="e.g., 5.00"
-                      className={`${inputClass} pr-8`}
+                      className={`${inputClass} pr-8 ${errors.ourShare ? inputErrorClass : ''}`}
                     />
                     <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   </div>
+                  <FieldError error={errors.ourShare} />
                 </div>
                 <div>
                   <label className={labelClass}>Ceding Commission %</label>
@@ -904,17 +1037,19 @@ const InwardReinsuranceForm: React.FC = () => {
             ) : (
               <div className="grid grid-cols-4 gap-5">
                 <div>
-                  <label className={labelClass}>Limit</label>
+                  <label className={labelClass}>Limit<span className="text-red-500 ml-0.5">*</span></label>
                   <input
                     type="number"
                     name="limitOfLiability"
                     value={formData.limitOfLiability}
                     onChange={handleChange}
+                    data-error={!!errors.limitOfLiability}
                     min={0}
                     step="0.01"
                     placeholder="e.g., 10,000,000"
-                    className={inputClass}
+                    className={`${inputClass} ${errors.limitOfLiability ? inputErrorClass : ''}`}
                   />
+                  <FieldError error={errors.limitOfLiability} />
                 </div>
                 <div>
                   <label className={labelClass}>Excess / Attachment</label>
@@ -947,21 +1082,23 @@ const InwardReinsuranceForm: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className={labelClass}>Our Share %</label>
+                  <label className={labelClass}>Our Share %<span className="text-red-500 ml-0.5">*</span></label>
                   <div className="relative">
                     <input
                       type="number"
                       name="ourShare"
                       value={formData.ourShare}
                       onChange={handleChange}
+                      data-error={!!errors.ourShare}
                       min={0}
                       max={100}
                       step="0.01"
                       placeholder="e.g., 5.00"
-                      className={`${inputClass} pr-8`}
+                      className={`${inputClass} pr-8 ${errors.ourShare ? inputErrorClass : ''}`}
                     />
                     <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   </div>
+                  <FieldError error={errors.ourShare} />
                 </div>
               </div>
             )}
