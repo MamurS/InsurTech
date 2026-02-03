@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { MosaicLogo } from '../components/MosaicLogo';
 import { supabase } from '../services/supabase';
 import { Lock, Loader2, CheckCircle, Mail, Key } from 'lucide-react';
 
@@ -188,28 +187,20 @@ const Login: React.FC = () => {
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4 font-sans">
       <div className="max-w-5xl w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row min-h-[600px]">
         
-        {/* Left Panel: Branding */}
-        <div className="p-12 md:w-1/2 flex flex-col justify-center relative overflow-hidden bg-black transition-colors duration-500">
-          {/* Background Watermark */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[150%] h-[150%] opacity-[0.05] pointer-events-none">
-             <MosaicLogo className="w-full h-full" variant="monochrome" />
-          </div>
-          
+        {/* Left Panel */}
+        <div className="p-12 md:w-1/2 flex flex-col justify-center relative overflow-hidden bg-slate-900 transition-colors duration-500">
           <div className="relative z-10 flex flex-col items-center text-center text-white">
-            <MosaicLogo className="w-32 h-32 mb-8" variant="color" />
-            
-            <h1 className="text-4xl font-light tracking-wide mb-2">InsurTech</h1>
-            <h1 className="text-4xl font-bold tracking-wide mb-8">Solutions</h1>
-            
-            <div className="w-16 h-1 bg-gradient-to-r mb-8 from-blue-500 via-green-500 to-red-500"></div>
-            
-            <p className="text-gray-400 text-lg font-light italic">
-              "Look to the future with confidence"
-            </p>
-          </div>
+            <div className="w-20 h-20 mb-8 rounded-2xl bg-gradient-to-br from-blue-500 via-emerald-500 to-amber-500 flex items-center justify-center">
+              <Lock size={36} className="text-white" />
+            </div>
 
-          <div className="relative z-10 mt-12 space-y-3 text-sm text-gray-500 text-center">
-             <p>A comprehensive platform for modern policy management.</p>
+            <h1 className="text-3xl font-bold tracking-wide mb-4">Policy Manager</h1>
+
+            <div className="w-16 h-1 bg-gradient-to-r mb-8 from-blue-500 via-emerald-500 to-amber-500"></div>
+
+            <p className="text-slate-400 text-lg font-light">
+              Comprehensive policy management platform
+            </p>
           </div>
         </div>
 

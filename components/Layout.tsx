@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { MosaicLogo } from './MosaicLogo';
 import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
@@ -44,14 +43,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         className={`bg-slate-900 text-white flex-shrink-0 flex flex-col z-30 transition-all duration-300 ease-in-out shadow-xl relative
         ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden'}`}
       >
-        <div className="p-6 border-b border-slate-700 flex items-center gap-3 whitespace-nowrap overflow-hidden h-20">
-          <div className="flex-shrink-0">
-             <MosaicLogo className="w-10 h-10" variant="color" withText={false} />
-          </div>
-          <div className={`transition-opacity duration-200 ${!isSidebarOpen && 'opacity-0'}`}>
-            <h1 className="text-lg font-bold tracking-tight leading-tight">InsurTech<br/><span className="text-blue-400 font-normal text-sm">Policy Manager</span></h1>
-          </div>
-        </div>
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden">
           <Link 
@@ -224,10 +215,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </button>
                 </div>
 
-                {/* TOP RIGHT MOSAIC LOGO */}
-                <div className="flex items-center opacity-90 hover:opacity-100 transition-opacity">
-                    <MosaicLogo className="h-10 w-auto" variant="color" withText={true} />
-                </div>
           </header>
 
           {/* Scrollable Page Content */}

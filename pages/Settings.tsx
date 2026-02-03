@@ -22,7 +22,7 @@ interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  companyName: 'InsurTech Solutions',
+  companyName: '',
   currency: 'USD',
   dateFormat: 'dd.mm.yyyy',
   defaultCommission: 15.0,
