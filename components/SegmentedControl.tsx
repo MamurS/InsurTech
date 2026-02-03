@@ -11,33 +11,47 @@ interface SegmentedControlProps {
   options: SegmentedControlOption[];
   value: string;
   onChange: (value: string) => void;
-  size?: 'sm' | 'md' | 'lg';
+  colorMap?: Record<string, string>; // value → Tailwind classes for selected state
+  size?: 'sm' | 'md';
   disabled?: boolean;
   className?: string;
-  fullWidth?: boolean;
 }
+
+// Default color map for common values
+const defaultColorMap: Record<string, string> = {
+  // Contract Type
+  FAC: 'bg-amber-500 text-white shadow-sm',
+  fac: 'bg-amber-500 text-white shadow-sm',
+  TREATY: 'bg-emerald-600 text-white shadow-sm',
+  treaty: 'bg-emerald-600 text-white shadow-sm',
+  // Structure
+  PROPORTIONAL: 'bg-blue-600 text-white shadow-sm',
+  proportional: 'bg-blue-600 text-white shadow-sm',
+  NON_PROPORTIONAL: 'bg-violet-600 text-white shadow-sm',
+  'non-proportional': 'bg-violet-600 text-white shadow-sm',
+  // Status
+  DRAFT: 'bg-slate-500 text-white shadow-sm',
+  draft: 'bg-slate-500 text-white shadow-sm',
+  PENDING: 'bg-amber-500 text-white shadow-sm',
+  pending: 'bg-amber-500 text-white shadow-sm',
+  ACTIVE: 'bg-emerald-600 text-white shadow-sm',
+  active: 'bg-emerald-600 text-white shadow-sm',
+};
 
 const sizeConfig = {
   sm: {
     padding: 'px-3 py-1.5',
     text: 'text-xs',
-    gap: 'gap-1',
+    gap: 'gap-1.5',
     container: 'p-0.5',
     height: 'h-8'
   },
   md: {
     padding: 'px-4 py-2',
     text: 'text-sm',
-    gap: 'gap-1.5',
-    container: 'p-1',
-    height: 'h-10'
-  },
-  lg: {
-    padding: 'px-5 py-2.5',
-    text: 'text-sm',
     gap: 'gap-2',
-    container: 'p-1',
-    height: 'h-12'
+    container: 'p-0.5',
+    height: 'h-10'
   }
 };
 
@@ -46,13 +60,16 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
   options,
   value,
   onChange,
+  colorMap,
   size = 'md',
   disabled = false,
-  className = '',
-  fullWidth = false
+  className = ''
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const config = sizeConfig[size];
+
+  // Merge default colors with custom colorMap
+  const mergedColorMap = { ...defaultColorMap, ...colorMap };
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent, currentIndex: number) => {
     if (disabled) return;
@@ -81,10 +98,14 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
     }
   }, [disabled, onChange, options]);
 
+  const getSelectedStyle = (optionValue: string): string => {
+    return mergedColorMap[optionValue] || 'bg-blue-600 text-white shadow-sm';
+  };
+
   return (
-    <div className={`${fullWidth ? 'w-full' : ''} ${className}`}>
+    <div className={className}>
       {label && (
-        <label className="block text-sm font-medium text-gray-700 mb-1.5">
+        <label className="block text-xs font-medium text-slate-500 mb-1.5">
           {label}
         </label>
       )}
@@ -93,9 +114,9 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
         role="radiogroup"
         aria-label={label}
         className={`
-          inline-flex ${fullWidth ? 'w-full' : ''}
+          inline-flex
           ${config.container}
-          bg-slate-100 rounded-lg
+          rounded-lg border border-slate-200 bg-slate-50
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         `}
       >
@@ -113,22 +134,21 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
               onClick={() => !disabled && onChange(option.value)}
               onKeyDown={(e) => handleKeyDown(e, index)}
               className={`
-                ${fullWidth ? 'flex-1' : ''}
                 ${config.padding}
                 ${config.text}
                 ${config.height}
                 inline-flex items-center justify-center ${config.gap}
                 font-medium rounded-md
-                transition-all duration-200 ease-out
+                transition-all duration-150
                 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1
                 ${isSelected
-                  ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200'
-                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'
+                  ? getSelectedStyle(option.value)
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white'
                 }
                 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
               `}
             >
-              {option.icon && <span className="flex-shrink-0">{option.icon}</span>}
+              {option.icon && <span className="w-4 h-4 flex items-center justify-center">{option.icon}</span>}
               <span>{option.label}</span>
             </button>
           );

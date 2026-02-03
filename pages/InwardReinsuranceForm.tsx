@@ -14,19 +14,18 @@ import { useToast } from '../context/ToastContext';
 import { EntitySearchInput } from '../components/EntitySearchInput';
 import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { SegmentedControl } from '../components/SegmentedControl';
-import { FormContextBar } from '../components/FormContextBar';
+import { ContextBar } from '../components/ContextBar';
 import {
-  ArrowLeft, FileSpreadsheet, Building, Hash, DollarSign,
-  Globe, Home, Layers, ArrowDownRight, Calendar, Percent, FileText,
-  ChevronDown, ChevronUp, User
+  ArrowLeft, FileText, Building, Hash, DollarSign,
+  Globe, Home, Layers, ArrowDownRight, Calendar, Percent,
+  User, Shield
 } from 'lucide-react';
 
-// Collapsible Section Component
+// Form Section Card Component (non-collapsible, matching prototype)
 interface FormSectionProps {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
-  defaultOpen?: boolean;
   className?: string;
 }
 
@@ -34,35 +33,29 @@ const FormSection: React.FC<FormSectionProps> = ({
   title,
   icon,
   children,
-  defaultOpen = true,
   className = ''
 }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
   return (
-    <div className={`bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden ${className}`}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
-      >
-        <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 uppercase tracking-wide">
+    <div className={`bg-white rounded-xl border border-slate-200 shadow-sm ${className}`}>
+      <div className="px-5 py-3 border-b border-slate-100">
+        <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
           {icon}
           {title}
-        </div>
-        {isOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
-      </button>
-      <div
-        className={`transition-all duration-300 ease-in-out ${
-          isOpen ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
-        }`}
-      >
-        <div className="p-4 pt-0 border-t border-slate-100">
-          {children}
-        </div>
+        </h3>
+      </div>
+      <div className="p-5">
+        {children}
       </div>
     </div>
   );
+};
+
+// Background gradient classes based on type + structure
+const backgroundGradients: Record<string, string> = {
+  'FAC-PROPORTIONAL': 'bg-gradient-to-br from-amber-50/50 via-blue-50/30 to-slate-50',
+  'FAC-NON_PROPORTIONAL': 'bg-gradient-to-br from-amber-50/50 via-violet-50/30 to-slate-50',
+  'TREATY-PROPORTIONAL': 'bg-gradient-to-br from-emerald-50/50 via-blue-50/30 to-slate-50',
+  'TREATY-NON_PROPORTIONAL': 'bg-gradient-to-br from-emerald-50/50 via-violet-50/30 to-slate-50',
 };
 
 const InwardReinsuranceForm: React.FC = () => {
@@ -131,6 +124,12 @@ const InwardReinsuranceForm: React.FC = () => {
     notes: '',
     uwYear: new Date().getFullYear()
   });
+
+  // Get background class based on current selections
+  const getBackgroundClass = () => {
+    const key = `${activeType}-${activeStructure}`;
+    return backgroundGradients[key] || backgroundGradients['FAC-PROPORTIONAL'];
+  };
 
   // Helper function to check migration errors
   const checkMigrationError = (error: any): boolean => {
@@ -432,7 +431,7 @@ const InwardReinsuranceForm: React.FC = () => {
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-              <FileSpreadsheet size={20} className="text-amber-600" />
+              <FileText size={20} className="text-amber-600" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-amber-800">Database Setup Required</h3>
@@ -469,665 +468,592 @@ const InwardReinsuranceForm: React.FC = () => {
     ...allCurrencies.filter(c => !priorityCurrencies.includes(c)).sort()
   ];
 
-  const labelClass = "block text-sm font-medium text-slate-700 mb-1.5";
-  const inputClass = "w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-slate-900";
-  const selectClass = "w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all text-sm text-slate-900";
+  const labelClass = "block text-xs font-medium text-slate-500 mb-1.5";
+  const inputClass = "w-full h-10 px-3 rounded-lg border border-slate-300 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow";
+  const selectClass = "w-full h-10 px-3 rounded-lg border border-slate-300 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow bg-white";
 
-  // Breadcrumb items
-  const breadcrumbs = [
-    { label: 'Inward Reinsurance', href: `/inward-reinsurance/${pathOrigin.toLowerCase()}` },
-    { label: activeType === 'FAC' ? 'Facultative' : 'Treaty' },
-    { label: isEdit ? (formData.contractNumber || 'Edit Contract') : 'New Contract' }
-  ];
+  // Get save state text
+  const getSaveStateText = () => {
+    if (saveState === 'saving') return 'Saving...';
+    if (saveState === 'saved') return 'Saved';
+    return 'Not saved yet';
+  };
 
   return (
-    <div className="pb-20">
-      <form onSubmit={handleSubmit}>
-        {/* Page Header */}
-        <div className="flex items-center gap-4 mb-4">
+    <div className={`min-h-screen transition-colors duration-500 ${getBackgroundClass()}`}>
+      {/* Page Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4">
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => navigate(`/inward-reinsurance/${pathOrigin.toLowerCase()}`)}
-            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+            className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
           >
-            <ArrowLeft size={20} />
+            <ArrowLeft className="w-5 h-5 text-slate-400" />
           </button>
           <div>
-            <h1 className="text-xl font-bold text-slate-800">
+            <h1 className="text-xl font-semibold text-slate-900">
               {isEdit ? 'Edit' : 'New'} {pathOrigin === 'FOREIGN' ? 'Foreign' : 'Domestic'} Inward Reinsurance
             </h1>
             <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-0.5">
-              {pathOrigin === 'FOREIGN' ? <Globe size={12} /> : <Home size={12} />}
+              {pathOrigin === 'FOREIGN' ? <Globe className="w-3.5 h-3.5" /> : <Home className="w-3.5 h-3.5" />}
               {pathOrigin === 'FOREIGN' ? 'Overseas/International' : 'Domestic'} Contract
             </p>
           </div>
         </div>
+      </div>
 
-        {/* Sticky Context Bar */}
-        <FormContextBar
-          status={(formData.status as InwardReinsuranceStatus) || 'DRAFT'}
-          breadcrumbs={breadcrumbs}
-          uwYear={formData.uwYear}
-          saveState={saveState}
-          onSave={() => handleSubmit()}
-          saving={saving}
-          className="mb-6 -mx-4 px-4 sm:-mx-6 sm:px-6"
-        />
+      {/* Context Bar */}
+      <ContextBar
+        status={(formData.status as InwardReinsuranceStatus) || 'DRAFT'}
+        contractType={activeType === 'TREATY' ? 'Treaty' : 'Facultative'}
+        contractId={isEdit ? formData.contractNumber : null}
+        uwYear={formData.uwYear || new Date().getFullYear()}
+        lastSaved={getSaveStateText()}
+        onSave={() => handleSubmit()}
+        saving={saving}
+        listUrl={`/inward-reinsurance/${pathOrigin.toLowerCase()}`}
+      />
 
-        {/* Contract Information Section */}
-        <FormSection
-          title="Contract Information"
-          icon={<FileSpreadsheet size={16} />}
-          className="mb-4"
-        >
-          {/* Compact Controls Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-            <SegmentedControl
-              label="Contract Type"
-              options={[
-                { value: 'FAC', label: 'Facultative' },
-                { value: 'TREATY', label: 'Treaty' }
-              ]}
-              value={activeType}
-              onChange={handleTypeChange}
-              size="md"
-            />
+      {/* Form Content */}
+      <form onSubmit={handleSubmit}>
+        <div className="max-w-5xl mx-auto px-6 py-6 space-y-5">
 
-            {/* Structure - Only visible for Treaty */}
-            <div className={`transition-all duration-300 ${activeType === 'TREATY' ? 'opacity-100' : 'opacity-30 pointer-events-none'}`}>
+          {/* Contract Information */}
+          <FormSection icon={<FileText className="w-4 h-4" />} title="Contract Information">
+            <div className="flex flex-wrap items-end gap-6">
+              <SegmentedControl
+                label="Contract Type"
+                options={[
+                  { value: 'FAC', label: 'Facultative', icon: <FileText className="w-4 h-4" /> },
+                  { value: 'TREATY', label: 'Treaty', icon: <Layers className="w-4 h-4" /> },
+                ]}
+                value={activeType}
+                onChange={handleTypeChange}
+              />
+
               <SegmentedControl
                 label="Structure"
                 options={[
-                  { value: 'PROPORTIONAL', label: 'Prop' },
-                  { value: 'NON_PROPORTIONAL', label: 'Non-Prop' }
+                  { value: 'PROPORTIONAL', label: 'Proportional' },
+                  { value: 'NON_PROPORTIONAL', label: 'Non-Proportional' },
                 ]}
                 value={activeStructure}
                 onChange={handleStructureChange}
-                size="md"
-                disabled={activeType !== 'TREATY'}
               />
-            </div>
 
-            <div>
-              <label className={labelClass}>
-                Contract Number <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  name="contractNumber"
-                  value={formData.contractNumber}
-                  onChange={handleChange}
-                  required
-                  placeholder="IR-2026-001"
-                  className={`${inputClass} pl-8`}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className={labelClass}>UW Year</label>
-              <input
-                type="number"
-                name="uwYear"
-                value={formData.uwYear}
-                onChange={handleChange}
-                min={2000}
-                max={2100}
-                className={inputClass}
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>Status</label>
-              <select
-                name="status"
-                value={formData.status}
-                onChange={handleChange}
-                className={selectClass}
-              >
-                <option value="DRAFT">Draft</option>
-                <option value="PENDING">Pending</option>
-                <option value="ACTIVE">Active</option>
-                <option value="EXPIRED">Expired</option>
-                <option value="CANCELLED">Cancelled</option>
-              </select>
-            </div>
-          </div>
-        </FormSection>
-
-        {/* Treaty Details - Only for Treaty */}
-        <div className={`transition-all duration-300 ease-in-out ${
-          activeType === 'TREATY' ? 'max-h-96 opacity-100 mb-4' : 'max-h-0 opacity-0 overflow-hidden mb-0'
-        }`}>
-          <FormSection
-            title="Treaty Details"
-            icon={<Layers size={16} />}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Treaty Name</label>
-                <input
-                  type="text"
-                  name="treatyName"
-                  value={formData.treatyName}
-                  onChange={handleChange}
-                  placeholder="e.g., Property Quota Share 2026"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Treaty Number</label>
-                <input
-                  type="text"
-                  name="treatyNumber"
-                  value={formData.treatyNumber}
-                  onChange={handleChange}
-                  placeholder="e.g., TRT-2026-001"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </FormSection>
-        </div>
-
-        {/* Cedant / Source Information */}
-        <FormSection
-          title="Cedant / Source Information"
-          icon={<Building size={16} />}
-          className="mb-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <EntitySearchInput
-              label="Cedant Name"
-              value={formData.cedantName || ''}
-              onChange={(name, entityId) => {
-                setFormData(prev => ({
-                  ...prev,
-                  cedantName: name,
-                  cedantEntityId: entityId
-                }));
-                setSaveState('unsaved');
-              }}
-              placeholder="Search for cedant entity..."
-              required
-            />
-            <EntitySearchInput
-              label="Broker (if applicable)"
-              value={formData.brokerName || ''}
-              onChange={(name, entityId) => {
-                setFormData(prev => ({
-                  ...prev,
-                  brokerName: name,
-                  brokerEntityId: entityId
-                }));
-                setSaveState('unsaved');
-              }}
-              placeholder="Search for broker entity..."
-            />
-            {pathOrigin === 'FOREIGN' && (
-              <div>
-                <label className={labelClass}>Cedant Country</label>
-                <input
-                  type="text"
-                  name="cedantCountry"
-                  value={formData.cedantCountry || ''}
-                  onChange={handleChange}
-                  placeholder="e.g., United Kingdom"
-                  className={inputClass}
-                />
-              </div>
-            )}
-          </div>
-        </FormSection>
-
-        {/* Contract Period */}
-        <FormSection
-          title="Contract Period"
-          icon={<Calendar size={16} />}
-          className="mb-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <DatePickerInput
-              label="Inception Date"
-              value={formData.inceptionDate ? new Date(formData.inceptionDate) : null}
-              onChange={(date) => {
-                setFormData(prev => ({ ...prev, inceptionDate: toISODateString(date) || '' }));
-                setSaveState('unsaved');
-              }}
-              required
-            />
-            <DatePickerInput
-              label="Expiry Date"
-              value={formData.expiryDate ? new Date(formData.expiryDate) : null}
-              onChange={(date) => {
-                setFormData(prev => ({ ...prev, expiryDate: toISODateString(date) || '' }));
-                setSaveState('unsaved');
-              }}
-              required
-            />
-          </div>
-        </FormSection>
-
-        {/* Coverage Details */}
-        <FormSection
-          title="Coverage Details"
-          icon={<FileText size={16} />}
-          className="mb-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-              <label className={labelClass}>
-                Type of Cover <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="typeOfCover"
-                value={formData.typeOfCover}
-                onChange={handleChange}
-                required
-                className={selectClass}
-              >
-                <option value="">Select Type of Cover</option>
-                {typeOfCoverOptions.length > 0 ? (
-                  typeOfCoverOptions.map(opt => (
-                    <option key={opt.id} value={opt.value}>{opt.value}</option>
-                  ))
-                ) : (
-                  <>
-                    <option value="Property">Property</option>
-                    <option value="Casualty">Casualty</option>
-                    <option value="Marine">Marine</option>
-                    <option value="Aviation">Aviation</option>
-                    <option value="Engineering">Engineering</option>
-                    <option value="Motor">Motor</option>
-                    <option value="Life">Life</option>
-                    <option value="Health">Health</option>
-                    <option value="Specialty">Specialty</option>
-                  </>
-                )}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>
-                Class of Cover <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="classOfCover"
-                value={formData.classOfCover}
-                onChange={handleChange}
-                required
-                className={selectClass}
-              >
-                <option value="">Select Class of Cover</option>
-                {classOfCoverOptions.length > 0 ? (
-                  classOfCoverOptions.map(opt => (
-                    <option key={opt.id} value={opt.value}>{opt.value}</option>
-                  ))
-                ) : (
-                  <>
-                    <option value="All Risks">All Risks</option>
-                    <option value="Fire & Allied Perils">Fire & Allied Perils</option>
-                    <option value="Machinery Breakdown">Machinery Breakdown</option>
-                    <option value="Business Interruption">Business Interruption</option>
-                    <option value="General Liability">General Liability</option>
-                    <option value="Professional Liability">Professional Liability</option>
-                    <option value="Product Liability">Product Liability</option>
-                    <option value="Cargo">Cargo</option>
-                    <option value="Hull">Hull</option>
-                  </>
-                )}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Industry</label>
-              <select
-                name="industry"
-                value={formData.industry}
-                onChange={handleChange}
-                className={selectClass}
-              >
-                <option value="">Select Industry</option>
-                {industryOptions.length > 0 ? (
-                  industryOptions.map(opt => (
-                    <option key={opt.id} value={opt.value}>{opt.value}</option>
-                  ))
-                ) : (
-                  <>
-                    <option value="Manufacturing">Manufacturing</option>
-                    <option value="Oil & Gas">Oil & Gas</option>
-                    <option value="Construction">Construction</option>
-                    <option value="Retail">Retail</option>
-                    <option value="Transportation">Transportation</option>
-                    <option value="Financial Services">Financial Services</option>
-                    <option value="Healthcare">Healthcare</option>
-                    <option value="Technology">Technology</option>
-                    <option value="Agriculture">Agriculture</option>
-                    <option value="Real Estate">Real Estate</option>
-                  </>
-                )}
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <label className={labelClass}>Territory</label>
-              <input
-                type="text"
-                name="territory"
-                value={formData.territory || ''}
-                onChange={handleChange}
-                placeholder="e.g., Worldwide excl. USA"
-                className={inputClass}
-              />
-            </div>
-            {activeType === 'FAC' && (
-              <div>
-                <label className={labelClass}>Original Insured Name</label>
+              <div className="w-48">
+                <label className={labelClass}>
+                  Contract Number<span className="text-red-500 ml-0.5">*</span>
+                </label>
                 <div className="relative">
-                  <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <Hash size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                   <input
                     type="text"
-                    name="originalInsuredName"
-                    value={formData.originalInsuredName || ''}
+                    name="contractNumber"
+                    value={formData.contractNumber}
                     onChange={handleChange}
-                    placeholder="Name of the original insured"
+                    required
+                    placeholder="e.g., IR-2026-001"
                     className={`${inputClass} pl-8`}
                   />
                 </div>
               </div>
-            )}
-          </div>
 
-          <div>
-            <label className={labelClass}>Risk Description</label>
-            <textarea
-              name="riskDescription"
-              value={formData.riskDescription || ''}
-              onChange={handleChange}
-              rows={3}
-              placeholder="Describe the risk being covered..."
-              className={`${inputClass} resize-none`}
-            />
-          </div>
-        </FormSection>
-
-        {/* Financial Terms */}
-        <FormSection
-          title="Financial Terms"
-          icon={<DollarSign size={16} />}
-          className="mb-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div>
-              <label className={labelClass}>Currency <span className="text-red-500">*</span></label>
-              <select
-                name="currency"
-                value={formData.currency}
-                onChange={handleChange}
-                required
-                className={selectClass}
-              >
-                {sortedCurrencies.map(c => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Limit of Liability <span className="text-red-500">*</span></label>
-              <input
-                type="number"
-                name="limitOfLiability"
-                value={formData.limitOfLiability}
-                onChange={handleChange}
-                required
-                min={0}
-                step="0.01"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Deductible</label>
-              <input
-                type="number"
-                name="deductible"
-                value={formData.deductible}
-                onChange={handleChange}
-                min={0}
-                step="0.01"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>
-                Our Share (%) <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
+              <div className="w-28">
+                <label className={labelClass}>UW Year</label>
                 <input
                   type="number"
-                  name="ourShare"
-                  value={formData.ourShare}
+                  name="uwYear"
+                  value={formData.uwYear}
+                  onChange={handleChange}
+                  min={2000}
+                  max={2100}
+                  placeholder="2026"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="w-40">
+                <label className={labelClass}>Status</label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleChange}
+                  className={selectClass}
+                >
+                  <option value="DRAFT">Draft</option>
+                  <option value="PENDING">Pending Review</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="EXPIRED">Expired</option>
+                  <option value="CANCELLED">Cancelled</option>
+                </select>
+              </div>
+            </div>
+          </FormSection>
+
+          {/* Treaty Details - conditional */}
+          {activeType === 'TREATY' && (
+            <FormSection
+              icon={<Layers className="w-4 h-4" />}
+              title="Treaty Details"
+              className="animate-in fade-in slide-in-from-top-2 duration-200"
+            >
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <label className={labelClass}>Treaty Name</label>
+                  <input
+                    type="text"
+                    name="treatyName"
+                    value={formData.treatyName}
+                    onChange={handleChange}
+                    placeholder="e.g., Property Quota Share 2026"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Treaty Number</label>
+                  <input
+                    type="text"
+                    name="treatyNumber"
+                    value={formData.treatyNumber}
+                    onChange={handleChange}
+                    placeholder="e.g., TRT-2026-001"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            </FormSection>
+          )}
+
+          {/* Facultative Details - conditional */}
+          {activeType === 'FAC' && (
+            <FormSection
+              icon={<FileText className="w-4 h-4" />}
+              title="Facultative Details"
+              className="animate-in fade-in slide-in-from-top-2 duration-200"
+            >
+              <div className="grid grid-cols-2 gap-5">
+                <div>
+                  <label className={labelClass}>
+                    Original Insured Name<span className="text-red-500 ml-0.5">*</span>
+                  </label>
+                  <div className="relative">
+                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      name="originalInsuredName"
+                      value={formData.originalInsuredName || ''}
+                      onChange={handleChange}
+                      placeholder="Company name"
+                      required
+                      className={`${inputClass} pl-8`}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Risk Location</label>
+                  <input
+                    type="text"
+                    name="territory"
+                    value={formData.territory || ''}
+                    onChange={handleChange}
+                    placeholder="City, Country"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            </FormSection>
+          )}
+
+          {/* Cedant / Source Information */}
+          <FormSection icon={<Building className="w-4 h-4" />} title="Cedant / Source Information">
+            <div className="grid grid-cols-2 gap-5">
+              <EntitySearchInput
+                label="Cedant Name"
+                value={formData.cedantName || ''}
+                onChange={(name, entityId) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    cedantName: name,
+                    cedantEntityId: entityId
+                  }));
+                  setSaveState('unsaved');
+                }}
+                placeholder="Insurance company name"
+                required
+              />
+              <EntitySearchInput
+                label="Broker (if applicable)"
+                value={formData.brokerName || ''}
+                onChange={(name, entityId) => {
+                  setFormData(prev => ({
+                    ...prev,
+                    brokerName: name,
+                    brokerEntityId: entityId
+                  }));
+                  setSaveState('unsaved');
+                }}
+                placeholder="Broker name"
+              />
+              {pathOrigin === 'FOREIGN' && (
+                <>
+                  <div>
+                    <label className={labelClass}>Cedant Country</label>
+                    <select
+                      name="cedantCountry"
+                      value={formData.cedantCountry || ''}
+                      onChange={handleChange}
+                      className={selectClass}
+                    >
+                      <option value="">Select country...</option>
+                      <option value="TR">Turkey</option>
+                      <option value="KZ">Kazakhstan</option>
+                      <option value="AZ">Azerbaijan</option>
+                      <option value="GE">Georgia</option>
+                      <option value="RU">Russia</option>
+                      <option value="UK">United Kingdom</option>
+                      <option value="DE">Germany</option>
+                      <option value="FR">France</option>
+                      <option value="CH">Switzerland</option>
+                      <option value="OTHER">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Cedant Rating</label>
+                    <select
+                      name="cedantRating"
+                      value={(formData as any).cedantRating || ''}
+                      onChange={handleChange}
+                      className={selectClass}
+                    >
+                      <option value="">Select rating...</option>
+                      <option value="A+">A+ (Superior)</option>
+                      <option value="A">A (Excellent)</option>
+                      <option value="A-">A- (Excellent)</option>
+                      <option value="B++">B++ (Good)</option>
+                      <option value="B+">B+ (Good)</option>
+                      <option value="NR">Not Rated</option>
+                    </select>
+                  </div>
+                </>
+              )}
+            </div>
+          </FormSection>
+
+          {/* Coverage & Terms */}
+          <FormSection icon={<Shield className="w-4 h-4" />} title="Coverage & Terms">
+            <div className="grid grid-cols-3 gap-5 mb-5">
+              <div>
+                <label className={labelClass}>
+                  Type of Cover<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <select
+                  name="typeOfCover"
+                  value={formData.typeOfCover}
                   onChange={handleChange}
                   required
-                  min={0}
-                  max={100}
-                  step="0.01"
-                  className={`${inputClass} pr-8`}
-                />
-                <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  className={selectClass}
+                >
+                  <option value="">Select...</option>
+                  {typeOfCoverOptions.length > 0 ? (
+                    typeOfCoverOptions.map(opt => (
+                      <option key={opt.id} value={opt.value}>{opt.value}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="Property">Property</option>
+                      <option value="Energy">Energy</option>
+                      <option value="Marine">Marine</option>
+                      <option value="Casualty">Casualty</option>
+                      <option value="Aviation">Aviation</option>
+                      <option value="Engineering">Engineering</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>
+                  Class of Cover<span className="text-red-500 ml-0.5">*</span>
+                </label>
+                <select
+                  name="classOfCover"
+                  value={formData.classOfCover}
+                  onChange={handleChange}
+                  required
+                  className={selectClass}
+                >
+                  <option value="">Select...</option>
+                  {classOfCoverOptions.length > 0 ? (
+                    classOfCoverOptions.map(opt => (
+                      <option key={opt.id} value={opt.value}>{opt.value}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="All Risks">All Risks</option>
+                      <option value="Fire & Allied Perils">Fire & Allied Perils</option>
+                      <option value="Machinery Breakdown">Machinery Breakdown</option>
+                      <option value="Business Interruption">Business Interruption</option>
+                      <option value="General Liability">General Liability</option>
+                      <option value="Cargo">Cargo</option>
+                    </>
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>Currency</label>
+                <select
+                  name="currency"
+                  value={formData.currency}
+                  onChange={handleChange}
+                  className={selectClass}
+                >
+                  {sortedCurrencies.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
-
-          {activeStructure === 'PROPORTIONAL' && (
-            <div className="max-w-xs">
-              <label className={labelClass}>Retention</label>
-              <input
-                type="number"
-                name="retention"
-                value={formData.retention}
-                onChange={handleChange}
-                min={0}
-                step="0.01"
-                placeholder="Cedant's retention amount"
-                className={inputClass}
+            <div className="grid grid-cols-3 gap-5">
+              <DatePickerInput
+                label="Period From"
+                value={formData.inceptionDate ? new Date(formData.inceptionDate) : null}
+                onChange={(date) => {
+                  setFormData(prev => ({ ...prev, inceptionDate: toISODateString(date) || '' }));
+                  setSaveState('unsaved');
+                }}
+                required
               />
-            </div>
-          )}
-        </FormSection>
-
-        {/* Non-Proportional Structure - Only for Treaty + Non-Prop */}
-        <div className={`transition-all duration-300 ease-in-out ${
-          activeType === 'TREATY' && activeStructure === 'NON_PROPORTIONAL'
-            ? 'max-h-[500px] opacity-100 mb-4'
-            : 'max-h-0 opacity-0 overflow-hidden mb-0'
-        }`}>
-          <FormSection
-            title="Non-Proportional Structure"
-            icon={<ArrowDownRight size={16} />}
-          >
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <DatePickerInput
+                label="Period To"
+                value={formData.expiryDate ? new Date(formData.expiryDate) : null}
+                onChange={(date) => {
+                  setFormData(prev => ({ ...prev, expiryDate: toISODateString(date) || '' }));
+                  setSaveState('unsaved');
+                }}
+                required
+              />
               <div>
-                <label className={labelClass}>Layer Number</label>
+                <label className={labelClass}>Gross Premium</label>
                 <input
                   type="number"
-                  name="layerNumber"
-                  value={formData.layerNumber}
-                  onChange={handleChange}
-                  min={1}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Excess Point (Attachment)</label>
-                <input
-                  type="number"
-                  name="excessPoint"
-                  value={formData.excessPoint}
+                  name="grossPremium"
+                  value={formData.grossPremium}
                   onChange={handleChange}
                   min={0}
                   step="0.01"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Aggregate Limit</label>
-                <input
-                  type="number"
-                  name="aggregateLimit"
-                  value={formData.aggregateLimit}
-                  onChange={handleChange}
-                  min={0}
-                  step="0.01"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Aggregate Deductible</label>
-                <input
-                  type="number"
-                  name="aggregateDeductible"
-                  value={formData.aggregateDeductible}
-                  onChange={handleChange}
-                  min={0}
-                  step="0.01"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Number of Reinstatements</label>
-                <input
-                  type="number"
-                  name="reinstatements"
-                  value={formData.reinstatements}
-                  onChange={handleChange}
-                  min={0}
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Reinstatement Premium (%)</label>
-                <input
-                  type="number"
-                  name="reinstatementPremium"
-                  value={formData.reinstatementPremium}
-                  onChange={handleChange}
-                  min={0}
-                  max={100}
-                  step="0.01"
+                  placeholder="0.00"
                   className={inputClass}
                 />
               </div>
             </div>
           </FormSection>
+
+          {/* Layer / Participation - adapts to Structure */}
+          <FormSection icon={<DollarSign className="w-4 h-4" />} title="Layer / Participation">
+            {activeStructure === 'PROPORTIONAL' ? (
+              <div className="grid grid-cols-3 gap-5">
+                <div>
+                  <label className={labelClass}>Our Share %</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="ourShare"
+                      value={formData.ourShare}
+                      onChange={handleChange}
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      placeholder="e.g., 5.00"
+                      className={`${inputClass} pr-8`}
+                    />
+                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Ceding Commission %</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="commissionPercent"
+                      value={formData.commissionPercent}
+                      onChange={handleChange}
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      placeholder="e.g., 25.00"
+                      className={`${inputClass} pr-8`}
+                    />
+                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Our Capacity / Line</label>
+                  <input
+                    type="number"
+                    name="limitOfLiability"
+                    value={formData.limitOfLiability}
+                    onChange={handleChange}
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g., 500,000"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 gap-5">
+                <div>
+                  <label className={labelClass}>Limit</label>
+                  <input
+                    type="number"
+                    name="limitOfLiability"
+                    value={formData.limitOfLiability}
+                    onChange={handleChange}
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g., 10,000,000"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Excess / Attachment</label>
+                  <input
+                    type="number"
+                    name="excessPoint"
+                    value={formData.excessPoint}
+                    onChange={handleChange}
+                    min={0}
+                    step="0.01"
+                    placeholder="e.g., 5,000,000"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Rate on Line %</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="rateOnLine"
+                      value={(formData as any).rateOnLine || ''}
+                      onChange={handleChange}
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      placeholder="e.g., 2.50"
+                      className={`${inputClass} pr-8`}
+                    />
+                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+                <div>
+                  <label className={labelClass}>Our Share %</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="ourShare"
+                      value={formData.ourShare}
+                      onChange={handleChange}
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      placeholder="e.g., 5.00"
+                      className={`${inputClass} pr-8`}
+                    />
+                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+              </div>
+            )}
+          </FormSection>
+
+          {/* Non-Proportional Structure - Only for Treaty + Non-Prop */}
+          {activeType === 'TREATY' && activeStructure === 'NON_PROPORTIONAL' && (
+            <FormSection
+              icon={<ArrowDownRight className="w-4 h-4" />}
+              title="Non-Proportional Structure"
+              className="animate-in fade-in slide-in-from-top-2 duration-200"
+            >
+              <div className="grid grid-cols-3 gap-5">
+                <div>
+                  <label className={labelClass}>Layer Number</label>
+                  <input
+                    type="number"
+                    name="layerNumber"
+                    value={formData.layerNumber}
+                    onChange={handleChange}
+                    min={1}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Aggregate Limit</label>
+                  <input
+                    type="number"
+                    name="aggregateLimit"
+                    value={formData.aggregateLimit}
+                    onChange={handleChange}
+                    min={0}
+                    step="0.01"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Aggregate Deductible</label>
+                  <input
+                    type="number"
+                    name="aggregateDeductible"
+                    value={formData.aggregateDeductible}
+                    onChange={handleChange}
+                    min={0}
+                    step="0.01"
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Number of Reinstatements</label>
+                  <input
+                    type="number"
+                    name="reinstatements"
+                    value={formData.reinstatements}
+                    onChange={handleChange}
+                    min={0}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Reinstatement Premium (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      name="reinstatementPremium"
+                      value={formData.reinstatementPremium}
+                      onChange={handleChange}
+                      min={0}
+                      max={100}
+                      step="0.01"
+                      className={`${inputClass} pr-8`}
+                    />
+                    <Percent size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  </div>
+                </div>
+              </div>
+            </FormSection>
+          )}
+
+          {/* Notes Section */}
+          <FormSection icon={<FileText className="w-4 h-4" />} title="Notes">
+            <textarea
+              name="notes"
+              value={formData.notes || ''}
+              onChange={handleChange}
+              rows={4}
+              placeholder="Additional notes or comments..."
+              className={`${inputClass} h-auto resize-none`}
+            />
+          </FormSection>
+
         </div>
-
-        {/* Premium */}
-        <FormSection
-          title="Premium"
-          icon={<DollarSign size={16} />}
-          className="mb-4"
-        >
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-            <div>
-              <label className={labelClass}>Gross Premium <span className="text-red-500">*</span></label>
-              <input
-                type="number"
-                name="grossPremium"
-                value={formData.grossPremium}
-                onChange={handleChange}
-                required
-                min={0}
-                step="0.01"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Commission (%)</label>
-              <input
-                type="number"
-                name="commissionPercent"
-                value={formData.commissionPercent}
-                onChange={handleChange}
-                min={0}
-                max={100}
-                step="0.01"
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Net Premium</label>
-              <input
-                type="number"
-                name="netPremium"
-                value={formData.netPremium}
-                readOnly
-                className={`${inputClass} bg-slate-50`}
-              />
-            </div>
-            <div className="flex items-end">
-              <label className="flex items-center gap-2 cursor-pointer p-2.5">
-                <input
-                  type="checkbox"
-                  name="adjustablePremium"
-                  checked={formData.adjustablePremium}
-                  onChange={handleChange}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-slate-700">Adjustable Premium</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Adjustable Premium Fields */}
-          <div className={`transition-all duration-300 ease-in-out ${
-            formData.adjustablePremium ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
-          }`}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Minimum Premium</label>
-                <input
-                  type="number"
-                  name="minimumPremium"
-                  value={formData.minimumPremium}
-                  onChange={handleChange}
-                  min={0}
-                  step="0.01"
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Deposit Premium</label>
-                <input
-                  type="number"
-                  name="depositPremium"
-                  value={formData.depositPremium}
-                  onChange={handleChange}
-                  min={0}
-                  step="0.01"
-                  className={inputClass}
-                />
-              </div>
-            </div>
-          </div>
-        </FormSection>
-
-        {/* Notes */}
-        <FormSection
-          title="Notes"
-          icon={<FileText size={16} />}
-          defaultOpen={false}
-        >
-          <textarea
-            name="notes"
-            value={formData.notes || ''}
-            onChange={handleChange}
-            rows={4}
-            placeholder="Additional notes or comments..."
-            className={`${inputClass} resize-none`}
-          />
-        </FormSection>
       </form>
     </div>
   );
