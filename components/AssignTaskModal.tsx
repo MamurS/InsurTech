@@ -5,6 +5,7 @@ import { useCreateTask, useUploadAttachment } from '../hooks/useAgenda';
 import { useProfiles } from '../hooks/useUsers';
 import { TaskPriority, EntityType } from '../types';
 import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
+import { ContextBar } from './ContextBar';
 
 interface AssignTaskModalProps {
     isOpen: boolean;
@@ -111,6 +112,14 @@ const AssignTaskModal: React.FC<AssignTaskModalProps> = ({
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X size={20}/></button>
                 </div>
                 
+                <ContextBar
+                    status="NEW"
+                    breadcrumbs={[
+                        { label: 'Agenda' },
+                        { label: 'Assign New Task' }
+                    ]}
+                />
+
                 <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
                     {errorMsg && (
                         <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm border border-red-100 flex items-center gap-2">

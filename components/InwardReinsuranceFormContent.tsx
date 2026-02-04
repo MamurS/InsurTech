@@ -12,6 +12,7 @@ import { useToast } from '../context/ToastContext';
 import { EntitySearchInput } from './EntitySearchInput';
 import { DatePickerInput, toISODateString } from './DatePickerInput';
 import { SegmentedControl } from './SegmentedControl';
+import { ContextBar } from './ContextBar';
 import {
   FileText, Building, Hash, DollarSign,
   Layers, ArrowDownRight, Percent,
@@ -554,6 +555,16 @@ export const InwardReinsuranceFormContent: React.FC<InwardReinsuranceFormContent
 
   return (
     <div className={`rounded-xl transition-colors duration-500 ${getBackgroundClass()}`}>
+      {/* Context Bar */}
+      <ContextBar
+        status={formData.status || 'DRAFT'}
+        breadcrumbs={[
+          { label: 'Inward Reinsurance' },
+          { label: activeType === 'FAC' ? 'Facultative' : 'Treaty' },
+          { label: isEdit ? (formData.contractNumber || 'Edit Contract') : 'New Contract' }
+        ]}
+      />
+
       <form onSubmit={handleSubmit}>
         <div className="space-y-5">
 

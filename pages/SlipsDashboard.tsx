@@ -6,6 +6,8 @@ import { ReinsuranceSlip, PolicyStatus } from '../types';
 import { ExcelService } from '../services/excel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
+import { FormModal } from '../components/FormModal';
+import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
 import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle } from 'lucide-react';
 
@@ -28,6 +30,10 @@ const SlipsDashboard: React.FC = () => {
     key: 'date',
     direction: 'desc'
   });
+
+  // Modal State
+  const [showSlipModal, setShowSlipModal] = useState(false);
+  const [editingSlipId, setEditingSlipId] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -69,7 +75,8 @@ const SlipsDashboard: React.FC = () => {
   const handleEdit = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/slips/edit/${id}`);
+    setEditingSlipId(id);
+    setShowSlipModal(true);
   };
 
   const handleWording = (e: React.MouseEvent, id: string) => {
@@ -223,9 +230,9 @@ const SlipsDashboard: React.FC = () => {
             >
                 <Download size={16} /> Export Excel
             </button>
-            <button 
+            <button
             type="button"
-            onClick={() => navigate('/slips/new')}
+            onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
             className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
             >
             <Plus size={18} /> New Slip
@@ -334,12 +341,26 @@ const SlipsDashboard: React.FC = () => {
 
        {/* Detail Modal */}
        {selectedSlip && (
-          <DetailModal 
-            item={selectedSlip} 
-            onClose={() => setSelectedSlip(null)} 
+          <DetailModal
+            item={selectedSlip}
+            onClose={() => setSelectedSlip(null)}
             title="Slip Details"
           />
       )}
+
+      {/* Slip Form Modal */}
+      <FormModal
+        isOpen={showSlipModal}
+        onClose={() => { setShowSlipModal(false); setEditingSlipId(null); }}
+        title={editingSlipId ? 'Edit Reinsurance Slip' : 'New Reinsurance Slip'}
+        subtitle={editingSlipId ? 'Editing slip details' : 'Create a new outward reinsurance slip'}
+      >
+        <SlipFormContent
+          id={editingSlipId || undefined}
+          onSave={() => { setShowSlipModal(false); setEditingSlipId(null); fetchData(); }}
+          onCancel={() => { setShowSlipModal(false); setEditingSlipId(null); }}
+        />
+      </FormModal>
     </div>
   );
 };
