@@ -1,88 +1,67 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface FormModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
+  title: string;
+  subtitle?: string;
   children: React.ReactNode;
-  size?: 'md' | 'lg' | 'xl' | 'full';
 }
-
-const sizeClasses = {
-  md: 'max-w-2xl',
-  lg: 'max-w-4xl',
-  xl: 'max-w-6xl',
-  full: 'max-w-[95vw] w-full'
-};
 
 export const FormModal: React.FC<FormModalProps> = ({
   isOpen,
   onClose,
   title,
-  children,
-  size = 'xl'
+  subtitle,
+  children
 }) => {
-  const modalRef = useRef<HTMLDivElement>(null);
-
-  // Handle escape key
+  // Close on Escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
-      }
+      if (e.key === 'Escape') onClose();
     };
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden'; // Prevent background scroll
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = '';
+      document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
-
-  // Focus trap
-  useEffect(() => {
-    if (isOpen && modalRef.current) {
-      modalRef.current.focus();
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-6 pb-6 overflow-y-auto">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
 
-      {/* Modal Content */}
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        className={`relative ${sizeClasses[size]} w-full mt-8 mb-8 max-h-[calc(100vh-4rem)] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden`}
-      >
+      {/* Modal */}
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-6xl mx-4 my-auto min-h-0">
         {/* Header */}
-        {title && (
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <X size={20} />
-            </button>
+        <div className="sticky top-0 z-10 bg-white rounded-t-2xl border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+            {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
           </div>
-        )}
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+            title="Close"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-        {/* Body - Scrollable */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Content - scrollable */}
+        <div className="p-6 max-h-[calc(100vh-10rem)] overflow-y-auto">
           {children}
         </div>
       </div>

@@ -5,6 +5,8 @@ import { supabase } from '../services/supabase';
 import { InwardReinsurance, InwardReinsuranceOrigin, Currency } from '../types';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FormModal } from '../components/FormModal';
+import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import {
   Plus, Search, Filter, RefreshCw, Trash2, Edit, Eye,
   Globe, Home, FileSpreadsheet, Layers, Calendar, DollarSign,
@@ -34,6 +36,10 @@ const InwardReinsuranceList: React.FC = () => {
   });
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
   const [migrationRequired, setMigrationRequired] = useState(false);
+
+  // Modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingContractId, setEditingContractId] = useState<string | null>(null);
 
   // Fetch contracts
   const fetchContracts = async () => {
@@ -240,7 +246,10 @@ const InwardReinsuranceList: React.FC = () => {
           </p>
         </div>
         <button
-          onClick={() => navigate(`/inward-reinsurance/${origin.toLowerCase()}/new`)}
+          onClick={() => {
+            setEditingContractId(null);
+            setShowFormModal(true);
+          }}
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm"
         >
           <Plus size={18} />
@@ -352,7 +361,10 @@ const InwardReinsuranceList: React.FC = () => {
             <FileSpreadsheet size={48} className="mx-auto text-gray-300 mb-4" />
             <p className="text-gray-500">No contracts found</p>
             <button
-              onClick={() => navigate(`/inward-reinsurance/${origin.toLowerCase()}/new`)}
+              onClick={() => {
+                setEditingContractId(null);
+                setShowFormModal(true);
+              }}
               className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
             >
               Create your first contract
@@ -429,7 +441,8 @@ const InwardReinsuranceList: React.FC = () => {
                           </button>
                           <button
                             onClick={() => {
-                              navigate(`/inward-reinsurance/${origin.toLowerCase()}/edit/${contract.id}`);
+                              setEditingContractId(contract.id);
+                              setShowFormModal(true);
                               setActionMenuOpen(null);
                             }}
                             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
@@ -503,6 +516,31 @@ const InwardReinsuranceList: React.FC = () => {
           onClick={() => setActionMenuOpen(null)}
         />
       )}
+
+      {/* Form Modal */}
+      <FormModal
+        isOpen={showFormModal}
+        onClose={() => {
+          setShowFormModal(false);
+          setEditingContractId(null);
+        }}
+        title={editingContractId ? 'Edit Contract' : `New ${origin === 'FOREIGN' ? 'Foreign' : 'Domestic'} Inward Reinsurance`}
+        subtitle={origin === 'FOREIGN' ? 'Overseas/International Contract' : 'Domestic Contract'}
+      >
+        <InwardReinsuranceFormContent
+          id={editingContractId || undefined}
+          origin={origin}
+          onSave={() => {
+            setShowFormModal(false);
+            setEditingContractId(null);
+            fetchContracts();
+          }}
+          onCancel={() => {
+            setShowFormModal(false);
+            setEditingContractId(null);
+          }}
+        />
+      </FormModal>
     </div>
   );
 };
