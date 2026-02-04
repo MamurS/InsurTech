@@ -21,6 +21,7 @@ import ClaimDetail from './pages/ClaimDetail';
 import Agenda from './pages/Agenda';
 import InwardReinsuranceList from './pages/InwardReinsuranceList';
 import InwardReinsuranceForm from './pages/InwardReinsuranceForm';
+import Analytics from './pages/Analytics';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -72,6 +73,7 @@ const AppRoutes = () => {
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/analytics" element={<Analytics />} />
               <Route path="/new" element={<PolicyForm />} />
               <Route path="/edit/:id" element={<PolicyForm />} />
               <Route path="/wording/:id" element={<PolicyWording />} />
