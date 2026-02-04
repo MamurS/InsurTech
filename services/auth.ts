@@ -57,72 +57,72 @@ export const AuthService = {
   },
 
   /**
-   * Performs authentication. 
+   * Performs authentication.
+   * In production: Supabase only
+   * In development: Allows env-configured dev users (if explicitly enabled)
    */
   login: async (email: string, password?: string): Promise<User | null> => {
-    // 0. IMMEDIATE LOCAL BACKDOOR: Check Hardcoded Seed Users
-    const seedUser = SEED_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-    if (seedUser && seedUser.password === password) {
-         const safeUser = {
-             ...seedUser,
-             lastLogin: new Date().toISOString(),
-             permissions: seedUser.permissions || DEFAULT_PERMISSIONS[seedUser.role]
-         };
-         // We do not store the password in the session
-         const { password: _, ...sessionUser } = safeUser;
-         localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
-         return sessionUser as User;
-    }
-
-    // 1. Supabase Logic
-    if (isSupabaseEnabled()) {
-      if (email.includes('@')) {
-          const { data, error } = await supabase!.auth.signInWithPassword({ email, password: password || '' });
-          if (error || !data.session) throw error;
-          
-          // Fetch Profile from 'profiles'
-          const { data: profile } = await supabase!
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .single();
-
-          const role: UserRole = profile?.role || 'Underwriter';
-          const permissions: UserPermissions = (profile as any)?.permissions || DEFAULT_PERMISSIONS[role];
-
-          return {
-              id: data.user.id,
-              email: data.user.email || '',
-              name: profile?.full_name || profile?.name || data.user.user_metadata.full_name || 'User',
-              role: role,
-              avatarUrl: profile?.avatar_url || profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
-              lastLogin: new Date().toISOString(),
-              permissions: permissions,
-              roleId: profile?.role_id
-          };
+    // Development backdoor - ONLY if explicitly enabled via env var
+    if (import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true' && import.meta.env.DEV) {
+      const seedUser = SEED_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (seedUser && seedUser.password === password) {
+        const safeUser = {
+          ...seedUser,
+          lastLogin: new Date().toISOString(),
+          permissions: seedUser.permissions || DEFAULT_PERMISSIONS[seedUser.role]
+        };
+        const { password: _, ...sessionUser } = safeUser;
+        localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
+        return sessionUser as User;
       }
     }
 
-    // 2. Persistent Local Storage Logic (Fallback for Dev without Supabase)
-    const users = await DB.getUsers();
-    const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (user) {
-      if (user.password === password) {
-          const safeUser = {
-             ...user,
-             lastLogin: new Date().toISOString(),
-             permissions: user.permissions || DEFAULT_PERMISSIONS[user.role]
-          };
-          const { password: _, ...sessionUser } = safeUser;
-          localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(sessionUser));
-          return sessionUser as User;
-      } else {
-          throw new Error('Invalid credentials');
-      }
+    // Production authentication - Supabase ONLY
+    if (!isSupabaseEnabled()) {
+      throw new Error("Database connection required for authentication.");
     }
-    
-    throw new Error('User not found in local database.');
+
+    if (!email.includes('@')) {
+      throw new Error("Please enter a valid email address.");
+    }
+
+    const { data, error } = await supabase!.auth.signInWithPassword({
+      email,
+      password: password || ''
+    });
+
+    if (error) {
+      // Don't expose internal error details
+      if (error.message.includes('Invalid login')) {
+        throw new Error('Invalid email or password');
+      }
+      throw new Error('Authentication failed. Please try again.');
+    }
+
+    if (!data.session) {
+      throw new Error('Authentication failed. Please try again.');
+    }
+
+    // Fetch Profile from 'profiles'
+    const { data: profile } = await supabase!
+      .from('profiles')
+      .select('*')
+      .eq('id', data.user.id)
+      .single();
+
+    const role: UserRole = profile?.role || 'Underwriter';
+    const permissions: UserPermissions = (profile as any)?.permissions || DEFAULT_PERMISSIONS[role];
+
+    return {
+      id: data.user.id,
+      email: data.user.email || '',
+      name: profile?.full_name || profile?.name || data.user.user_metadata.full_name || 'User',
+      role: role,
+      avatarUrl: profile?.avatar_url || profile?.avatarUrl || data.user.user_metadata.avatar_url || 'U',
+      lastLogin: new Date().toISOString(),
+      permissions: permissions,
+      roleId: profile?.role_id
+    };
   },
 
   /**

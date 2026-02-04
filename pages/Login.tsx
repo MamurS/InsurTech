@@ -4,19 +4,28 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { supabase } from '../services/supabase';
-import { Lock, Loader2, CheckCircle, Mail, Key } from 'lucide-react';
+import { validatePassword } from '../utils/validation';
+import { Lock, Loader2, CheckCircle, Mail, Key, AlertCircle } from 'lucide-react';
+
+// Rate limiting constants
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes in ms
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signIn } = useAuth();
   const toast = useToast();
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // Rate limiting state
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutUntil, setLockoutUntil] = useState<number | null>(null);
 
   // Password Reset State
   const [isResetMode, setIsResetMode] = useState(false);
@@ -47,9 +56,10 @@ const Login: React.FC = () => {
         return;
     }
 
-    if (newPassword.length < 6) {
-        toast.error('Password must be at least 6 characters');
-        return;
+    const passwordCheck = validatePassword(newPassword);
+    if (!passwordCheck.isValid) {
+      toast.error(`Password requirements: ${passwordCheck.errors.join(', ')}`);
+      return;
     }
 
     if (!supabase) {
@@ -80,22 +90,40 @@ const Login: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if account is locked
+    if (lockoutUntil && Date.now() < lockoutUntil) {
+      const remainingMinutes = Math.ceil((lockoutUntil - Date.now()) / 60000);
+      setError(`Too many failed attempts. Please try again in ${remainingMinutes} minutes.`);
+      return;
+    }
+
     setLoading(true);
     setError('');
 
     try {
       await signIn(email, password);
+      setFailedAttempts(0); // Reset on success
+      setLockoutUntil(null);
       navigate(from, { replace: true });
     } catch (err: any) {
-      console.error(err);
-      if (err.message.includes("Invalid login")) {
-          setError("Invalid email or password.");
-      } else if (err.message.includes("Email not confirmed")) {
-          setError("Your email is not confirmed. Please check your inbox or ask the administrator to verify your email manually.");
-      } else if (err.message.includes("User already registered")) {
-          setError("User already exists. Please sign in.");
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        setLockoutUntil(Date.now() + LOCKOUT_DURATION);
+        setError(`Account temporarily locked due to ${MAX_ATTEMPTS} failed attempts. Try again in 15 minutes.`);
       } else {
+        const remaining = MAX_ATTEMPTS - newAttempts;
+        if (err.message.includes("Invalid login") || err.message.includes("Invalid email")) {
+          setError(`Invalid email or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`);
+        } else if (err.message.includes("Email not confirmed")) {
+          setError("Your email is not confirmed. Please check your inbox or ask the administrator to verify your email manually.");
+        } else if (err.message.includes("User already registered")) {
+          setError("User already exists. Please sign in.");
+        } else {
           setError(err.message || 'Authentication failed. Please try again.');
+        }
       }
     } finally {
       setLoading(false);
@@ -127,9 +155,28 @@ const Login: React.FC = () => {
                                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900"
                                 placeholder="Enter new password"
                                 required
-                                minLength={6}
+                                minLength={12}
                             />
                         </div>
+                        {newPassword && (
+                          <div className="mt-2 text-xs">
+                            <p className="font-medium text-slate-600 mb-1">Password must have:</p>
+                            <ul className="space-y-1">
+                              {[
+                                { test: newPassword.length >= 12, label: '12+ characters' },
+                                { test: /[A-Z]/.test(newPassword), label: 'Uppercase letter' },
+                                { test: /[a-z]/.test(newPassword), label: 'Lowercase letter' },
+                                { test: /[0-9]/.test(newPassword), label: 'Number' },
+                                { test: /[!@#$%^&*]/.test(newPassword), label: 'Special character' },
+                              ].map(({ test, label }) => (
+                                <li key={label} className={`flex items-center gap-1 ${test ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                  {test ? <CheckCircle size={12} /> : <AlertCircle size={12} />}
+                                  {label}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -144,7 +191,7 @@ const Login: React.FC = () => {
                                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900"
                                 placeholder="Confirm new password"
                                 required
-                                minLength={6}
+                                minLength={12}
                             />
                         </div>
                     </div>

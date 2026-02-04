@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { DB } from '../services/db';
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate } from '../types';
 import { formatDate, formatDateTime } from '../utils/dateUtils';
@@ -166,7 +167,18 @@ const PolicyWording: React.FC = () => {
             </div>
 
             {/* Dynamic Content */}
-            <div className="policy-content relative z-10" dangerouslySetInnerHTML={{ __html: content }} />
+            <div
+              className="policy-content relative z-10"
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(content, {
+                  ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+                                 'ul', 'ol', 'li', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
+                                 'div', 'span', 'a', 'img'],
+                  ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'style', 'target'],
+                  ALLOW_DATA_ATTR: false
+                })
+              }}
+            />
 
             {/* Attached Clauses */}
             {attachedClauses.length > 0 && (
