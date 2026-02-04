@@ -9,6 +9,8 @@ import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
 import { EntityDetailModal } from '../components/EntityDetailModal';
+import { FormModal } from '../components/FormModal';
+import { PolicyFormContent } from '../components/PolicyFormContent';
 import { formatDate } from '../utils/dateUtils';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List } from 'lucide-react';
 
@@ -52,6 +54,10 @@ const Dashboard: React.FC = () => {
   // Create Entity Confirmation State
   const [createEntityConfirm, setCreateEntityConfirm] = useState<{ isOpen: boolean; name: string }>({ isOpen: false, name: '' });
 
+  // Policy Form Modal State
+  const [showPolicyModal, setShowPolicyModal] = useState(false);
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -78,7 +84,8 @@ const Dashboard: React.FC = () => {
   const handleEdit = (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/edit/${id}`);
+    setEditingPolicyId(id);
+    setShowPolicyModal(true);
   };
 
   const handleWording = (e: React.MouseEvent, id: string) => {
@@ -347,9 +354,12 @@ const Dashboard: React.FC = () => {
             >
             <Download size={16} /> Export Excel
             </button>
-            <button 
+            <button
             type="button"
-            onClick={() => navigate('/new')}
+            onClick={() => {
+              setEditingPolicyId(null);
+              setShowPolicyModal(true);
+            }}
             className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
             >
             <Plus size={18} /> New Policy
@@ -760,11 +770,35 @@ const Dashboard: React.FC = () => {
           />
       )}
 
-      <EntityDetailModal 
-        entity={selectedEntity} 
-        onClose={() => setSelectedEntity(null)} 
+      <EntityDetailModal
+        entity={selectedEntity}
+        onClose={() => setSelectedEntity(null)}
         onEdit={(id) => { setSelectedEntity(null); navigate(`/entities/edit/${id}`); }}
       />
+
+      {/* Policy Form Modal */}
+      <FormModal
+        isOpen={showPolicyModal}
+        onClose={() => {
+          setShowPolicyModal(false);
+          setEditingPolicyId(null);
+        }}
+        title={editingPolicyId ? 'Edit Policy' : 'New Policy Record'}
+        subtitle={editingPolicyId ? 'Editing policy' : 'Create a new insurance policy'}
+      >
+        <PolicyFormContent
+          id={editingPolicyId || undefined}
+          onSave={() => {
+            setShowPolicyModal(false);
+            setEditingPolicyId(null);
+            fetchData();
+          }}
+          onCancel={() => {
+            setShowPolicyModal(false);
+            setEditingPolicyId(null);
+          }}
+        />
+      </FormModal>
     </div>
   );
 };
