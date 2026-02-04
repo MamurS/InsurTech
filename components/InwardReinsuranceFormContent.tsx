@@ -89,7 +89,7 @@ export const InwardReinsuranceFormContent: React.FC<InwardReinsuranceFormContent
 }) => {
   const toast = useToast();
   const isEdit = Boolean(id);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(id)); // Only show loading for edit mode
   const [saving, setSaving] = useState(false);
 
   // Validation errors state
@@ -245,9 +245,12 @@ export const InwardReinsuranceFormContent: React.FC<InwardReinsuranceFormContent
   // Load data
   useEffect(() => {
     const loadData = async () => {
-      await loadPresets();
+      // Start loading presets (non-blocking for new contracts)
+      const presetsPromise = loadPresets();
 
       if (isEdit && id) {
+        // For edit mode: wait for both presets AND contract
+        await presetsPromise;
         const contract = await loadContract(id);
         if (contract) {
           setFormData(contract);
@@ -257,8 +260,9 @@ export const InwardReinsuranceFormContent: React.FC<InwardReinsuranceFormContent
           toast.error('Contract not found');
           onCancel();
         }
+        setLoading(false);
       }
-      setLoading(false);
+      // For new contracts: form renders immediately, presets load in background
     };
     loadData();
   }, [id, isEdit, origin]);
