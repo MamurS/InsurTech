@@ -27,11 +27,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     navigate('/login');
   };
 
-  const getLinkClass = (path: string, exact: boolean = false) => {
-    const isActive = exact 
-      ? location.pathname === path 
+  const getLinkClass = (path: string, exact: boolean = false, additionalPaths: string[] = []) => {
+    let isActive = exact
+      ? location.pathname === path
       : location.pathname.startsWith(path);
-      
+
+    // Check additional paths that should also highlight this nav item
+    if (!isActive && additionalPaths.length > 0) {
+      isActive = additionalPaths.some(p => location.pathname.startsWith(p));
+    }
+
     return `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`;
   };
 
@@ -45,9 +50,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       >
         
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden">
-          <Link 
-            to="/" 
-            className={getLinkClass('/', true)}
+          <Link
+            to="/"
+            className={getLinkClass('/', true, ['/policy', '/policies'])}
             title="Dashboard"
           >
             <LayoutDashboard size={20} className="flex-shrink-0" />
