@@ -21,8 +21,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const sessionUser = await AuthService.getSession();
-        setUser(sessionUser);
+        // ALWAYS clear session on app launch to force fresh login
+        await AuthService.logout();
+        setUser(null);
       } catch (error) {
         console.error("Auth init failed", error);
       } finally {
