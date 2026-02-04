@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ContextBar } from '../components/ContextBar';
 import {
   Save, Download, Upload, Database,
   Building, Globe, Moon, Bell, Shield,
@@ -140,6 +141,15 @@ const Settings: React.FC = () => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 pb-10">
+      {/* Context Bar */}
+      <ContextBar
+        status="ACTIVE"
+        breadcrumbs={[
+          { label: 'Configuration' },
+          { label: 'Settings' }
+        ]}
+      />
+
       <div className="flex justify-between items-center">
         <div>
             <h2 className="text-3xl font-bold text-gray-800">Settings & Tools</h2>

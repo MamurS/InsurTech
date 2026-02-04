@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { LegalEntity } from '../types';
 import { EntityDetailModal } from '../components/EntityDetailModal';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FormModal } from '../components/FormModal';
+import { EntityFormContent } from '../components/EntityFormContent';
 import { Plus, Search, Building2, MapPin, Eye, Edit, Trash2 } from 'lucide-react';
 
 const EntityManager: React.FC = () => {
@@ -13,7 +14,10 @@ const EntityManager: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedEntity, setSelectedEntity] = useState<LegalEntity | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; id: string }>({ isOpen: false, id: '' });
-  const navigate = useNavigate();
+
+  // Modal State
+  const [showEntityModal, setShowEntityModal] = useState(false);
+  const [editingEntityId, setEditingEntityId] = useState<string | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -50,8 +54,8 @@ const EntityManager: React.FC = () => {
           <h2 className="text-2xl font-bold text-gray-800">Legal Entities</h2>
           <p className="text-gray-500 text-sm">Manage company registry, counterparties, and insureds.</p>
         </div>
-        <button 
-          onClick={() => navigate('/entities/new')}
+        <button
+          onClick={() => { setEditingEntityId(null); setShowEntityModal(true); }}
           className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg font-bold transition-all shadow-sm"
         >
           <Plus size={18} /> Add Entity
@@ -109,7 +113,7 @@ const EntityManager: React.FC = () => {
                             <td className="px-6 py-4 text-center">
                                 <div className="flex justify-center gap-2">
                                     <button onClick={(e) => { e.stopPropagation(); setSelectedEntity(entity); }} className="p-1.5 text-blue-600 hover:bg-blue-100 rounded" title="View"><Eye size={16}/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); navigate(`/entities/edit/${entity.id}`); }} className="p-1.5 text-amber-600 hover:bg-amber-100 rounded" title="Edit"><Edit size={16}/></button>
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingEntityId(entity.id); setShowEntityModal(true); }} className="p-1.5 text-amber-600 hover:bg-amber-100 rounded" title="Edit"><Edit size={16}/></button>
                                     <button onClick={(e) => handleDelete(e, entity.id)} className="p-1.5 text-red-600 hover:bg-red-100 rounded" title="Delete"><Trash2 size={16}/></button>
                                 </div>
                             </td>
@@ -131,7 +135,7 @@ const EntityManager: React.FC = () => {
       <EntityDetailModal
         entity={selectedEntity}
         onClose={() => setSelectedEntity(null)}
-        onEdit={(id) => { setSelectedEntity(null); navigate(`/entities/edit/${id}`); }}
+        onEdit={(id) => { setSelectedEntity(null); setEditingEntityId(id); setShowEntityModal(true); }}
       />
 
       <ConfirmDialog
@@ -143,6 +147,20 @@ const EntityManager: React.FC = () => {
         variant="danger"
         confirmText="Delete"
       />
+
+      {/* Entity Form Modal */}
+      <FormModal
+        isOpen={showEntityModal}
+        onClose={() => { setShowEntityModal(false); setEditingEntityId(null); }}
+        title={editingEntityId ? 'Edit Legal Entity' : 'New Legal Entity'}
+        subtitle={editingEntityId ? 'Edit entity details' : 'Add a new legal entity to the registry'}
+      >
+        <EntityFormContent
+          id={editingEntityId || undefined}
+          onSave={() => { setShowEntityModal(false); setEditingEntityId(null); loadData(); }}
+          onCancel={() => { setShowEntityModal(false); setEditingEntityId(null); }}
+        />
+      </FormModal>
     </div>
   );
 };

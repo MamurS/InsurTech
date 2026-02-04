@@ -8,6 +8,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 import { EntitySearchInput } from './EntitySearchInput';
+import { ContextBar } from './ContextBar';
 
 interface RegisterClaimModalProps {
     isOpen: boolean;
@@ -164,6 +165,15 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                         <X size={20} />
                     </button>
                 </div>
+
+                {/* Context Bar */}
+                <ContextBar
+                    status="NEW"
+                    breadcrumbs={[
+                        { label: 'Claims Center' },
+                        { label: 'Register New Claim' }
+                    ]}
+                />
 
                 {/* Form */}
                 <div className="p-6 space-y-6">
