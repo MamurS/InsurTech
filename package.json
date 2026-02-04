@@ -1,7 +1,8 @@
 {
-  "name": "insurtech-policy-manager",
+  "name": "mig-nexus",
   "private": true,
   "version": "1.0.0",
+  "description": "MIG Nexus - Insurance Management Platform by Mosaic Insurance Group",
   "type": "module",
   "scripts": {
     "dev": "vite",
