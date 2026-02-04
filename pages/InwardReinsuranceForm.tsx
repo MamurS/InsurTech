@@ -617,14 +617,19 @@ const InwardReinsuranceForm: React.FC = () => {
 
       {/* Context Bar */}
       <ContextBar
-        status={(formData.status as InwardReinsuranceStatus) || 'DRAFT'}
-        contractType={activeType === 'TREATY' ? 'Treaty' : 'Facultative'}
-        contractId={isEdit ? formData.contractNumber : null}
-        uwYear={formData.uwYear || new Date().getFullYear()}
-        lastSaved={getSaveStateText()}
-        onSave={() => handleSubmit()}
-        saving={saving}
-        listUrl={`/inward-reinsurance/${pathOrigin.toLowerCase()}`}
+        status={formData.status || 'DRAFT'}
+        breadcrumbs={[
+          {
+            label: 'Inward Reinsurance',
+            href: `/inward-reinsurance/${pathOrigin.toLowerCase()}`
+          },
+          {
+            label: activeType === 'FAC' ? 'Facultative' : 'Treaty'
+          },
+          {
+            label: isEdit ? (formData.contractNumber || 'Edit Contract') : 'New Contract'
+          },
+        ]}
       />
 
       {/* Form Content */}
