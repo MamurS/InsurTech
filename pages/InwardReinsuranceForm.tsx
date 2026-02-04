@@ -633,7 +633,7 @@ const InwardReinsuranceForm: React.FC = () => {
 
           {/* Contract Information */}
           <FormSection icon={<FileText className="w-4 h-4" />} title="Contract Information">
-            <div className="flex flex-wrap items-end gap-6">
+            <div className="flex flex-wrap items-end gap-5">
               <SegmentedControl
                 label="Contract Type"
                 options={[
