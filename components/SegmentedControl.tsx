@@ -40,18 +40,18 @@ const defaultColorMap: Record<string, string> = {
 
 const sizeConfig = {
   sm: {
-    padding: 'px-3 py-1.5',
+    padding: 'px-3',
     text: 'text-xs',
     gap: 'gap-1.5',
-    container: 'p-0.5',
-    height: 'h-8'
+    container: 'p-1 h-8',
+    buttonHeight: 'h-6'
   },
   md: {
-    padding: 'px-4 py-2',
+    padding: 'px-4',
     text: 'text-sm',
     gap: 'gap-2',
-    container: 'p-0.5',
-    height: 'h-10'
+    container: 'p-1 h-10',
+    buttonHeight: 'h-8'
   }
 };
 
@@ -114,7 +114,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
         role="radiogroup"
         aria-label={label}
         className={`
-          inline-flex
+          inline-flex items-center
           ${config.container}
           rounded-lg border border-slate-200 bg-slate-50
           ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
@@ -136,7 +136,7 @@ export const SegmentedControl: React.FC<SegmentedControlProps> = ({
               className={`
                 ${config.padding}
                 ${config.text}
-                ${config.height}
+                ${config.buttonHeight}
                 inline-flex items-center justify-center ${config.gap}
                 font-medium rounded-md
                 transition-all duration-150
