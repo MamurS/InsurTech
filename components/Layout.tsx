@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ArrowDownRight, Globe, Home
+  ChevronDown, ChevronRight, ArrowDownRight, Globe, Home, BarChart3
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -16,6 +16,7 @@ interface LayoutProps {
 // Route groups define which routes should highlight which nav items
 const routeGroups: Record<string, string[]> = {
   '/': ['/policy', '/policies', '/new', '/edit', '/wording'],
+  '/analytics': ['/analytics'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
   '/agenda': ['/agenda'],
@@ -74,8 +75,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span>Dashboard (DB)</span>
           </Link>
 
-          <Link 
-            to="/agenda" 
+          <Link
+            to="/analytics"
+            className={getLinkClass('/analytics')}
+            title="Analytics"
+          >
+            <BarChart3 size={20} className="flex-shrink-0" />
+            <span>Analytics</span>
+          </Link>
+
+          <Link
+            to="/agenda"
             className={getLinkClass('/agenda')}
             title="My Agenda"
           >
