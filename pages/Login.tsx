@@ -237,16 +237,18 @@ const Login: React.FC = () => {
         {/* Left Panel */}
         <div className="p-12 md:w-1/2 flex flex-col justify-center relative overflow-hidden bg-slate-900 transition-colors duration-500">
           <div className="relative z-10 flex flex-col items-center text-center text-white">
-            <div className="w-20 h-20 mb-8 rounded-2xl bg-gradient-to-br from-blue-500 via-emerald-500 to-amber-500 flex items-center justify-center">
-              <Lock size={36} className="text-white" />
-            </div>
+            <img
+              src="/mig-logo-white.svg"
+              alt="Mosaic Insurance Group"
+              className="h-16 mb-8"
+            />
 
-            <h1 className="text-3xl font-bold tracking-wide mb-4">Policy Manager</h1>
+            <h1 className="text-3xl font-bold tracking-wide mb-4">MIG Nexus</h1>
 
             <div className="w-16 h-1 bg-gradient-to-r mb-8 from-blue-500 via-emerald-500 to-amber-500"></div>
 
             <p className="text-slate-400 text-lg font-light">
-              Comprehensive policy management platform
+              Insurance Management Platform
             </p>
           </div>
         </div>
@@ -256,14 +258,16 @@ const Login: React.FC = () => {
           
           {/* Header */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-full mb-4 bg-gray-50 text-gray-800">
-              <Lock size={24} />
-            </div>
+            <img
+              src="/mig-logo-black.svg"
+              alt="MIG"
+              className="h-10 mx-auto mb-4"
+            />
             <h2 className="text-2xl font-bold text-gray-800">
-                System Access
+                MIG Nexus
             </h2>
             <p className="text-gray-500 mt-2">
-                Internal Policy Management Portal
+                Sign in to continue
             </p>
           </div>
 

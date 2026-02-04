@@ -1,7 +1,7 @@
 
 services:
   - type: web
-    name: insurtech-policy-manager
+    name: mig-nexus
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist

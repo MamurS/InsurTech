@@ -60,11 +60,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="h-screen bg-gray-50 flex overflow-hidden">
       
       {/* Sidebar */}
-      <aside 
+      <aside
         className={`bg-slate-900 text-white flex-shrink-0 flex flex-col z-30 transition-all duration-300 ease-in-out shadow-xl relative
         ${isSidebarOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full opacity-0 overflow-hidden'}`}
       >
-        
+        {/* Logo Header */}
+        <div className="p-4 border-b border-slate-700">
+          <Link to="/" className="flex items-center gap-3">
+            <img
+              src="/mig-logo-white.svg"
+              alt="MIG"
+              className="h-8"
+            />
+            <span className="text-lg font-semibold text-white">MIG Nexus</span>
+          </Link>
+        </div>
+
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto overflow-x-hidden">
           <Link
             to="/"
