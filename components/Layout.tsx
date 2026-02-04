@@ -75,42 +75,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span>Dashboard (DB)</span>
           </Link>
 
-          <Link
-            to="/analytics"
-            className={getLinkClass('/analytics')}
-            title="Analytics"
-          >
-            <BarChart3 size={20} className="flex-shrink-0" />
-            <span>Analytics</span>
-          </Link>
-
-          <Link
-            to="/agenda"
-            className={getLinkClass('/agenda')}
-            title="My Agenda"
-          >
-            <ClipboardList size={20} className="flex-shrink-0" />
-            <span>My Agenda</span>
-          </Link>
-
-          <Link 
-              to="/slips" 
-              className={getLinkClass('/slips')}
-              title="Reinsurance Slips"
-          >
-              <FileSpreadsheet size={20} className="flex-shrink-0" />
-              <span>Reinsurance Slips</span>
-          </Link>
-
-          <Link
-              to="/claims"
-              className={getLinkClass('/claims')}
-              title="Claims Center"
-          >
-              <AlertOctagon size={20} className="flex-shrink-0" />
-              <span>Claims Center</span>
-          </Link>
-
           {/* Inward Reinsurance Collapsible Section */}
           <div className="pt-2">
             <button
@@ -161,6 +125,42 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
             )}
           </div>
+
+          <Link
+            to="/analytics"
+            className={getLinkClass('/analytics')}
+            title="Analytics"
+          >
+            <BarChart3 size={20} className="flex-shrink-0" />
+            <span>Analytics</span>
+          </Link>
+
+          <Link
+            to="/agenda"
+            className={getLinkClass('/agenda')}
+            title="My Agenda"
+          >
+            <ClipboardList size={20} className="flex-shrink-0" />
+            <span>My Agenda</span>
+          </Link>
+
+          <Link
+              to="/slips"
+              className={getLinkClass('/slips')}
+              title="Reinsurance Slips"
+          >
+              <FileSpreadsheet size={20} className="flex-shrink-0" />
+              <span>Reinsurance Slips</span>
+          </Link>
+
+          <Link
+              to="/claims"
+              className={getLinkClass('/claims')}
+              title="Claims Center"
+          >
+              <AlertOctagon size={20} className="flex-shrink-0" />
+              <span>Claims Center</span>
+          </Link>
 
           <div className="pt-4 pb-2 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
             Configuration
