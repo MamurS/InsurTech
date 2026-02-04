@@ -116,18 +116,32 @@ const toDbPolicy = (policy: Policy): any => {
   return payload;
 };
 
-export const SEED_USERS: User[] = [
-  {
-    id: 'user_admin_001',
-    email: 'admin2026',
-    password: 'X7#k9@mP2$vL5nQ!', 
-    name: 'Super Administrator',
-    role: 'Super Admin',
-    avatarUrl: 'SA',
+// Development seed users - credentials from environment variables only
+export const SEED_USERS: User[] = (() => {
+  // Only enable seed users in development with explicit env var
+  if (import.meta.env.VITE_ENABLE_DEV_LOGIN !== 'true') {
+    return [];
+  }
+
+  const devEmail = import.meta.env.VITE_DEV_ADMIN_EMAIL;
+  const devPassword = import.meta.env.VITE_DEV_ADMIN_PASSWORD;
+
+  if (!devEmail || !devPassword) {
+    console.warn('Dev login enabled but credentials not set in environment');
+    return [];
+  }
+
+  return [{
+    id: 'dev_admin_001',
+    email: devEmail,
+    password: devPassword,
+    name: 'Development Admin',
+    role: 'Super Admin' as const,
+    avatarUrl: 'DA',
     lastLogin: new Date().toISOString(),
     permissions: DEFAULT_PERMISSIONS['Super Admin']
-  }
-];
+  }];
+})();
 
 const getLocal = <T>(key: string, seed: T): T => {
   const stored = localStorage.getItem(key);

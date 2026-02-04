@@ -22,3 +22,21 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.development
+.env.production
+.env*.local
+
+# Sensitive files
+*.pem
+*.key
+*.cert
+secrets/
+credentials/
+
+# Build outputs that might contain secrets
+.vercel
+.netlify
