@@ -306,39 +306,44 @@ const AdminConsole: React.FC = () => {
     }
   };
 
-  // Refresh rates - compares DB with CBU and syncs if different
+  // Refresh rates - checks DB first, only fetches from CBU if date not in DB
   const refreshCBURates = async (date: Date | null) => {
     setCbuLoading(true);
     setCbuError(null);
     try {
       const dateToFetch = toISODateString(date) || new Date().toISOString().split('T')[0];
 
-      // Fetch fresh rates from CBU
-      const cbuFreshRates = await CBUService.fetchRatesWithDetails(dateToFetch);
-
-      // Get current DB rates for comparison
+      // Check if rates exist in DB for this date
       const dbRates = await DB.getExchangeRatesByDate(dateToFetch);
 
-      // Check if rates are different (compare by summing all rates)
-      const cbuSum = cbuFreshRates.reduce((sum, r) => sum + r.rate, 0);
-      const dbSum = dbRates.reduce((sum, r) => sum + r.rate, 0);
-      const isDifferent = Math.abs(cbuSum - dbSum) > 0.001 || dbRates.length !== cbuFreshRates.length;
-
-      if (isDifferent || dbRates.length === 0) {
-        // Sync fresh rates to DB
+      if (dbRates.length > 0) {
+        // Rates exist in DB for this date - use them
+        const ratesWithDetails = dbRates.map(r => ({
+          currency: r.currency,
+          code: r.currency,
+          name: r.currency,
+          rate: r.rate,
+          nominal: 1,
+          rawRate: r.rate,
+          diff: 0,
+          date: r.date,
+        }));
+        setCbuRates(ratesWithDetails);
+      } else {
+        // Rates don't exist for this date - fetch from CBU and save to DB
         await CBUService.syncRates(dateToFetch);
+        const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
+        setCbuRates(rates);
         await loadAllData(); // Refresh local rates in state
       }
 
-      // Display fresh rates from CBU
-      setCbuRates(cbuFreshRates);
       setCbuSelectedDate(date);
       setPopupDate(date);
       setCbuLastUpdated(new Date());
       setShowDatePopup(false);
     } catch (error: any) {
-      console.error('Failed to refresh exchange rates:', error);
-      setCbuError(error.message || 'Failed to refresh rates');
+      console.error('Failed to load exchange rates:', error);
+      setCbuError(error.message || 'Failed to load rates');
     } finally {
       setCbuLoading(false);
     }
