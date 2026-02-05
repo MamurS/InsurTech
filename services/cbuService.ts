@@ -4,10 +4,13 @@
 import { Currency, ExchangeRate } from '../types';
 import { DB } from './db';
 
-const CBU_API_BASE = 'https://cbu.uz/uz/arkhiv-kursov-valyut/json';
+// CORS proxies to bypass CBU's browser restrictions (try in order)
+const CORS_PROXIES = [
+  'https://api.allorigins.win/raw?url=',
+  'https://corsproxy.io/?',
+];
 
-// Use a CORS proxy for browser requests
-const CORS_PROXY = 'https://corsproxy.io/?';
+let activeProxyIndex = 0;
 
 // Map CBU currency codes to our Currency enum
 const CURRENCY_MAP: Record<string, Currency> = {
@@ -43,36 +46,48 @@ interface CBURateResponse {
 
 export const CBUService = {
   /**
-   * Fetch rates from CBU API (optionally for a specific date)
-   * Uses CORS proxy to bypass browser restrictions
+   * Fetch rates from CBU API via CORS proxy with fallback
    * @param date - Optional date in YYYY-MM-DD format. If not provided, fetches current rates.
    */
   fetchRates: async (date?: string): Promise<CBURateResponse[]> => {
-    // CBU API format: /json/ for current, /json/all/YYYY-MM-DD/ for historical
     const cbuUrl = date
-      ? `${CBU_API_BASE}/all/${date}/`
-      : `${CBU_API_BASE}/`;
+      ? `https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/${date}/`
+      : `https://cbu.uz/uz/arkhiv-kursov-valyut/json/`;
 
-    // Use CORS proxy
-    const url = `${CORS_PROXY}${encodeURIComponent(cbuUrl)}`;
+    // Try each proxy until one works
+    let lastError: Error | null = null;
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`CBU API error: ${response.status}`);
+    for (let i = 0; i < CORS_PROXIES.length; i++) {
+      const proxyIndex = (activeProxyIndex + i) % CORS_PROXIES.length;
+      const proxy = CORS_PROXIES[proxyIndex];
+      const url = `${proxy}${encodeURIComponent(cbuUrl)}`;
+
+      try {
+        console.log(`Trying CBU fetch with proxy: ${proxy}`);
+        const response = await fetch(url);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+          throw new Error('Invalid response format');
+        }
+
+        // This proxy worked, remember it for next time
+        activeProxyIndex = proxyIndex;
+        console.log(`CBU fetch successful, got ${data.length} rates`);
+        return data;
+
+      } catch (error: any) {
+        console.warn(`Proxy ${proxy} failed:`, error.message);
+        lastError = error;
       }
-      const data = await response.json();
-
-      // Validate response is an array
-      if (!Array.isArray(data)) {
-        throw new Error('Invalid response format from CBU API');
-      }
-
-      return data;
-    } catch (error: any) {
-      console.error('CBU API fetch error:', error);
-      throw new Error(`Failed to fetch rates: ${error.message}`);
     }
+
+    throw new Error(`All CORS proxies failed. Last error: ${lastError?.message}`);
   },
 
   /**

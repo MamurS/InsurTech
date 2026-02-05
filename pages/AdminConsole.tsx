@@ -1087,36 +1087,48 @@ const AdminConsole: React.FC = () => {
 
               {/* Date Selection Popup */}
               {showDatePopup && (
-                <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50 min-w-[280px]">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="font-semibold text-gray-800">Select Date</h4>
-                    <button
-                      onClick={() => setShowDatePopup(false)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <X size={18} />
-                    </button>
+                <>
+                  {/* Backdrop */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowDatePopup(false)}
+                  />
+                  {/* Popup */}
+                  <div
+                    className="fixed bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50 min-w-[280px]"
+                    style={{ top: '140px', right: '40px' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-semibold text-gray-800">Select Date</h4>
+                      <button
+                        onClick={() => setShowDatePopup(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      <DatePickerInput
+                        value={popupDate}
+                        onChange={setPopupDate}
+                        maxDate={new Date()}
+                        className="!py-2"
+                      />
+                      <button
+                        onClick={() => refreshCBURates(popupDate)}
+                        disabled={cbuLoading}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                      >
+                        <RefreshCw size={18} className={cbuLoading ? 'animate-spin' : ''} />
+                        {cbuLoading ? 'Syncing...' : 'Refresh Rates'}
+                      </button>
+                      <p className="text-xs text-gray-500 text-center">
+                        Fetches latest rates from CBU and syncs to database
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    <DatePickerInput
-                      value={popupDate}
-                      onChange={setPopupDate}
-                      maxDate={new Date()}
-                      className="!py-2"
-                    />
-                    <button
-                      onClick={() => refreshCBURates(popupDate)}
-                      disabled={cbuLoading}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-                    >
-                      <RefreshCw size={18} className={cbuLoading ? 'animate-spin' : ''} />
-                      {cbuLoading ? 'Syncing...' : 'Refresh Rates'}
-                    </button>
-                    <p className="text-xs text-gray-500 text-center">
-                      Fetches latest rates from CBU and syncs to database
-                    </p>
-                  </div>
-                </div>
+                </>
               )}
             </div>
           </div>
