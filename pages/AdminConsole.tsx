@@ -36,7 +36,6 @@ const AdminConsole: React.FC = () => {
 
   // Confirm dialog states
   const [hardDeleteConfirm, setHardDeleteConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
-  const [deleteFxConfirm, setDeleteFxConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
   const [deleteTemplateConfirm, setDeleteTemplateConfirm] = useState<{ show: boolean; id: string }>({ show: false, id: '' });
   const [deleteDeptConfirm, setDeleteDeptConfirm] = useState<{ show: boolean; id: string; name: string }>({ show: false, id: '', name: '' });
   
@@ -72,13 +71,6 @@ const AdminConsole: React.FC = () => {
       content: ''
   });
 
-  // FX Rates State
-  const [fxRates, setFxRates] = useState<ExchangeRate[]>([]);
-  const [newRate, setNewRate] = useState<Partial<ExchangeRate>>({
-      currency: Currency.USD,
-      rate: 1,
-      date: new Date().toISOString().split('T')[0]
-  });
 
   // CBU Live Rates State
   const [cbuRates, setCbuRates] = useState<Array<{
@@ -166,12 +158,11 @@ const AdminConsole: React.FC = () => {
 
   const loadAllData = async () => {
     setLoading(true);
-    const [p, s, c, t, fx, r, d] = await Promise.all([
-        DB.getAllPolicies(), 
-        DB.getAllSlips(), 
-        DB.getAllClauses(), 
+    const [p, s, c, t, r, d] = await Promise.all([
+        DB.getAllPolicies(),
+        DB.getAllSlips(),
+        DB.getAllClauses(),
         DB.getTemplates(),
-        DB.getExchangeRates(),
         PermissionService.getRoles(),
         UserService.getDepartments()
     ]);
@@ -179,7 +170,6 @@ const AdminConsole: React.FC = () => {
     setRawSlips(s);
     setRawClauses(c);
     setTemplates(t);
-    setFxRates(fx);
     setRoles(r);
     setDepartments(d);
 
@@ -533,29 +523,6 @@ const AdminConsole: React.FC = () => {
     if (recycleType === 'slips') await DB.hardDeleteSlip(id);
     if (recycleType === 'clauses') await DB.hardDeleteClause(id);
     loadAllData();
-  };
-
-  const handleAddFx = async () => {
-      if (!newRate.rate || !newRate.currency) return;
-      await DB.saveExchangeRate({
-          id: crypto.randomUUID(),
-          currency: newRate.currency!,
-          rate: Number(newRate.rate),
-          date: newRate.date || new Date().toISOString().split('T')[0]
-      });
-      loadAllData();
-      setNewRate({ ...newRate, rate: 0 });
-  };
-
-  const handleDeleteFx = (id: string) => {
-      setDeleteFxConfirm({ show: true, id });
-  };
-
-  const confirmDeleteFx = async () => {
-      const { id } = deleteFxConfirm;
-      setDeleteFxConfirm({ show: false, id: '' });
-      await DB.deleteExchangeRate(id);
-      loadAllData();
   };
 
   const handleEditTemplate = (tpl?: PolicyTemplate) => {
@@ -1290,57 +1257,6 @@ const AdminConsole: React.FC = () => {
           </div>
         </div>
 
-        {/* Saved Rates Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="bg-gray-100 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-gray-700">Saved Exchange Rates</h3>
-              <p className="text-gray-500 text-sm">Rates saved in your database for calculations</p>
-            </div>
-            <span className="text-sm text-gray-500">{fxRates.length} records</span>
-          </div>
-          {fxRates.length > 0 ? (
-            <table className="w-full">
-              <thead className="bg-gray-50 text-gray-600 text-sm">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold">Currency</th>
-                  <th className="text-right px-4 py-3 font-semibold">Rate (UZS)</th>
-                  <th className="text-left px-4 py-3 font-semibold">Date</th>
-                  <th className="text-right px-4 py-3 font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {fxRates.slice(0, 20).map((r) => (
-                  <tr key={r.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">
-                      <span className="mr-2">{getCurrencyFlag(r.currency)}</span>
-                      {r.currency}
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono">
-                      {r.rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500">
-                      {formatDate(r.date)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleDeleteFx(r.id)}
-                        className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="p-8 text-center text-gray-500">
-              <Coins className="mx-auto mb-2 text-gray-300" size={32} />
-              <p>No saved rates yet. Use "Save to DB" to sync CBU rates.</p>
-            </div>
-          )}
-        </div>
       </div>
     );
   };
@@ -1579,16 +1495,6 @@ const AdminConsole: React.FC = () => {
         onConfirm={confirmHardDelete}
         onCancel={() => setHardDeleteConfirm({ show: false, id: '' })}
         confirmText="Delete Forever"
-        variant="danger"
-      />
-
-      <ConfirmDialog
-        isOpen={deleteFxConfirm.show}
-        title="Delete Exchange Rate"
-        message="Are you sure you want to delete this exchange rate?"
-        onConfirm={confirmDeleteFx}
-        onCancel={() => setDeleteFxConfirm({ show: false, id: '' })}
-        confirmText="Delete"
         variant="danger"
       />
 
