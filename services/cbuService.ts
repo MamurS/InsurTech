@@ -76,34 +76,31 @@ export const CBUService = {
 
   /**
    * Sync rates from CBU to local database
-   * @param date - Optional date in YYYY-MM-DD format. If not provided, syncs current rates.
+   * @param date - Date in YYYY-MM-DD format. Uses this date for saving (not the CBU response date).
    * Returns count of updated rates
    */
-  syncRates: async (date?: string): Promise<{ updated: number; date: string }> => {
+  syncRates: async (date: string): Promise<{ updated: number; date: string }> => {
     const cbuRates = await CBUService.fetchRates(date);
     let updated = 0;
-    let rateDate = '';
 
     for (const cbuRate of cbuRates) {
       const currency = CURRENCY_MAP[cbuRate.Ccy];
       if (!currency) continue; // Skip currencies we don't track
 
       const effectiveRate = CBUService.calculateEffectiveRate(cbuRate.Rate, cbuRate.Nominal);
-      const parsedDate = CBUService.parseDate(cbuRate.Date);
-      rateDate = parsedDate;
 
       const exchangeRate: ExchangeRate = {
-        id: `cbu_${cbuRate.Ccy}_${parsedDate}`,
+        id: `cbu_${cbuRate.Ccy}_${date}`,
         currency,
         rate: effectiveRate,
-        date: parsedDate,
+        date: date, // Use the requested date, not CBU response date
       };
 
       await DB.saveExchangeRate(exchangeRate);
       updated++;
     }
 
-    return { updated, date: rateDate };
+    return { updated, date };
   },
 
   /**

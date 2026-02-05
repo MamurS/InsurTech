@@ -291,10 +291,21 @@ const AdminConsole: React.FC = () => {
         setCbuRates(ratesWithDetails);
         setCbuLastUpdated(new Date());
       } else {
-        // Rates not in DB - fetch from CBU, save to DB, then display
+        // Rates not in DB - fetch from CBU, save to DB, then display from DB
         await CBUService.syncRates(dateToFetch);
-        const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
-        setCbuRates(rates);
+        // Read back from DB to display
+        const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
+        const ratesWithDetails = savedRates.map(r => ({
+          currency: r.currency,
+          code: r.currency,
+          name: r.currency,
+          rate: r.rate,
+          nominal: 1,
+          rawRate: r.rate,
+          diff: 0,
+          date: r.date,
+        }));
+        setCbuRates(ratesWithDetails);
         setCbuLastUpdated(new Date());
         await loadAllData(); // Refresh local rates in state
       }
@@ -332,8 +343,19 @@ const AdminConsole: React.FC = () => {
       } else {
         // Rates don't exist for this date - fetch from CBU and save to DB
         await CBUService.syncRates(dateToFetch);
-        const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
-        setCbuRates(rates);
+        // Read back from DB to display (don't fetch from website again)
+        const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
+        const ratesWithDetails = savedRates.map(r => ({
+          currency: r.currency,
+          code: r.currency,
+          name: r.currency,
+          rate: r.rate,
+          nominal: 1,
+          rawRate: r.rate,
+          diff: 0,
+          date: r.date,
+        }));
+        setCbuRates(ratesWithDetails);
         await loadAllData(); // Refresh local rates in state
       }
 
