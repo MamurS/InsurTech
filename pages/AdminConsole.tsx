@@ -95,6 +95,7 @@ const AdminConsole: React.FC = () => {
   const [cbuLastUpdated, setCbuLastUpdated] = useState<Date | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
   const [cbuError, setCbuError] = useState<string | null>(null);
+  const [cbuSelectedDate, setCbuSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // User Management State
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
@@ -265,11 +266,12 @@ const AdminConsole: React.FC = () => {
   }, [activeSection]);
 
   // Fetch CBU rates from Central Bank API
-  const loadCBURates = async () => {
+  const loadCBURates = async (date?: string) => {
     setCbuLoading(true);
     setCbuError(null);
     try {
-      const rates = await CBUService.fetchRatesWithDetails();
+      const dateToFetch = date || cbuSelectedDate;
+      const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
       setCbuRates(rates);
       setCbuLastUpdated(new Date());
     } catch (error: any) {
@@ -284,7 +286,7 @@ const AdminConsole: React.FC = () => {
   const handleSyncCBURates = async () => {
     setCbuLoading(true);
     try {
-      const result = await CBUService.syncRates();
+      const result = await CBUService.syncRates(cbuSelectedDate);
       toast.success(`Synced ${result.updated} exchange rates for ${result.date}`);
       await loadAllData(); // Refresh local rates
       await loadCBURates(); // Refresh CBU display
@@ -1011,6 +1013,17 @@ const AdminConsole: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            {/* Date Picker for Historical Rates */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 font-medium">Rate Date:</label>
+              <input
+                type="date"
+                value={cbuSelectedDate}
+                onChange={(e) => setCbuSelectedDate(e.target.value)}
+                max={new Date().toISOString().split('T')[0]}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+              />
+            </div>
             <button
               onClick={() => setShowManualForm(!showManualForm)}
               className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
@@ -1027,7 +1040,7 @@ const AdminConsole: React.FC = () => {
               Save to DB
             </button>
             <button
-              onClick={loadCBURates}
+              onClick={() => loadCBURates()}
               disabled={cbuLoading}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
             >
@@ -1048,13 +1061,13 @@ const AdminConsole: React.FC = () => {
               Note: Use this only for historical rates or currencies not available from CBU.
               For current rates, use the "Save to DB" button above to sync CBU rates.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
               <div>
                 <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Currency</label>
                 <select
                   value={newRate.currency}
                   onChange={(e) => setNewRate({...newRate, currency: e.target.value as Currency})}
-                  className="w-full p-2 border border-amber-300 rounded-lg bg-white"
+                  className="w-full p-2.5 border border-amber-300 rounded-lg bg-white"
                 >
                   {Object.values(Currency).map(c => (
                     <option key={c} value={c}>{getCurrencyFlag(c)} {c}</option>
@@ -1071,20 +1084,22 @@ const AdminConsole: React.FC = () => {
                   placeholder="e.g., 12750.00"
                   value={newRate.rate || ''}
                   onChange={(e) => setNewRate({...newRate, rate: parseFloat(e.target.value)})}
-                  className="w-full p-2 border border-amber-300 rounded-lg bg-white"
+                  className="w-full p-2.5 border border-amber-300 rounded-lg bg-white"
                 />
               </div>
               <div>
-                <DatePickerInput
-                  label="Date"
-                  value={parseDate(newRate.date)}
-                  onChange={(date) => setNewRate({...newRate, date: toISODateString(date) || ''})}
+                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Date</label>
+                <input
+                  type="date"
+                  value={newRate.date || ''}
+                  onChange={(e) => setNewRate({...newRate, date: e.target.value})}
+                  className="w-full p-2.5 border border-amber-300 rounded-lg bg-white"
                 />
               </div>
-              <div className="flex items-end">
+              <div>
                 <button
                   onClick={handleAddFx}
-                  className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors"
+                  className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors"
                 >
                   Save Rate
                 </button>
