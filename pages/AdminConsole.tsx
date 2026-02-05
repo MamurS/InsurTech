@@ -95,6 +95,8 @@ const AdminConsole: React.FC = () => {
   const [cbuLastUpdated, setCbuLastUpdated] = useState<Date | null>(null);
   const [cbuError, setCbuError] = useState<string | null>(null);
   const [cbuSelectedDate, setCbuSelectedDate] = useState<Date | null>(new Date());
+  const [showDatePopup, setShowDatePopup] = useState(false);
+  const [popupDate, setPopupDate] = useState<Date | null>(new Date());
 
   // User Management State
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
@@ -299,6 +301,44 @@ const AdminConsole: React.FC = () => {
     } catch (error: any) {
       console.error('Failed to load exchange rates:', error);
       setCbuError(error.message || 'Failed to fetch rates');
+    } finally {
+      setCbuLoading(false);
+    }
+  };
+
+  // Refresh rates - compares DB with CBU and syncs if different
+  const refreshCBURates = async (date: Date | null) => {
+    setCbuLoading(true);
+    setCbuError(null);
+    try {
+      const dateToFetch = toISODateString(date) || new Date().toISOString().split('T')[0];
+
+      // Fetch fresh rates from CBU
+      const cbuFreshRates = await CBUService.fetchRatesWithDetails(dateToFetch);
+
+      // Get current DB rates for comparison
+      const dbRates = await DB.getExchangeRatesByDate(dateToFetch);
+
+      // Check if rates are different (compare by summing all rates)
+      const cbuSum = cbuFreshRates.reduce((sum, r) => sum + r.rate, 0);
+      const dbSum = dbRates.reduce((sum, r) => sum + r.rate, 0);
+      const isDifferent = Math.abs(cbuSum - dbSum) > 0.001 || dbRates.length !== cbuFreshRates.length;
+
+      if (isDifferent || dbRates.length === 0) {
+        // Sync fresh rates to DB
+        await CBUService.syncRates(dateToFetch);
+        await loadAllData(); // Refresh local rates in state
+      }
+
+      // Display fresh rates from CBU
+      setCbuRates(cbuFreshRates);
+      setCbuSelectedDate(date);
+      setPopupDate(date);
+      setCbuLastUpdated(new Date());
+      setShowDatePopup(false);
+    } catch (error: any) {
+      console.error('Failed to refresh exchange rates:', error);
+      setCbuError(error.message || 'Failed to refresh rates');
     } finally {
       setCbuLoading(false);
     }
@@ -1009,27 +1049,14 @@ const AdminConsole: React.FC = () => {
     return (
       <div className="space-y-6 animate-in fade-in duration-300">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-              <Globe className="text-blue-600" size={28} />
-              Exchange Rates
-            </h2>
-            <p className="text-gray-500 text-sm mt-1">
-              Official rates from the Central Bank of Uzbekistan (CBU)
-            </p>
-          </div>
-          {/* Date Picker for Historical Rates */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm text-gray-600 font-medium">Rate Date:</label>
-            <DatePickerInput
-              value={cbuSelectedDate}
-              onChange={setCbuSelectedDate}
-              maxDate={new Date()}
-              className="!py-2 !text-sm"
-            />
-            {cbuLoading && <RefreshCw size={18} className="animate-spin text-blue-600" />}
-          </div>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <Globe className="text-blue-600" size={28} />
+            Exchange Rates
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">
+            Official rates from the Central Bank of Uzbekistan (CBU)
+          </p>
         </div>
 
         {/* Exchange Rates Card */}
@@ -1042,16 +1069,57 @@ const AdminConsole: React.FC = () => {
                 <h3 className="font-bold">CBU Exchange Rates</h3>
                 <p className="text-blue-100 text-sm">
                   {cbuLastUpdated
-                    ? `Loaded: ${cbuLastUpdated.toLocaleTimeString()}`
-                    : 'Select a date to load rates'}
+                    ? `Last synced: ${cbuLastUpdated.toLocaleTimeString()}`
+                    : 'Click on date to load rates'}
                 </p>
               </div>
             </div>
-            {cbuRates.length > 0 && (
-              <div className="text-white text-sm bg-white/20 px-3 py-1 rounded-full">
-                Rate Date: {cbuRates[0]?.date ? formatDate(cbuRates[0].date) : '-'}
-              </div>
-            )}
+            <div className="relative">
+              <button
+                onClick={() => {
+                  setPopupDate(cbuSelectedDate);
+                  setShowDatePopup(true);
+                }}
+                className="text-white text-sm bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-full cursor-pointer transition-colors flex items-center gap-2"
+              >
+                <span>Rate Date: {cbuRates.length > 0 && cbuRates[0]?.date ? formatDate(cbuRates[0].date) : formatDate(toISODateString(cbuSelectedDate) || '')}</span>
+                <Edit size={14} />
+              </button>
+
+              {/* Date Selection Popup */}
+              {showDatePopup && (
+                <div className="absolute right-0 top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-200 p-4 z-50 min-w-[280px]">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-800">Select Date</h4>
+                    <button
+                      onClick={() => setShowDatePopup(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    <DatePickerInput
+                      value={popupDate}
+                      onChange={setPopupDate}
+                      maxDate={new Date()}
+                      className="!py-2"
+                    />
+                    <button
+                      onClick={() => refreshCBURates(popupDate)}
+                      disabled={cbuLoading}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+                    >
+                      <RefreshCw size={18} className={cbuLoading ? 'animate-spin' : ''} />
+                      {cbuLoading ? 'Syncing...' : 'Refresh Rates'}
+                    </button>
+                    <p className="text-xs text-gray-500 text-center">
+                      Fetches latest rates from CBU and syncs to database
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Error State */}
