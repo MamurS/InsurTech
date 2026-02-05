@@ -88,12 +88,18 @@ export const CBUService = {
       if (!currency) continue; // Skip currencies we don't track
 
       const effectiveRate = CBUService.calculateEffectiveRate(cbuRate.Rate, cbuRate.Nominal);
+      const nominal = parseInt(cbuRate.Nominal, 10) || 1;
 
       const exchangeRate: ExchangeRate = {
         id: `cbu_${cbuRate.Ccy}_${date}`,
         currency,
         rate: effectiveRate,
-        date: date, // Use the requested date, not CBU response date
+        date: date,
+        // Save additional CBU fields
+        nominal: nominal,
+        diff: cbuRate.Diff,
+        ccyNameEn: cbuRate.CcyNm_EN,
+        rawRate: parseFloat(cbuRate.Rate),
       };
 
       await DB.saveExchangeRate(exchangeRate);

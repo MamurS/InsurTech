@@ -266,6 +266,18 @@ const AdminConsole: React.FC = () => {
     }
   }, [activeSection, cbuSelectedDate]);
 
+  // Helper to map DB rates to display format
+  const mapDbRatesToDisplay = (dbRates: ExchangeRate[]) => dbRates.map(r => ({
+    currency: r.currency,
+    code: r.currency,
+    name: r.ccyNameEn || r.currency, // Use stored name or fallback to code
+    rate: r.rate,
+    nominal: r.nominal || 1,
+    rawRate: r.rawRate || r.rate,
+    diff: parseFloat(r.diff || '0'),
+    date: r.date,
+  }));
+
   // Load exchange rates - checks DB first, fetches from CBU if not found
   const loadCBURates = async () => {
     setCbuLoading(true);
@@ -277,35 +289,15 @@ const AdminConsole: React.FC = () => {
       const dbRates = await DB.getExchangeRatesByDate(dateToFetch);
 
       if (dbRates.length > 0) {
-        // Rates found in DB - display them
-        const ratesWithDetails = dbRates.map(r => ({
-          currency: r.currency,
-          code: r.currency,
-          name: r.currency,
-          rate: r.rate,
-          nominal: 1,
-          rawRate: r.rate,
-          diff: 0,
-          date: r.date,
-        }));
-        setCbuRates(ratesWithDetails);
+        // Rates found in DB - use stored CBU metadata
+        setCbuRates(mapDbRatesToDisplay(dbRates));
         setCbuLastUpdated(new Date());
       } else {
         // Rates not in DB - fetch from CBU, save to DB, then display from DB
         await CBUService.syncRates(dateToFetch);
-        // Read back from DB to display
+        // Read back from DB to display (now with all fields)
         const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
-        const ratesWithDetails = savedRates.map(r => ({
-          currency: r.currency,
-          code: r.currency,
-          name: r.currency,
-          rate: r.rate,
-          nominal: 1,
-          rawRate: r.rate,
-          diff: 0,
-          date: r.date,
-        }));
-        setCbuRates(ratesWithDetails);
+        setCbuRates(mapDbRatesToDisplay(savedRates));
         setCbuLastUpdated(new Date());
         await loadAllData(); // Refresh local rates in state
       }
@@ -328,34 +320,14 @@ const AdminConsole: React.FC = () => {
       const dbRates = await DB.getExchangeRatesByDate(dateToFetch);
 
       if (dbRates.length > 0) {
-        // Rates exist in DB for this date - use them
-        const ratesWithDetails = dbRates.map(r => ({
-          currency: r.currency,
-          code: r.currency,
-          name: r.currency,
-          rate: r.rate,
-          nominal: 1,
-          rawRate: r.rate,
-          diff: 0,
-          date: r.date,
-        }));
-        setCbuRates(ratesWithDetails);
+        // Rates exist in DB for this date - use stored CBU metadata
+        setCbuRates(mapDbRatesToDisplay(dbRates));
       } else {
         // Rates don't exist for this date - fetch from CBU and save to DB
         await CBUService.syncRates(dateToFetch);
-        // Read back from DB to display (don't fetch from website again)
+        // Read back from DB to display (now with all fields)
         const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
-        const ratesWithDetails = savedRates.map(r => ({
-          currency: r.currency,
-          code: r.currency,
-          name: r.currency,
-          rate: r.rate,
-          nominal: 1,
-          rawRate: r.rate,
-          diff: 0,
-          date: r.date,
-        }));
-        setCbuRates(ratesWithDetails);
+        setCbuRates(mapDbRatesToDisplay(savedRates));
         await loadAllData(); // Refresh local rates in state
       }
 
