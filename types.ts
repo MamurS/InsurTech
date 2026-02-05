@@ -532,4 +532,9 @@ export interface Policy {
     url?: string; 
   };
   terminationDetails?: TerminationDetails;
+  // Direct Insurance - Insured details
+  insuredCountry?: string;
+  insuredINN?: string;           // Uzbekistan Tax ID
+  insuredLegalAddress?: string;  // Uzbekistan Legal Address
+  insuredBankDetails?: string;   // Uzbekistan Bank Details
 }
