@@ -93,7 +93,6 @@ const AdminConsole: React.FC = () => {
   }>>([]);
   const [cbuLoading, setCbuLoading] = useState(false);
   const [cbuLastUpdated, setCbuLastUpdated] = useState<Date | null>(null);
-  const [showManualForm, setShowManualForm] = useState(false);
   const [cbuError, setCbuError] = useState<string | null>(null);
   const [cbuSelectedDate, setCbuSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
@@ -258,12 +257,12 @@ const AdminConsole: React.FC = () => {
     }
   }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
 
-  // Load CBU rates when FX section is active
+  // Load CBU rates when FX section is active or date changes
   useEffect(() => {
     if (activeSection === 'fx') {
       loadCBURates();
     }
-  }, [activeSection]);
+  }, [activeSection, cbuSelectedDate]);
 
   // Fetch CBU rates from Central Bank API
   const loadCBURates = async (date?: string) => {
@@ -1025,13 +1024,6 @@ const AdminConsole: React.FC = () => {
               />
             </div>
             <button
-              onClick={() => setShowManualForm(!showManualForm)}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
-            >
-              {showManualForm ? <X size={18} /> : <Plus size={18} />}
-              {showManualForm ? 'Close' : 'Manual Entry'}
-            </button>
-            <button
               onClick={handleSyncCBURates}
               disabled={cbuLoading}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -1050,9 +1042,8 @@ const AdminConsole: React.FC = () => {
           </div>
         </div>
 
-        {/* Manual Entry Form - Collapsible */}
-        {showManualForm && (
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 animate-in slide-in-from-top duration-300">
+        {/* Manual Entry Form */}
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
             <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
               <Plus size={20} />
               Add Exchange Rate Manually
@@ -1106,7 +1097,6 @@ const AdminConsole: React.FC = () => {
               </div>
             </div>
           </div>
-        )}
 
         {/* CBU Live Rates Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
