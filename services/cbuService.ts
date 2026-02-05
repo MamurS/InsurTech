@@ -40,10 +40,16 @@ interface CBURateResponse {
 
 export const CBUService = {
   /**
-   * Fetch current rates from CBU API
+   * Fetch rates from CBU API (optionally for a specific date)
+   * @param date - Optional date in YYYY-MM-DD format. If not provided, fetches current rates.
    */
-  fetchRates: async (): Promise<CBURateResponse[]> => {
-    const response = await fetch(CBU_API_URL);
+  fetchRates: async (date?: string): Promise<CBURateResponse[]> => {
+    // CBU API format: /json/ for current, /json/all/YYYY-MM-DD/ for historical
+    const url = date
+      ? `https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/${date}/`
+      : CBU_API_URL;
+
+    const response = await fetch(url);
     if (!response.ok) {
       throw new Error(`CBU API error: ${response.status}`);
     }
@@ -70,10 +76,11 @@ export const CBUService = {
 
   /**
    * Sync rates from CBU to local database
+   * @param date - Optional date in YYYY-MM-DD format. If not provided, syncs current rates.
    * Returns count of updated rates
    */
-  syncRates: async (): Promise<{ updated: number; date: string }> => {
-    const cbuRates = await CBUService.fetchRates();
+  syncRates: async (date?: string): Promise<{ updated: number; date: string }> => {
+    const cbuRates = await CBUService.fetchRates(date);
     let updated = 0;
     let rateDate = '';
 
@@ -82,14 +89,14 @@ export const CBUService = {
       if (!currency) continue; // Skip currencies we don't track
 
       const effectiveRate = CBUService.calculateEffectiveRate(cbuRate.Rate, cbuRate.Nominal);
-      const date = CBUService.parseDate(cbuRate.Date);
-      rateDate = date;
+      const parsedDate = CBUService.parseDate(cbuRate.Date);
+      rateDate = parsedDate;
 
       const exchangeRate: ExchangeRate = {
-        id: `cbu_${cbuRate.Ccy}_${date}`,
+        id: `cbu_${cbuRate.Ccy}_${parsedDate}`,
         currency,
         rate: effectiveRate,
-        date,
+        date: parsedDate,
       };
 
       await DB.saveExchangeRate(exchangeRate);
@@ -101,9 +108,11 @@ export const CBUService = {
 
   /**
    * Get a specific currency rate from CBU (fresh fetch)
+   * @param currency - The currency to get rate for
+   * @param date - Optional date in YYYY-MM-DD format
    */
-  getRate: async (currency: Currency): Promise<number | null> => {
-    const cbuRates = await CBUService.fetchRates();
+  getRate: async (currency: Currency, date?: string): Promise<number | null> => {
+    const cbuRates = await CBUService.fetchRates(date);
     const cbuCode = Object.entries(CURRENCY_MAP).find(([_, v]) => v === currency)?.[0];
 
     if (!cbuCode) return null;
@@ -116,8 +125,9 @@ export const CBUService = {
 
   /**
    * Get all rates with full details from CBU (for display)
+   * @param date - Optional date in YYYY-MM-DD format
    */
-  fetchRatesWithDetails: async (): Promise<Array<{
+  fetchRatesWithDetails: async (date?: string): Promise<Array<{
     currency: Currency;
     code: string;
     name: string;
@@ -127,7 +137,7 @@ export const CBUService = {
     diff: number;
     date: string;
   }>> => {
-    const cbuRates = await CBUService.fetchRates();
+    const cbuRates = await CBUService.fetchRates(date);
     const result = [];
 
     for (const cbuRate of cbuRates) {
