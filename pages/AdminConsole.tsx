@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
+import { CBUService } from '../services/cbuService';
 import { AuthService } from '../services/auth';
 import { UserService } from '../services/userService';
 import { PermissionService } from '../services/permissionService';
@@ -19,7 +20,7 @@ import {
   Lock, Table, Code,
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
   Coins, LogOut, Key, Building2, Briefcase, DollarSign, TrendingDown, TrendingUp,
-  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List
+  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List, Globe, Minus
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
@@ -78,6 +79,22 @@ const AdminConsole: React.FC = () => {
       rate: 1,
       date: new Date().toISOString().split('T')[0]
   });
+
+  // CBU Live Rates State
+  const [cbuRates, setCbuRates] = useState<Array<{
+    currency: Currency;
+    code: string;
+    name: string;
+    rate: number;
+    nominal: number;
+    rawRate: number;
+    diff: number;
+    date: string;
+  }>>([]);
+  const [cbuLoading, setCbuLoading] = useState(false);
+  const [cbuLastUpdated, setCbuLastUpdated] = useState<Date | null>(null);
+  const [showManualForm, setShowManualForm] = useState(false);
+  const [cbuError, setCbuError] = useState<string | null>(null);
 
   // User Management State
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
@@ -239,6 +256,44 @@ const AdminConsole: React.FC = () => {
       fetchActivityLogs();
     }
   }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
+
+  // Load CBU rates when FX section is active
+  useEffect(() => {
+    if (activeSection === 'fx') {
+      loadCBURates();
+    }
+  }, [activeSection]);
+
+  // Fetch CBU rates from Central Bank API
+  const loadCBURates = async () => {
+    setCbuLoading(true);
+    setCbuError(null);
+    try {
+      const rates = await CBUService.fetchRatesWithDetails();
+      setCbuRates(rates);
+      setCbuLastUpdated(new Date());
+    } catch (error: any) {
+      console.error('Failed to load CBU rates:', error);
+      setCbuError(error.message || 'Failed to fetch rates from CBU');
+    } finally {
+      setCbuLoading(false);
+    }
+  };
+
+  // Sync CBU rates to database
+  const handleSyncCBURates = async () => {
+    setCbuLoading(true);
+    try {
+      const result = await CBUService.syncRates();
+      toast.success(`Synced ${result.updated} exchange rates for ${result.date}`);
+      await loadAllData(); // Refresh local rates
+      await loadCBURates(); // Refresh CBU display
+    } catch (error: any) {
+      toast.error('Failed to sync rates: ' + error.message);
+    } finally {
+      setCbuLoading(false);
+    }
+  };
 
   // Load presets when section is active
   useEffect(() => {
@@ -931,26 +986,298 @@ const AdminConsole: React.FC = () => {
     </div>
   );
 
-  const renderFxRates = () => (
-    <div className="space-y-6 animate-in fade-in duration-300">
-        <h2 className="text-2xl font-bold text-gray-800">Exchange Rates</h2>
-        <div className="bg-white rounded-xl shadow-sm border p-6 mb-6">
-            <h3 className="font-bold text-gray-700 mb-4">Add New Rate</h3>
-            <div className="flex gap-4 items-end">
-                <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Currency</label><select className="w-full p-2 border rounded" value={newRate.currency} onChange={e=>setNewRate({...newRate,currency:e.target.value as Currency})}>{Object.values(Currency).map(c=><option key={c} value={c}>{c}</option>)}</select></div>
-                <div className="flex-1"><label className="block text-xs font-bold text-gray-500 uppercase mb-1">Rate (to UZS)</label><input type="number" step="0.01" className="w-full p-2 border rounded" value={newRate.rate||''} onChange={e=>setNewRate({...newRate,rate:parseFloat(e.target.value)})}/></div>
-                <div className="flex-1"><DatePickerInput label="Date" value={parseDate(newRate.date)} onChange={(date) => setNewRate({...newRate, date: toISODateString(date) || ''})}/></div>
-                <button onClick={handleAddFx} className="bg-green-600 text-white px-4 py-2 rounded font-bold hover:bg-green-700">Add</button>
+  const renderFxRates = () => {
+    // Currency flag helper
+    const getCurrencyFlag = (code: string): string => {
+      const flags: Record<string, string> = {
+        USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', RUB: '🇷🇺', CNY: '🇨🇳',
+        KZT: '🇰🇿', TRY: '🇹🇷', AED: '🇦🇪', CHF: '🇨🇭', JPY: '🇯🇵',
+        CAD: '🇨🇦', AUD: '🇦🇺', KRW: '🇰🇷', INR: '🇮🇳',
+      };
+      return flags[code] || '🏳️';
+    };
+
+    return (
+      <div className="space-y-6 animate-in fade-in duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+              <Globe className="text-blue-600" size={28} />
+              Exchange Rates
+            </h2>
+            <p className="text-gray-500 text-sm mt-1">
+              Official rates from the Central Bank of Uzbekistan (CBU)
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowManualForm(!showManualForm)}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+            >
+              {showManualForm ? <X size={18} /> : <Plus size={18} />}
+              {showManualForm ? 'Close' : 'Manual Entry'}
+            </button>
+            <button
+              onClick={handleSyncCBURates}
+              disabled={cbuLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              <Save size={18} />
+              Save to DB
+            </button>
+            <button
+              onClick={loadCBURates}
+              disabled={cbuLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
+            >
+              <RefreshCw size={18} className={cbuLoading ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
+        </div>
+
+        {/* Manual Entry Form - Collapsible */}
+        {showManualForm && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 animate-in slide-in-from-top duration-300">
+            <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
+              <Plus size={20} />
+              Add Exchange Rate Manually
+            </h3>
+            <p className="text-amber-700 text-sm mb-4">
+              Note: Use this only for historical rates or currencies not available from CBU.
+              For current rates, use the "Save to DB" button above to sync CBU rates.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Currency</label>
+                <select
+                  value={newRate.currency}
+                  onChange={(e) => setNewRate({...newRate, currency: e.target.value as Currency})}
+                  className="w-full p-2 border border-amber-300 rounded-lg bg-white"
+                >
+                  {Object.values(Currency).map(c => (
+                    <option key={c} value={c}>{getCurrencyFlag(c)} {c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">
+                  Rate (UZS per 1 unit)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="e.g., 12750.00"
+                  value={newRate.rate || ''}
+                  onChange={(e) => setNewRate({...newRate, rate: parseFloat(e.target.value)})}
+                  className="w-full p-2 border border-amber-300 rounded-lg bg-white"
+                />
+              </div>
+              <div>
+                <DatePickerInput
+                  label="Date"
+                  value={parseDate(newRate.date)}
+                  onChange={(date) => setNewRate({...newRate, date: toISODateString(date) || ''})}
+                />
+              </div>
+              <div className="flex items-end">
+                <button
+                  onClick={handleAddFx}
+                  className="w-full px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors"
+                >
+                  Save Rate
+                </button>
+              </div>
             </div>
+          </div>
+        )}
+
+        {/* CBU Live Rates Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Header with last updated */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3 text-white">
+              <Globe size={24} />
+              <div>
+                <h3 className="font-bold">Live CBU Exchange Rates</h3>
+                <p className="text-blue-100 text-sm">
+                  {cbuLastUpdated
+                    ? `Last updated: ${cbuLastUpdated.toLocaleTimeString()}`
+                    : 'Click Refresh to load rates'}
+                </p>
+              </div>
+            </div>
+            {cbuRates.length > 0 && (
+              <div className="text-white text-sm bg-white/20 px-3 py-1 rounded-full">
+                Rate Date: {cbuRates[0]?.date ? formatDate(cbuRates[0].date) : '-'}
+              </div>
+            )}
+          </div>
+
+          {/* Error State */}
+          {cbuError && (
+            <div className="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2 text-red-700">
+              <AlertTriangle size={18} />
+              <span>{cbuError}</span>
+            </div>
+          )}
+
+          {/* Loading State */}
+          {cbuLoading && (
+            <div className="p-12 text-center">
+              <RefreshCw className="animate-spin text-blue-600 mx-auto mb-3" size={32} />
+              <p className="text-gray-500">Loading exchange rates from CBU...</p>
+            </div>
+          )}
+
+          {/* Rates Table */}
+          {!cbuLoading && cbuRates.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 text-gray-600 text-sm">
+                  <tr>
+                    <th className="text-left px-4 py-3 font-semibold">Currency</th>
+                    <th className="text-center px-4 py-3 font-semibold">Code</th>
+                    <th className="text-right px-4 py-3 font-semibold">Nominal</th>
+                    <th className="text-right px-4 py-3 font-semibold">Rate (UZS)</th>
+                    <th className="text-right px-4 py-3 font-semibold">Change</th>
+                    <th className="text-right px-4 py-3 font-semibold">Per 1 Unit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {cbuRates.map((rate, idx) => (
+                    <tr
+                      key={rate.code}
+                      className={`hover:bg-blue-50/50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'}`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl">{getCurrencyFlag(rate.code)}</span>
+                          <span className="font-medium text-gray-900">{rate.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-gray-100 text-gray-800 font-mono font-bold text-sm">
+                          {rate.code}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-600">
+                        {rate.nominal}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-semibold text-gray-900 text-lg">
+                          {rate.rawRate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
+                          rate.diff > 0
+                            ? 'bg-green-100 text-green-700'
+                            : rate.diff < 0
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {rate.diff > 0 ? (
+                            <TrendingUp size={14} />
+                          ) : rate.diff < 0 ? (
+                            <TrendingDown size={14} />
+                          ) : (
+                            <Minus size={14} />
+                          )}
+                          {rate.diff > 0 ? '+' : ''}{rate.diff.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-mono text-gray-700">
+                          {rate.rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!cbuLoading && cbuRates.length === 0 && !cbuError && (
+            <div className="p-12 text-center">
+              <Globe className="text-gray-300 mx-auto mb-3" size={48} />
+              <p className="text-gray-500">No exchange rates loaded</p>
+              <button
+                onClick={loadCBURates}
+                className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
+              >
+                Click to load CBU rates
+              </button>
+            </div>
+          )}
+
+          {/* Footer with source info */}
+          <div className="bg-gray-50 px-4 py-3 border-t border-gray-200 flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center gap-2">
+              <Globe size={16} />
+              <span>Source: Central Bank of Uzbekistan (cbu.uz)</span>
+            </div>
+            <span>{cbuRates.length} currencies available</span>
+          </div>
         </div>
-        <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-            <table className="w-full text-left">
-                <thead className="bg-gray-50 text-gray-700"><tr><th className="px-6 py-3">Currency</th><th className="px-6 py-3">Rate</th><th className="px-6 py-3">Date</th><th className="px-6 py-3 text-right">Action</th></tr></thead>
-                <tbody className="divide-y divide-gray-100">{fxRates.map(r=><tr key={r.id} className="hover:bg-gray-50"><td className="px-6 py-3 font-bold">{r.currency}</td><td className="px-6 py-3">{r.rate}</td><td className="px-6 py-3 text-gray-500">{formatDate(r.date)}</td><td className="px-6 py-3 text-right"><button onClick={()=>handleDeleteFx(r.id)} className="text-red-500 hover:text-red-700"><Trash2 size={16}/></button></td></tr>)}</tbody>
+
+        {/* Saved Rates Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="bg-gray-100 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-gray-700">Saved Exchange Rates</h3>
+              <p className="text-gray-500 text-sm">Rates saved in your database for calculations</p>
+            </div>
+            <span className="text-sm text-gray-500">{fxRates.length} records</span>
+          </div>
+          {fxRates.length > 0 ? (
+            <table className="w-full">
+              <thead className="bg-gray-50 text-gray-600 text-sm">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold">Currency</th>
+                  <th className="text-right px-4 py-3 font-semibold">Rate (UZS)</th>
+                  <th className="text-left px-4 py-3 font-semibold">Date</th>
+                  <th className="text-right px-4 py-3 font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {fxRates.slice(0, 20).map((r) => (
+                  <tr key={r.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">
+                      <span className="mr-2">{getCurrencyFlag(r.currency)}</span>
+                      {r.currency}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono">
+                      {r.rate.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      {formatDate(r.date)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => handleDeleteFx(r.id)}
+                        className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
+          ) : (
+            <div className="p-8 text-center text-gray-500">
+              <Coins className="mx-auto mb-2 text-gray-300" size={32} />
+              <p>No saved rates yet. Use "Save to DB" to sync CBU rates.</p>
+            </div>
+          )}
         </div>
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderPresets = () => (
     <div className="space-y-6 animate-in fade-in duration-300">
