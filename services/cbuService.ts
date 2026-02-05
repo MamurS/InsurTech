@@ -4,10 +4,13 @@
 import { Currency, ExchangeRate } from '../types';
 import { DB } from './db';
 
-// CORS proxies to bypass CBU's browser restrictions (try in order)
+// Multiple CORS proxies to try (in order of preference)
 const CORS_PROXIES = [
-  'https://api.allorigins.win/raw?url=',
-  'https://corsproxy.io/?',
+  { prefix: 'https://api.cors.lol/?url=', encode: true },
+  { prefix: 'https://proxy.corsfix.com/?', encode: true },
+  { prefix: 'https://api.codetabs.com/v1/proxy?quest=', encode: true },
+  { prefix: 'https://corsproxy.io/?', encode: true },
+  { prefix: 'https://api.allorigins.win/raw?url=', encode: true },
 ];
 
 let activeProxyIndex = 0;
@@ -60,29 +63,52 @@ export const CBUService = {
     for (let i = 0; i < CORS_PROXIES.length; i++) {
       const proxyIndex = (activeProxyIndex + i) % CORS_PROXIES.length;
       const proxy = CORS_PROXIES[proxyIndex];
-      const url = `${proxy}${encodeURIComponent(cbuUrl)}`;
+      const url = proxy.encode
+        ? `${proxy.prefix}${encodeURIComponent(cbuUrl)}`
+        : `${proxy.prefix}${cbuUrl}`;
 
       try {
-        console.log(`Trying CBU fetch with proxy: ${proxy}`);
-        const response = await fetch(url);
+        console.log(`Trying CBU fetch with proxy ${proxyIndex + 1}/${CORS_PROXIES.length}: ${proxy.prefix}`);
+
+        const response = await fetch(url, {
+          headers: {
+            'Accept': 'application/json',
+          }
+        });
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`);
         }
 
-        const data = await response.json();
+        const text = await response.text();
+        let data;
+
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error('Invalid JSON response');
+        }
 
         if (!Array.isArray(data)) {
-          throw new Error('Invalid response format');
+          throw new Error('Response is not an array');
+        }
+
+        if (data.length === 0) {
+          throw new Error('Empty response');
+        }
+
+        // Validate first item has expected fields
+        if (!data[0].Ccy || !data[0].Rate) {
+          throw new Error('Invalid data structure');
         }
 
         // This proxy worked, remember it for next time
         activeProxyIndex = proxyIndex;
-        console.log(`CBU fetch successful, got ${data.length} rates`);
+        console.log(`✓ CBU fetch successful via proxy ${proxyIndex + 1}, got ${data.length} rates`);
         return data;
 
       } catch (error: any) {
-        console.warn(`Proxy ${proxy} failed:`, error.message);
+        console.warn(`✗ Proxy ${proxyIndex + 1} failed:`, error.message);
         lastError = error;
       }
     }

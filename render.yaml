@@ -31,7 +31,7 @@ services:
         value: camera=(), microphone=(), geolocation=()
       - path: /*
         name: Content-Security-Policy
-        value: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.allorigins.win https://corsproxy.io https://cbu.uz;
+        value: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.cors.lol https://proxy.corsfix.com https://api.codetabs.com https://corsproxy.io https://api.allorigins.win https://cbu.uz;
     envVars:
       - key: NODE_VERSION
         value: 20.0.0
