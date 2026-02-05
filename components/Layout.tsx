@@ -18,6 +18,7 @@ interface LayoutProps {
 const routeGroups: Record<string, string[]> = {
   '/': ['/'], // Dashboard only - analytics view
   '/direct-insurance': ['/direct-insurance', '/policy', '/new', '/edit', '/wording'], // Direct insurance policies
+  '/inward-reinsurance': ['/inward-reinsurance'], // Inward reinsurance dashboard and sub-pages
   '/analytics': ['/analytics'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
@@ -95,23 +96,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
           {/* Inward Reinsurance Collapsible Section */}
           <div className="pt-2">
-            <button
-              onClick={() => setIsInwardReinsuranceOpen(!isInwardReinsuranceOpen)}
+            <div
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${
                 location.pathname.includes('/inward-reinsurance')
                   ? 'bg-blue-600/20 text-blue-300'
                   : 'text-slate-300 hover:bg-slate-800'
               }`}
-              title="Inward Reinsurance"
             >
-              <ArrowDownRight size={20} className="flex-shrink-0" />
-              <span className="flex-1 text-left">Inward Reinsurance</span>
-              {isInwardReinsuranceOpen ? (
-                <ChevronDown size={16} className="flex-shrink-0" />
-              ) : (
-                <ChevronRight size={16} className="flex-shrink-0" />
-              )}
-            </button>
+              <Link
+                to="/inward-reinsurance"
+                className="flex items-center gap-3 flex-1"
+                title="Inward Reinsurance Dashboard"
+              >
+                <ArrowDownRight size={20} className="flex-shrink-0" />
+                <span className="text-left">Inward Reinsurance</span>
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsInwardReinsuranceOpen(!isInwardReinsuranceOpen);
+                }}
+                className="p-1 hover:bg-slate-700 rounded transition-colors"
+                title={isInwardReinsuranceOpen ? "Collapse" : "Expand"}
+              >
+                {isInwardReinsuranceOpen ? (
+                  <ChevronDown size={16} className="flex-shrink-0" />
+                ) : (
+                  <ChevronRight size={16} className="flex-shrink-0" />
+                )}
+              </button>
+            </div>
 
             {/* Nested Links */}
             {isInwardReinsuranceOpen && (

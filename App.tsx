@@ -21,6 +21,7 @@ import ClaimDetail from './pages/ClaimDetail';
 import Agenda from './pages/Agenda';
 import InwardReinsuranceList from './pages/InwardReinsuranceList';
 import InwardReinsuranceForm from './pages/InwardReinsuranceForm';
+import InwardReinsuranceDashboard from './pages/InwardReinsuranceDashboard';
 import Analytics from './pages/Analytics';
 import DirectInsuranceList from './pages/DirectInsuranceList';
 
@@ -103,6 +104,7 @@ const AppRoutes = () => {
               <Route path="/agenda" element={<Agenda />} />
 
               {/* Inward Reinsurance Routes */}
+              <Route path="/inward-reinsurance" element={<InwardReinsuranceDashboard />} />
               <Route path="/inward-reinsurance/foreign" element={<InwardReinsuranceList />} />
               <Route path="/inward-reinsurance/foreign/new" element={<InwardReinsuranceForm />} />
               <Route path="/inward-reinsurance/foreign/edit/:id" element={<InwardReinsuranceForm />} />
