@@ -7,8 +7,7 @@ import { formatDate } from '../utils/dateUtils';
 import {
   ArrowDownRight, Search, RefreshCw, Download,
   Globe, Home, TrendingUp, DollarSign,
-  FileText, Building2, Calendar, PieChart,
-  ChevronRight, Eye
+  FileText, Building2, Calendar, PieChart, Eye
 } from 'lucide-react';
 
 const InwardReinsuranceDashboard: React.FC = () => {
@@ -280,32 +279,6 @@ const InwardReinsuranceDashboard: React.FC = () => {
             </>
           )}
         </button>
-      </div>
-
-      {/* Quick Links to Foreign/Domestic */}
-      <div className="flex gap-4">
-        <Link
-          to="/inward-reinsurance/foreign"
-          className="flex items-center gap-3 px-5 py-3 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors group"
-        >
-          <Globe className="text-purple-600" size={20} />
-          <div>
-            <p className="font-medium text-purple-900">Foreign Inward</p>
-            <p className="text-xs text-purple-600">{stats.foreign} contracts</p>
-          </div>
-          <ChevronRight className="text-purple-400 group-hover:translate-x-1 transition-transform" size={18} />
-        </Link>
-        <Link
-          to="/inward-reinsurance/domestic"
-          className="flex items-center gap-3 px-5 py-3 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors group"
-        >
-          <Home className="text-blue-600" size={20} />
-          <div>
-            <p className="font-medium text-blue-900">Domestic Inward</p>
-            <p className="text-xs text-blue-600">{stats.domestic} contracts</p>
-          </div>
-          <ChevronRight className="text-blue-400 group-hover:translate-x-1 transition-transform" size={18} />
-        </Link>
       </div>
 
       {/* Stats Cards */}
