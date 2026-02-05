@@ -1042,62 +1042,6 @@ const AdminConsole: React.FC = () => {
           </div>
         </div>
 
-        {/* Manual Entry Form */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
-            <h3 className="font-bold text-amber-800 mb-4 flex items-center gap-2">
-              <Plus size={20} />
-              Add Exchange Rate Manually
-            </h3>
-            <p className="text-amber-700 text-sm mb-4">
-              Note: Use this only for historical rates or currencies not available from CBU.
-              For current rates, use the "Save to DB" button above to sync CBU rates.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <div>
-                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Currency</label>
-                <select
-                  value={newRate.currency}
-                  onChange={(e) => setNewRate({...newRate, currency: e.target.value as Currency})}
-                  className="w-full p-2.5 border border-amber-300 rounded-lg bg-white"
-                >
-                  {Object.values(Currency).map(c => (
-                    <option key={c} value={c}>{getCurrencyFlag(c)} {c}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">
-                  Rate (UZS per 1 unit)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="e.g., 12750.00"
-                  value={newRate.rate || ''}
-                  onChange={(e) => setNewRate({...newRate, rate: parseFloat(e.target.value)})}
-                  className="w-full p-2.5 border border-amber-300 rounded-lg bg-white"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-amber-700 uppercase mb-1">Date</label>
-                <input
-                  type="date"
-                  value={newRate.date || ''}
-                  onChange={(e) => setNewRate({...newRate, date: e.target.value})}
-                  className="w-full p-2.5 border border-amber-300 rounded-lg bg-white"
-                />
-              </div>
-              <div>
-                <button
-                  onClick={handleAddFx}
-                  className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-bold transition-colors"
-                >
-                  Save Rate
-                </button>
-              </div>
-            </div>
-          </div>
-
         {/* CBU Live Rates Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Header with last updated */}
