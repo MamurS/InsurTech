@@ -264,33 +264,41 @@ const AdminConsole: React.FC = () => {
     }
   }, [activeSection, cbuSelectedDate]);
 
-  // Fetch CBU rates from Central Bank API
-  const loadCBURates = async (date?: string) => {
+  // Load exchange rates - checks DB first, fetches from CBU if not found
+  const loadCBURates = async () => {
     setCbuLoading(true);
     setCbuError(null);
     try {
-      const dateToFetch = date || toISODateString(cbuSelectedDate) || undefined;
-      const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
-      setCbuRates(rates);
-      setCbuLastUpdated(new Date());
-    } catch (error: any) {
-      console.error('Failed to load CBU rates:', error);
-      setCbuError(error.message || 'Failed to fetch rates from CBU');
-    } finally {
-      setCbuLoading(false);
-    }
-  };
+      const dateToFetch = toISODateString(cbuSelectedDate) || new Date().toISOString().split('T')[0];
 
-  // Sync CBU rates to database
-  const handleSyncCBURates = async () => {
-    setCbuLoading(true);
-    try {
-      const result = await CBUService.syncRates(toISODateString(cbuSelectedDate) || undefined);
-      toast.success(`Synced ${result.updated} exchange rates for ${result.date}`);
-      await loadAllData(); // Refresh local rates
-      await loadCBURates(); // Refresh CBU display
+      // First check if rates exist in DB for this date
+      const dbRates = await DB.getExchangeRatesByDate(dateToFetch);
+
+      if (dbRates.length > 0) {
+        // Rates found in DB - display them
+        const ratesWithDetails = dbRates.map(r => ({
+          currency: r.currency,
+          code: r.currency,
+          name: r.currency,
+          rate: r.rate,
+          nominal: 1,
+          rawRate: r.rate,
+          diff: 0,
+          date: r.date,
+        }));
+        setCbuRates(ratesWithDetails);
+        setCbuLastUpdated(new Date());
+      } else {
+        // Rates not in DB - fetch from CBU, save to DB, then display
+        await CBUService.syncRates(dateToFetch);
+        const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
+        setCbuRates(rates);
+        setCbuLastUpdated(new Date());
+        await loadAllData(); // Refresh local rates in state
+      }
     } catch (error: any) {
-      toast.error('Failed to sync rates: ' + error.message);
+      console.error('Failed to load exchange rates:', error);
+      setCbuError(error.message || 'Failed to fetch rates');
     } finally {
       setCbuLoading(false);
     }
@@ -1011,48 +1019,31 @@ const AdminConsole: React.FC = () => {
               Official rates from the Central Bank of Uzbekistan (CBU)
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Date Picker for Historical Rates */}
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600 font-medium">Rate Date:</label>
-              <DatePickerInput
-                value={cbuSelectedDate}
-                onChange={setCbuSelectedDate}
-                maxDate={new Date()}
-                className="!py-2 !text-sm"
-              />
-            </div>
-            <button
-              onClick={handleSyncCBURates}
-              disabled={cbuLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              <Save size={18} />
-              Save to DB
-            </button>
-            <button
-              onClick={() => loadCBURates()}
-              disabled={cbuLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
-            >
-              <RefreshCw size={18} className={cbuLoading ? 'animate-spin' : ''} />
-              Refresh
-            </button>
+          {/* Date Picker for Historical Rates */}
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 font-medium">Rate Date:</label>
+            <DatePickerInput
+              value={cbuSelectedDate}
+              onChange={setCbuSelectedDate}
+              maxDate={new Date()}
+              className="!py-2 !text-sm"
+            />
+            {cbuLoading && <RefreshCw size={18} className="animate-spin text-blue-600" />}
           </div>
         </div>
 
-        {/* CBU Live Rates Card */}
+        {/* Exchange Rates Card */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header with last updated */}
+          {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 flex items-center justify-between">
             <div className="flex items-center gap-3 text-white">
               <Globe size={24} />
               <div>
-                <h3 className="font-bold">Live CBU Exchange Rates</h3>
+                <h3 className="font-bold">CBU Exchange Rates</h3>
                 <p className="text-blue-100 text-sm">
                   {cbuLastUpdated
-                    ? `Last updated: ${cbuLastUpdated.toLocaleTimeString()}`
-                    : 'Click Refresh to load rates'}
+                    ? `Loaded: ${cbuLastUpdated.toLocaleTimeString()}`
+                    : 'Select a date to load rates'}
                 </p>
               </div>
             </div>
@@ -1152,12 +1143,12 @@ const AdminConsole: React.FC = () => {
           {!cbuLoading && cbuRates.length === 0 && !cbuError && (
             <div className="p-12 text-center">
               <Globe className="text-gray-300 mx-auto mb-3" size={48} />
-              <p className="text-gray-500">No exchange rates loaded</p>
+              <p className="text-gray-500">No exchange rates available for this date</p>
               <button
                 onClick={loadCBURates}
                 className="mt-4 text-blue-600 hover:text-blue-700 font-medium"
               >
-                Click to load CBU rates
+                Try loading rates
               </button>
             </div>
           )}

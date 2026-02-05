@@ -480,6 +480,15 @@ export const DB = {
       return rate?.rate || 1;
   },
 
+  getExchangeRatesByDate: async (date: string): Promise<ExchangeRate[]> => {
+      if (isSupabaseEnabled()) {
+          const { data } = await supabase!.from('fx_rates').select('*').eq('date', date);
+          return data as ExchangeRate[] || [];
+      }
+      const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
+      return rates.filter(r => r.date === date);
+  },
+
   saveExchangeRate: async (rate: ExchangeRate): Promise<void> => {
       if (isSupabaseEnabled()) {
           await supabase!.from('fx_rates').upsert(rate);
