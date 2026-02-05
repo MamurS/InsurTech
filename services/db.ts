@@ -483,7 +483,17 @@ export const DB = {
   getExchangeRatesByDate: async (date: string): Promise<ExchangeRate[]> => {
       if (isSupabaseEnabled()) {
           const { data } = await supabase!.from('fx_rates').select('*').eq('date', date);
-          return data as ExchangeRate[] || [];
+          // Map snake_case DB fields to camelCase
+          return (data || []).map((r: any) => ({
+              id: r.id,
+              currency: r.currency,
+              rate: r.rate,
+              date: r.date,
+              nominal: r.nominal,
+              diff: r.diff,
+              ccyNameEn: r.ccy_name_en,
+              rawRate: r.raw_rate,
+          }));
       }
       const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
       return rates.filter(r => r.date === date);
@@ -491,7 +501,19 @@ export const DB = {
 
   saveExchangeRate: async (rate: ExchangeRate): Promise<void> => {
       if (isSupabaseEnabled()) {
-          await supabase!.from('fx_rates').upsert(rate);
+          // Map camelCase to snake_case for Supabase
+          await supabase!.from('fx_rates').upsert({
+              id: rate.id,
+              currency: rate.currency,
+              rate: rate.rate,
+              date: rate.date,
+              nominal: rate.nominal || 1,
+              diff: rate.diff || null,
+              ccy_name_en: rate.ccyNameEn || null,
+              raw_rate: rate.rawRate || rate.rate,
+          }, {
+              onConflict: 'id'
+          });
           return;
       }
       const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);

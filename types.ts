@@ -247,6 +247,11 @@ export interface ExchangeRate {
   currency: Currency;
   rate: number;
   date: string;
+  // Optional fields for CBU data
+  nominal?: number;
+  diff?: string;
+  ccyNameEn?: string;
+  rawRate?: number;
 }
 
 export interface ReinsuranceSlip {
