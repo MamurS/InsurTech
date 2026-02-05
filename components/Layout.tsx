@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ArrowDownRight, Globe, Home, BarChart3
+  ChevronDown, ChevronRight, ArrowDownRight, Globe, Home, BarChart3, Briefcase
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 
@@ -16,7 +16,8 @@ interface LayoutProps {
 
 // Route groups define which routes should highlight which nav items
 const routeGroups: Record<string, string[]> = {
-  '/': ['/policy', '/policies', '/new', '/edit', '/wording'],
+  '/': ['/'], // Dashboard only - analytics view
+  '/direct-insurance': ['/direct-insurance', '/policy', '/new', '/edit', '/wording'], // Direct insurance policies
   '/analytics': ['/analytics'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
@@ -79,7 +80,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             title="Dashboard"
           >
             <LayoutDashboard size={20} className="flex-shrink-0" />
-            <span>Dashboard (DB)</span>
+            <span>Dashboard</span>
+          </Link>
+
+          {/* Direct Insurance */}
+          <Link
+            to="/direct-insurance"
+            className={getLinkClass('/direct-insurance')}
+            title="Direct Insurance"
+          >
+            <Briefcase size={20} className="flex-shrink-0" />
+            <span>Direct Insurance</span>
           </Link>
 
           {/* Inward Reinsurance Collapsible Section */}

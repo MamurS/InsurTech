@@ -22,6 +22,7 @@ import Agenda from './pages/Agenda';
 import InwardReinsuranceList from './pages/InwardReinsuranceList';
 import InwardReinsuranceForm from './pages/InwardReinsuranceForm';
 import Analytics from './pages/Analytics';
+import DirectInsuranceList from './pages/DirectInsuranceList';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -73,6 +74,11 @@ const AppRoutes = () => {
           <Layout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+
+              {/* Direct Insurance Routes */}
+              <Route path="/direct-insurance" element={<DirectInsuranceList />} />
+              <Route path="/policy/:id" element={<PolicyForm />} />
+
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/new" element={<PolicyForm />} />
               <Route path="/edit/:id" element={<PolicyForm />} />

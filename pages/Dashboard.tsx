@@ -354,16 +354,6 @@ const Dashboard: React.FC = () => {
             >
             <Download size={16} /> Export Excel
             </button>
-            <button
-            type="button"
-            onClick={() => {
-              setEditingPolicyId(null);
-              setShowPolicyModal(true);
-            }}
-            className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-bold transition-all shadow-sm hover:shadow-md cursor-pointer text-sm w-40"
-            >
-            <Plus size={18} /> New Policy
-            </button>
         </div>
       </div>
 
