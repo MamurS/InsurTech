@@ -45,18 +45,24 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const getLinkClass = (navPath: string, exact: boolean = false) => {
     let isActive = false;
 
-    if (exact) {
+    if (exact || navPath === '/') {
+      // Dashboard (/) should ONLY match exactly "/"
       isActive = location.pathname === navPath;
     } else {
+      // Other paths use startsWith matching
       isActive = location.pathname.startsWith(navPath);
     }
 
     // Check route groups for additional matching paths
     if (!isActive && routeGroups[navPath]) {
-      isActive = routeGroups[navPath].some(p => location.pathname.startsWith(p));
+      isActive = routeGroups[navPath].some(p =>
+        p === '/' ? location.pathname === p : location.pathname.startsWith(p)
+      );
     }
 
-    return `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'}`;
+    return `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${
+      isActive ? 'bg-blue-600 text-white' : 'text-slate-300 hover:bg-slate-800'
+    }`;
   };
 
   return (
