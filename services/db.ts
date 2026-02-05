@@ -499,6 +499,53 @@ export const DB = {
       return rates.filter(r => r.date === date);
   },
 
+  // Get the most recent cached rates (for fallback when API is unavailable)
+  getMostRecentExchangeRates: async (): Promise<{ rates: ExchangeRate[], date: string | null }> => {
+      if (isSupabaseEnabled()) {
+          // First get the most recent date that has rates
+          const { data: dateData } = await supabase!.from('fx_rates')
+              .select('date')
+              .order('date', { ascending: false })
+              .limit(1);
+
+          if (!dateData || dateData.length === 0) {
+              return { rates: [], date: null };
+          }
+
+          const mostRecentDate = dateData[0].date;
+
+          // Then get all rates for that date
+          const { data } = await supabase!.from('fx_rates').select('*').eq('date', mostRecentDate);
+          const rates = (data || []).map((r: any) => ({
+              id: r.id,
+              currency: r.currency,
+              rate: r.rate,
+              date: r.date,
+              nominal: r.nominal,
+              diff: r.diff,
+              ccyNameEn: r.ccy_name_en,
+              rawRate: r.raw_rate,
+          }));
+          return { rates, date: mostRecentDate };
+      }
+
+      const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
+      if (rates.length === 0) {
+          return { rates: [], date: null };
+      }
+
+      // Find the most recent date
+      const sortedRates = [...rates].sort((a, b) =>
+          new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      const mostRecentDate = sortedRates[0].date;
+
+      return {
+          rates: rates.filter(r => r.date === mostRecentDate),
+          date: mostRecentDate
+      };
+  },
+
   saveExchangeRate: async (rate: ExchangeRate): Promise<void> => {
       if (isSupabaseEnabled()) {
           // Map camelCase to snake_case for Supabase
