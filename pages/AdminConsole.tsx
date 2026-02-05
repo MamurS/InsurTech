@@ -94,7 +94,7 @@ const AdminConsole: React.FC = () => {
   const [cbuLoading, setCbuLoading] = useState(false);
   const [cbuLastUpdated, setCbuLastUpdated] = useState<Date | null>(null);
   const [cbuError, setCbuError] = useState<string | null>(null);
-  const [cbuSelectedDate, setCbuSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [cbuSelectedDate, setCbuSelectedDate] = useState<Date | null>(new Date());
 
   // User Management State
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
@@ -269,7 +269,7 @@ const AdminConsole: React.FC = () => {
     setCbuLoading(true);
     setCbuError(null);
     try {
-      const dateToFetch = date || cbuSelectedDate;
+      const dateToFetch = date || toISODateString(cbuSelectedDate) || undefined;
       const rates = await CBUService.fetchRatesWithDetails(dateToFetch);
       setCbuRates(rates);
       setCbuLastUpdated(new Date());
@@ -285,7 +285,7 @@ const AdminConsole: React.FC = () => {
   const handleSyncCBURates = async () => {
     setCbuLoading(true);
     try {
-      const result = await CBUService.syncRates(cbuSelectedDate);
+      const result = await CBUService.syncRates(toISODateString(cbuSelectedDate) || undefined);
       toast.success(`Synced ${result.updated} exchange rates for ${result.date}`);
       await loadAllData(); // Refresh local rates
       await loadCBURates(); // Refresh CBU display
@@ -1015,12 +1015,11 @@ const AdminConsole: React.FC = () => {
             {/* Date Picker for Historical Rates */}
             <div className="flex items-center gap-2">
               <label className="text-sm text-gray-600 font-medium">Rate Date:</label>
-              <input
-                type="date"
+              <DatePickerInput
                 value={cbuSelectedDate}
-                onChange={(e) => setCbuSelectedDate(e.target.value)}
-                max={new Date().toISOString().split('T')[0]}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                onChange={setCbuSelectedDate}
+                maxDate={new Date()}
+                className="!py-2 !text-sm"
               />
             </div>
             <button
