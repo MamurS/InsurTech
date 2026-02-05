@@ -1,8 +1,8 @@
 {
-  "name": "mig-nexus",
+  "name": "mosaic-erp",
   "private": true,
   "version": "1.0.0",
-  "description": "MIG Nexus - Insurance Management Platform by Mosaic Insurance Group",
+  "description": "Mosaic ERP - Enterprise Insurance Management System by Mosaic Insurance Group",
   "type": "module",
   "scripts": {
     "dev": "vite",
