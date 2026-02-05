@@ -97,6 +97,7 @@ const AdminConsole: React.FC = () => {
   const [cbuSelectedDate, setCbuSelectedDate] = useState<Date | null>(new Date());
   const [showDatePopup, setShowDatePopup] = useState(false);
   const [popupDate, setPopupDate] = useState<Date | null>(new Date());
+  const [cbuUsingCachedRates, setCbuUsingCachedRates] = useState(false); // True when showing fallback rates
 
   // User Management State
   const { data: profiles, isLoading: loadingProfiles, refetch: refetchProfiles } = useProfiles();
@@ -282,6 +283,7 @@ const AdminConsole: React.FC = () => {
   const loadCBURates = async () => {
     setCbuLoading(true);
     setCbuError(null);
+    setCbuUsingCachedRates(false);
     try {
       const dateToFetch = toISODateString(cbuSelectedDate) || new Date().toISOString().split('T')[0];
 
@@ -293,13 +295,27 @@ const AdminConsole: React.FC = () => {
         setCbuRates(mapDbRatesToDisplay(dbRates));
         setCbuLastUpdated(new Date());
       } else {
-        // Rates not in DB - fetch from CBU, save to DB, then display from DB
-        await CBUService.syncRates(dateToFetch);
-        // Read back from DB to display (now with all fields)
-        const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
-        setCbuRates(mapDbRatesToDisplay(savedRates));
-        setCbuLastUpdated(new Date());
-        await loadAllData(); // Refresh local rates in state
+        // Rates not in DB - try to fetch from CBU, save to DB, then display from DB
+        try {
+          await CBUService.syncRates(dateToFetch);
+          // Read back from DB to display (now with all fields)
+          const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
+          setCbuRates(mapDbRatesToDisplay(savedRates));
+          setCbuLastUpdated(new Date());
+          await loadAllData(); // Refresh local rates in state
+        } catch (fetchError: any) {
+          console.warn('CBU API fetch failed, trying cached rates:', fetchError.message);
+          // API failed - try to show most recent cached rates as fallback
+          const { rates: cachedRates, date: cachedDate } = await DB.getMostRecentExchangeRates();
+          if (cachedRates.length > 0) {
+            setCbuRates(mapDbRatesToDisplay(cachedRates));
+            setCbuSelectedDate(cachedDate ? parseDate(cachedDate) : null);
+            setCbuUsingCachedRates(true);
+            setCbuError(`CBU API unavailable. Showing cached rates from ${cachedDate || 'database'}`);
+          } else {
+            throw fetchError; // No cached rates - show original error
+          }
+        }
       }
     } catch (error: any) {
       console.error('Failed to load exchange rates:', error);
@@ -313,6 +329,7 @@ const AdminConsole: React.FC = () => {
   const refreshCBURates = async (date: Date | null) => {
     setCbuLoading(true);
     setCbuError(null);
+    setCbuUsingCachedRates(false);
     try {
       const dateToFetch = toISODateString(date) || new Date().toISOString().split('T')[0];
 
@@ -322,17 +339,34 @@ const AdminConsole: React.FC = () => {
       if (dbRates.length > 0) {
         // Rates exist in DB for this date - use stored CBU metadata
         setCbuRates(mapDbRatesToDisplay(dbRates));
+        setCbuSelectedDate(date);
+        setPopupDate(date);
       } else {
-        // Rates don't exist for this date - fetch from CBU and save to DB
-        await CBUService.syncRates(dateToFetch);
-        // Read back from DB to display (now with all fields)
-        const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
-        setCbuRates(mapDbRatesToDisplay(savedRates));
-        await loadAllData(); // Refresh local rates in state
+        // Rates don't exist for this date - try to fetch from CBU and save to DB
+        try {
+          await CBUService.syncRates(dateToFetch);
+          // Read back from DB to display (now with all fields)
+          const savedRates = await DB.getExchangeRatesByDate(dateToFetch);
+          setCbuRates(mapDbRatesToDisplay(savedRates));
+          setCbuSelectedDate(date);
+          setPopupDate(date);
+          await loadAllData(); // Refresh local rates in state
+        } catch (fetchError: any) {
+          console.warn('CBU API fetch failed for date:', dateToFetch, fetchError.message);
+          // API failed - try to show most recent cached rates as fallback
+          const { rates: cachedRates, date: cachedDate } = await DB.getMostRecentExchangeRates();
+          if (cachedRates.length > 0) {
+            setCbuRates(mapDbRatesToDisplay(cachedRates));
+            setCbuSelectedDate(cachedDate ? parseDate(cachedDate) : null);
+            setPopupDate(cachedDate ? parseDate(cachedDate) : null);
+            setCbuUsingCachedRates(true);
+            setCbuError(`CBU API unavailable. Showing cached rates from ${cachedDate || 'database'}`);
+          } else {
+            throw fetchError; // No cached rates - show original error
+          }
+        }
       }
 
-      setCbuSelectedDate(date);
-      setPopupDate(date);
       setCbuLastUpdated(new Date());
       setShowDatePopup(false);
     } catch (error: any) {
@@ -1133,11 +1167,25 @@ const AdminConsole: React.FC = () => {
             </div>
           </div>
 
-          {/* Error State */}
-          {cbuError && (
+          {/* Warning State (cached rates) */}
+          {cbuError && cbuUsingCachedRates && cbuRates.length > 0 && (
+            <div className="p-4 bg-amber-50 border-b border-amber-200 flex items-center gap-2 text-amber-700">
+              <AlertTriangle size={18} />
+              <span>{cbuError}</span>
+            </div>
+          )}
+
+          {/* Error State (no rates available) */}
+          {cbuError && !cbuUsingCachedRates && (
             <div className="p-4 bg-red-50 border-b border-red-200 flex items-center gap-2 text-red-700">
               <AlertTriangle size={18} />
               <span>{cbuError}</span>
+              <button
+                onClick={loadCBURates}
+                className="ml-auto text-sm px-3 py-1 bg-red-100 hover:bg-red-200 rounded transition-colors"
+              >
+                Retry
+              </button>
             </div>
           )}
 
