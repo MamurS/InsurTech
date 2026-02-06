@@ -542,6 +542,26 @@ export interface Policy {
   insuredINN?: string;           // Uzbekistan Tax ID
   insuredLegalAddress?: string;  // Uzbekistan Legal Address
   insuredBankDetails?: string;   // Uzbekistan Bank Details
+
+  // Additional Excel Portfolio Fields
+  accountingCode?: string;        // 1C Code
+  referenceLink?: string;         // Reference Link to slip document
+  exchangeRateUSD?: number;       // Exchange Rate in USD (cross-rate)
+  insuranceDays?: number;         // Insurance Period - Number of Days
+  reinsuranceDays?: number;       // Reinsurance Period - Number of Days
+  reinsuranceType?: string;       // '%' (Proportional) or 'XL' (Non-Proportional)
+  fullPremiumForeign?: number;    // Premium in FC 100% (before MIG share)
+  fullPremiumNational?: number;   // Premium in NC 100%
+  grossPremiumNational?: number;  // Gross Reins Premium NC
+  commissionNational?: number;    // Commission amount in national currency
+  netPremiumNational?: number;    // Net Reins Premium NC
+  premiumPaymentDate?: string;    // Scheduled payment date
+  receivedPremiumCurrency?: string; // Currency of received premium
+  receivedPremiumExchangeRate?: number; // Exchange rate at time of receipt
+  actualPaymentDate?: string;     // When payment was actually received
+  risksCount?: number;            // Number of individual risks
+  retroSumReinsured?: number;     // Retrocession sum reinsured
+  retroPremium?: number;          // Retrocession premium
 }
 
 // =============================================
@@ -557,33 +577,103 @@ export interface PortfolioRow {
   id: string;
   source: PortfolioSource;
   referenceNumber: string; // policyNumber, contractNumber, or slipNumber
+  secondaryRef?: string;   // secondaryPolicyNumber
+  slipNumber?: string;
+  agreementNumber?: string;
+  accountingCode?: string; // 1C Code
 
   // Parties
-  insuredName: string; // insuredName, originalInsuredName, or insuredName from slip
+  insuredName: string;
+  insuredAddress?: string;
   cedantName?: string;
   brokerName?: string;
+  borrower?: string;
+  retrocedent?: string;
+  performer?: string;
 
-  // Coverage
-  classOfBusiness: string; // classOfInsurance, classOfCover, or derived from slip
+  // Classification
+  classOfBusiness: string;
+  typeOfInsurance?: string;
+  riskCode?: string;
+  insuredRisk?: string;
+  industry?: string;
   territory?: string;
+  city?: string;
 
-  // Financial
+  // Financial - Amounts
   currency: Currency | string;
-  limit?: number; // sumInsured, limitOfLiability, or limitOfLiability from slip
+  exchangeRate?: number;
+  exchangeRateUSD?: number;
+  equivalentUSD?: number;
+  sumInsured?: number;
+  sumInsuredNational?: number;
+  limit?: number;
+  limitNational?: number;
+  excess?: number;
+  prioritySum?: number;
   grossPremium: number;
+  grossPremiumNational?: number;
+  premiumNational?: number;
+  netPremium?: number;
+  netPremiumNational?: number;
   ourShare: number;
+
+  // Premium rates and percentages
+  premiumRate?: number;
+  commissionPercent?: number;
+  commissionNational?: number;
+  taxPercent?: number;
+
+  // Reinsurance details
+  reinsuranceType?: string;
+  sumReinsuredForeign?: number;
+  sumReinsuredNational?: number;
+  hasOutwardReinsurance?: boolean;
+  reinsurerName?: string;
+  cededShare?: number;
+  cededPremium?: number;
+  reinsuranceCommission?: number;
+  netReinsurancePremium?: number;
+
+  // Treaty & AIC
+  treatyPlacement?: string;
+  treatyPremium?: number;
+  aicCommission?: number;
+  aicRetention?: number;
+  aicPremium?: number;
+
+  // Retrocession
+  risksCount?: number;
+  retroSumReinsured?: number;
+  retroPremium?: number;
 
   // Dates
   inceptionDate: string;
   expiryDate: string;
+  insuranceDays?: number;
+  reinsuranceInceptionDate?: string;
+  reinsuranceExpiryDate?: string;
+  reinsuranceDays?: number;
+  dateOfSlip?: string;
+  accountingDate?: string;
+  warrantyPeriod?: number;
+
+  // Payment tracking
+  premiumPaymentDate?: string;
+  actualPaymentDate?: string;
+  receivedPremiumForeign?: number;
+  receivedPremiumCurrency?: string;
+  receivedPremiumExchangeRate?: number;
+  receivedPremiumNational?: number;
+  numberOfSlips?: number;
 
   // Status
-  status: string; // Original status value
-  normalizedStatus: PortfolioStatus; // Normalized for filtering
+  status: string;
+  normalizedStatus: PortfolioStatus;
   isDeleted?: boolean;
 
   // Type info (for Inward Reinsurance)
-  contractType?: 'FAC' | 'TREATY'; // FAC or TREATY
+  contractType?: 'FAC' | 'TREATY';
   structure?: 'PROPORTIONAL' | 'NON_PROPORTIONAL';
 
   // Original data reference for detail view
