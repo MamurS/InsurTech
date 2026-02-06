@@ -543,3 +543,49 @@ export interface Policy {
   insuredLegalAddress?: string;  // Uzbekistan Legal Address
   insuredBankDetails?: string;   // Uzbekistan Bank Details
 }
+
+// =============================================
+// PORTFOLIO UNIFIED VIEW TYPES
+// =============================================
+
+export type PortfolioSource = 'direct' | 'inward-foreign' | 'inward-domestic' | 'slip';
+
+export type PortfolioStatus = 'Active' | 'Pending' | 'Cancelled' | 'Deleted';
+
+export interface PortfolioRow {
+  // Common identifiers
+  id: string;
+  source: PortfolioSource;
+  referenceNumber: string; // policyNumber, contractNumber, or slipNumber
+
+  // Parties
+  insuredName: string; // insuredName, originalInsuredName, or insuredName from slip
+  cedantName?: string;
+  brokerName?: string;
+
+  // Coverage
+  classOfBusiness: string; // classOfInsurance, classOfCover, or derived from slip
+  territory?: string;
+
+  // Financial
+  currency: Currency | string;
+  limit?: number; // sumInsured, limitOfLiability, or limitOfLiability from slip
+  grossPremium: number;
+  ourShare: number;
+
+  // Dates
+  inceptionDate: string;
+  expiryDate: string;
+
+  // Status
+  status: string; // Original status value
+  normalizedStatus: PortfolioStatus; // Normalized for filtering
+  isDeleted?: boolean;
+
+  // Type info (for Inward Reinsurance)
+  contractType?: 'FAC' | 'TREATY'; // FAC or TREATY
+  structure?: 'PROPORTIONAL' | 'NON_PROPORTIONAL';
+
+  // Original data reference for detail view
+  originalData: Policy | InwardReinsurance | ReinsuranceSlip;
+}

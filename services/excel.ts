@@ -1,6 +1,6 @@
 
 import ExcelJS from 'exceljs';
-import { Policy, ReinsuranceSlip } from '../types';
+import { Policy, ReinsuranceSlip, PortfolioRow } from '../types';
 import { getStoredDateFormat } from '../utils/dateUtils';
 
 // Colors based on Tailwind classes used in Dashboard
@@ -161,6 +161,61 @@ export const ExcelService = {
     });
 
     await saveWorkbook(workbook, `InsurTech_Full_Export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  },
+
+  exportPortfolio: async (rows: PortfolioRow[]) => {
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet(`Portfolio_Register`);
+    const dateFormat = getExcelDateFormat();
+
+    const columns: ColumnDef[] = [
+        { header: 'Source', key: 'source', width: 15, fill: COLORS.headerGray },
+        { header: 'Ref No', key: 'referenceNumber', width: 20 },
+        { header: 'Insured Name', key: 'insuredName', width: 30 },
+        { header: 'Cedant', key: 'cedantName', width: 25 },
+        { header: 'Broker', key: 'brokerName', width: 25 },
+        { header: 'Class', key: 'classOfBusiness', width: 25 },
+        { header: 'Territory', key: 'territory', width: 20 },
+        { header: 'Currency', key: 'currency', width: 10 },
+        { header: 'Limit', key: 'limit', width: 18, fill: COLORS.blue, align: 'right' },
+        { header: 'Gross Premium', key: 'grossPremium', width: 18, fill: COLORS.green, align: 'right' },
+        { header: 'Our Share %', key: 'ourShare', width: 12, align: 'right' },
+        { header: 'Inception Date', key: 'inceptionDate', width: 15, format: dateFormat },
+        { header: 'Expiry Date', key: 'expiryDate', width: 15, format: dateFormat },
+        { header: 'Status', key: 'normalizedStatus', width: 12 },
+        { header: 'Type', key: 'contractType', width: 10 },
+        { header: 'Structure', key: 'structure', width: 18 },
+    ];
+
+    setupSheet(sheet, columns);
+
+    rows.forEach(row => {
+        const rowData: any = {
+          source: row.source === 'direct' ? 'Direct' :
+                  row.source === 'inward-foreign' ? 'Inward Foreign' :
+                  row.source === 'inward-domestic' ? 'Inward Domestic' : 'Slip',
+          referenceNumber: row.referenceNumber,
+          insuredName: row.insuredName,
+          cedantName: row.cedantName || '-',
+          brokerName: row.brokerName || '-',
+          classOfBusiness: row.classOfBusiness,
+          territory: row.territory || '-',
+          currency: row.currency,
+          limit: row.limit || 0,
+          grossPremium: row.grossPremium,
+          ourShare: row.ourShare,
+          inceptionDate: row.inceptionDate,
+          expiryDate: row.expiryDate,
+          normalizedStatus: row.isDeleted ? 'Deleted' : row.normalizedStatus,
+          contractType: row.contractType || '-',
+          structure: row.structure || '-',
+        };
+
+        const excelRow = sheet.addRow(rowData);
+        styleRow(excelRow, columns);
+    });
+
+    await saveWorkbook(workbook, `InsurTech_Portfolio_${new Date().toISOString().split('T')[0]}.xlsx`);
   }
 };
 
