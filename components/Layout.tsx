@@ -1,12 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ArrowDownRight, Globe, Home, BarChart3, Briefcase
+  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 
@@ -36,6 +36,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isInwardReinsuranceOpen, setIsInwardReinsuranceOpen] = useState(
     location.pathname.includes('/inward-reinsurance')
   );
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+
+  // Close user menu on route change
+  useEffect(() => {
+    setIsUserMenuOpen(false);
+  }, [location.pathname]);
 
   const handleSignOut = async () => {
     await signOut();
@@ -235,36 +241,73 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           )}
         </nav>
 
-        <div className="p-4 border-t border-slate-700 bg-slate-950/50">
-           {/* User Profile Snippet */}
-           <div className="flex items-center gap-3 mb-4 px-2 whitespace-nowrap overflow-hidden">
-              <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  {user?.avatarUrl || <UserIcon size={14}/>}
-              </div>
-              <div className="overflow-hidden">
-                  <div className="text-sm font-medium text-white truncate">{user?.name}</div>
-                  <div className="text-xs text-slate-500 truncate">{user?.role}</div>
-              </div>
-           </div>
+        {/* User Profile Section with Popup */}
+        <div className="p-4 border-t border-slate-700/50 relative">
+          {/* Clickable User Card */}
+          <button
+            onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-slate-800 transition-colors text-left"
+          >
+            {/* Avatar */}
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-emerald-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              {user?.avatarUrl || user?.name?.substring(0, 1) || 'U'}
+            </div>
 
-           <div className="space-y-1 whitespace-nowrap overflow-hidden">
-              <div 
-                onClick={() => navigate('/settings')}
-                className="flex items-center gap-3 px-4 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer transition-colors"
-                title="Settings"
-              >
-                  <Settings size={18} className="flex-shrink-0" />
-                  <span className="text-sm">Settings</span>
+            {/* User Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user?.name || 'User'}</p>
+              <p className="text-xs text-slate-400 truncate">{user?.role || 'Role'}</p>
+            </div>
+
+            {/* Chevron */}
+            <ChevronUp
+              size={16}
+              className={`text-slate-400 transition-transform ${isUserMenuOpen ? 'rotate-180' : ''}`}
+            />
+          </button>
+
+          {/* Popup Menu */}
+          {isUserMenuOpen && (
+            <>
+              {/* Backdrop to close menu when clicking outside */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsUserMenuOpen(false)}
+              />
+
+              {/* Menu */}
+              <div className="absolute bottom-full left-4 right-4 mb-2 bg-slate-800 rounded-xl shadow-xl border border-slate-700 overflow-hidden z-50">
+                {/* User Info Header */}
+                <div className="px-4 py-3 border-b border-slate-700">
+                  <p className="text-sm font-medium text-white">{user?.name}</p>
+                  <p className="text-xs text-slate-400">{user?.email}</p>
+                </div>
+
+                {/* Menu Items */}
+                <div className="py-1">
+                  <Link
+                    to="/settings"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+                  >
+                    <Settings size={18} />
+                    <span className="text-sm">Settings</span>
+                  </Link>
+
+                  <button
+                    onClick={() => {
+                      setIsUserMenuOpen(false);
+                      handleSignOut();
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                  >
+                    <LogOut size={18} />
+                    <span className="text-sm">Sign Out</span>
+                  </button>
+                </div>
               </div>
-               <div 
-                onClick={handleSignOut}
-                className="flex items-center gap-3 px-4 py-2 rounded-lg text-red-400 hover:text-red-100 hover:bg-red-900/30 cursor-pointer transition-colors"
-                title="Sign Out"
-              >
-                  <LogOut size={18} className="flex-shrink-0" />
-                  <span className="text-sm">Sign Out</span>
-              </div>
-           </div>
+            </>
+          )}
         </div>
       </aside>
 
