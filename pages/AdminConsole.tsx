@@ -23,7 +23,7 @@ import {
   PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List, Globe, Minus
 } from 'lucide-react';
 
-type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
+type Section = 'portfolio' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
 type RecycleType = 'policies' | 'slips' | 'clauses';
 type DbViewType = 'policies' | 'slips' | 'clauses';
 
@@ -31,7 +31,7 @@ const AdminConsole: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
-  const [activeSection, setActiveSection] = useState<Section>('dashboard');
+  const [activeSection, setActiveSection] = useState<Section>('portfolio');
   const [isSidebarOpen] = useState(true);
 
   // Confirm dialog states
@@ -1456,7 +1456,7 @@ const AdminConsole: React.FC = () => {
       <aside className={`bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen?'':'-ml-64'}`}>
         <div className="p-6 border-b border-slate-800"><h1 className="font-bold text-xl flex items-center gap-2"><Lock className="text-red-500"/>Admin Console</h1></div>
         <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-          <button onClick={()=>setActiveSection('dashboard')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='dashboard'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Activity size={20}/>Dashboard</button>
+          <button onClick={()=>setActiveSection('portfolio')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='portfolio'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Activity size={20}/>Portfolio</button>
           <div className="pt-4 pb-2 px-4 text-xs font-bold text-slate-500 uppercase">Access Control</div>
           <button onClick={()=>setActiveSection('users')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='users'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Users size={20}/>Users</button>
           <button onClick={()=>setActiveSection('roles')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='roles'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><ShieldCheck size={20}/>Roles & Permissions</button>
@@ -1474,7 +1474,7 @@ const AdminConsole: React.FC = () => {
       </aside>
       <main className="flex-1 p-8 overflow-y-auto h-screen">
         {loading ? <div className="flex items-center justify-center h-full text-gray-500"><Loader2 className="animate-spin mr-2" size={24}/>Loading...</div> : <>
-          {activeSection==='dashboard' && renderDashboardHome()}
+          {activeSection==='portfolio' && renderDashboardHome()}
           {activeSection==='users' && renderUsers()}
           {activeSection==='roles' && renderRoles()}
           {activeSection==='departments' && renderDepartments()}
