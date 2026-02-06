@@ -78,9 +78,23 @@ const toAppPolicy = (dbRecord: any): Policy => {
     netPremium: Number(dbRecord.netPremium || 0),
     commissionPercent: Number(dbRecord.commissionPercent || 0),
     taxPercent: Number(dbRecord.taxPercent || 0),
-    
+
     warrantyPeriod: Number(dbRecord.warrantyPeriod || 0),
     numberOfSlips: Number(dbRecord.numberOfSlips || 0),
+
+    // New Excel Portfolio Fields
+    exchangeRateUSD: Number(dbRecord.exchangeRateUSD || 0),
+    insuranceDays: Number(dbRecord.insuranceDays || 0),
+    reinsuranceDays: Number(dbRecord.reinsuranceDays || 0),
+    fullPremiumForeign: Number(dbRecord.fullPremiumForeign || 0),
+    fullPremiumNational: Number(dbRecord.fullPremiumNational || 0),
+    grossPremiumNational: Number(dbRecord.grossPremiumNational || 0),
+    commissionNational: Number(dbRecord.commissionNational || 0),
+    netPremiumNational: Number(dbRecord.netPremiumNational || 0),
+    receivedPremiumExchangeRate: Number(dbRecord.receivedPremiumExchangeRate || 0),
+    risksCount: Number(dbRecord.risksCount || 0),
+    retroSumReinsured: Number(dbRecord.retroSumReinsured || 0),
+    retroPremium: Number(dbRecord.retroPremium || 0),
 
   } as Policy;
 };
@@ -100,13 +114,18 @@ const toDbPolicy = (policy: Policy): any => {
 
   // 4. Ensure numeric fields are safe
   const numericFields = [
-      'sumInsured', 'grossPremium', 'ourShare', 'sumInsuredNational', 
+      'sumInsured', 'grossPremium', 'ourShare', 'sumInsuredNational',
       'limitForeignCurrency', 'limitNationalCurrency', 'excessForeignCurrency', 'prioritySum',
       'premiumRate', 'premiumNationalCurrency', 'exchangeRate', 'equivalentUSD',
       'cededShare', 'cededPremiumForeign', 'reinsuranceCommission', 'netReinsurancePremium',
       'sumReinsuredForeign', 'sumReinsuredNational', 'receivedPremiumForeign', 'receivedPremiumNational',
       'treatyPremium', 'aicCommission', 'aicRetention', 'aicPremium', 'maxRetentionPerRisk',
-      'netPremium', 'commissionPercent', 'taxPercent', 'warrantyPeriod', 'numberOfSlips'
+      'netPremium', 'commissionPercent', 'taxPercent', 'warrantyPeriod', 'numberOfSlips',
+      // New Excel Portfolio Fields
+      'exchangeRateUSD', 'insuranceDays', 'reinsuranceDays',
+      'fullPremiumForeign', 'fullPremiumNational', 'grossPremiumNational',
+      'commissionNational', 'netPremiumNational', 'receivedPremiumExchangeRate',
+      'risksCount', 'retroSumReinsured', 'retroPremium'
   ];
 
   numericFields.forEach(field => {
