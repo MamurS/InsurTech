@@ -1,5 +1,5 @@
 
-import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus, ExchangeRate, Currency } from '../types';
+import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus, ExchangeRate, Currency, InwardReinsurance } from '../types';
 import { supabase } from './supabase';
 import { AuthService } from './auth';
 
@@ -384,6 +384,80 @@ export const DB = {
       return data as ReinsuranceSlip[] || [];
     }
     return getLocal(SLIPS_KEY, []);
+  },
+
+  // --- INWARD REINSURANCE ---
+  getAllInwardReinsurance: async (): Promise<InwardReinsurance[]> => {
+    if (isSupabaseEnabled()) {
+      try {
+        const { data, error } = await supabase!
+          .from('inward_reinsurance')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          // Check if table doesn't exist (migration not run)
+          if (error.code === 'PGRST205' || error.code === '42P01' ||
+              error.message?.includes('does not exist')) {
+            console.warn('Inward Reinsurance table not found - migration may not have been run');
+            return [];
+          }
+          throw error;
+        }
+
+        // Map snake_case DB columns to camelCase
+        return (data || []).map((row: any) => ({
+          id: row.id,
+          contractNumber: row.contract_number,
+          origin: row.origin,
+          type: row.type,
+          structure: row.structure,
+          status: row.status,
+          cedantName: row.cedant_name,
+          cedantEntityId: row.cedant_entity_id,
+          cedantCountry: row.cedant_country,
+          brokerName: row.broker_name,
+          brokerEntityId: row.broker_entity_id,
+          inceptionDate: row.inception_date,
+          expiryDate: row.expiry_date,
+          uwYear: row.uw_year,
+          typeOfCover: row.type_of_cover,
+          classOfCover: row.class_of_cover,
+          industry: row.industry,
+          territory: row.territory,
+          originalInsuredName: row.original_insured_name,
+          riskDescription: row.risk_description,
+          currency: row.currency,
+          limitOfLiability: row.limit_of_liability,
+          deductible: row.deductible,
+          retention: row.retention,
+          ourShare: row.our_share,
+          grossPremium: row.gross_premium,
+          commissionPercent: row.commission_percent,
+          netPremium: row.net_premium,
+          minimumPremium: row.minimum_premium,
+          depositPremium: row.deposit_premium,
+          adjustablePremium: row.adjustable_premium,
+          treatyName: row.treaty_name,
+          treatyNumber: row.treaty_number,
+          layerNumber: row.layer_number,
+          excessPoint: row.excess_point,
+          aggregateLimit: row.aggregate_limit,
+          aggregateDeductible: row.aggregate_deductible,
+          reinstatements: row.reinstatements,
+          reinstatementPremium: row.reinstatement_premium,
+          notes: row.notes,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+          createdBy: row.created_by,
+          isDeleted: row.is_deleted
+        }));
+      } catch (err) {
+        console.error('Failed to fetch inward reinsurance:', err);
+        return [];
+      }
+    }
+    return []; // No localStorage fallback for inward reinsurance
   },
 
   getSlip: async (id: string): Promise<ReinsuranceSlip | undefined> => {

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
-import { Policy, Currency, PolicyStatus, LegalEntity, Installment } from '../types';
+import { Policy, Currency, PolicyStatus, LegalEntity, Installment, PortfolioRow, PortfolioSource, PortfolioStatus, InwardReinsurance, ReinsuranceSlip } from '../types';
 import { ExcelService } from '../services/excel';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -12,12 +12,93 @@ import { EntityDetailModal } from '../components/EntityDetailModal';
 import { FormModal } from '../components/FormModal';
 import { PolicyFormContent } from '../components/PolicyFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List, Globe, Home, Briefcase, FileSpreadsheet } from 'lucide-react';
+
+// --- MAPPER FUNCTIONS ---
+
+const normalizeStatus = (status: string, isDeleted?: boolean): PortfolioStatus => {
+  if (isDeleted) return 'Deleted';
+  const s = status?.toUpperCase() || '';
+  if (s.includes('ACTIVE')) return 'Active';
+  if (s.includes('PENDING') || s.includes('DRAFT')) return 'Pending';
+  if (s.includes('CANCEL') || s.includes('NTU') || s.includes('TERMINATION') || s.includes('EXPIRED')) return 'Cancelled';
+  return 'Active';
+};
+
+const mapPolicyToPortfolioRow = (p: Policy): PortfolioRow => ({
+  id: p.id,
+  source: 'direct',
+  referenceNumber: p.policyNumber,
+  insuredName: p.insuredName,
+  cedantName: p.cedantName,
+  brokerName: p.intermediaryName,
+  classOfBusiness: p.classOfInsurance,
+  territory: p.territory,
+  currency: p.currency,
+  limit: p.sumInsured,
+  grossPremium: p.grossPremium,
+  ourShare: p.ourShare,
+  inceptionDate: p.inceptionDate,
+  expiryDate: p.expiryDate,
+  status: p.status,
+  normalizedStatus: normalizeStatus(p.status, p.isDeleted),
+  isDeleted: p.isDeleted,
+  originalData: p,
+});
+
+const mapInwardReinsuranceToPortfolioRow = (ir: InwardReinsurance): PortfolioRow => ({
+  id: ir.id,
+  source: ir.origin === 'FOREIGN' ? 'inward-foreign' : 'inward-domestic',
+  referenceNumber: ir.contractNumber,
+  insuredName: ir.originalInsuredName || ir.cedantName,
+  cedantName: ir.cedantName,
+  brokerName: ir.brokerName,
+  classOfBusiness: ir.classOfCover,
+  territory: ir.territory,
+  currency: ir.currency,
+  limit: ir.limitOfLiability,
+  grossPremium: ir.grossPremium,
+  ourShare: ir.ourShare,
+  inceptionDate: ir.inceptionDate,
+  expiryDate: ir.expiryDate,
+  status: ir.status,
+  normalizedStatus: normalizeStatus(ir.status, ir.isDeleted),
+  isDeleted: ir.isDeleted,
+  contractType: ir.type,
+  structure: ir.structure,
+  originalData: ir,
+});
+
+const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => ({
+  id: s.id,
+  source: 'slip',
+  referenceNumber: s.slipNumber,
+  insuredName: s.insuredName,
+  cedantName: undefined,
+  brokerName: s.brokerReinsurer,
+  classOfBusiness: 'Reinsurance Slip',
+  territory: undefined,
+  currency: (s.currency as Currency) || Currency.USD,
+  limit: s.limitOfLiability,
+  grossPremium: 0, // Slips don't have premium directly
+  ourShare: 100,
+  inceptionDate: s.date,
+  expiryDate: s.date,
+  status: s.status || 'Draft',
+  normalizedStatus: normalizeStatus(s.status || 'Draft', s.isDeleted),
+  isDeleted: s.isDeleted,
+  originalData: s,
+});
+
+// --- DASHBOARD COMPONENT ---
 
 const Dashboard: React.FC = () => {
-  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [portfolioData, setPortfolioData] = useState<PortfolioRow[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
+  // Source Filter State
+  const [sourceFilter, setSourceFilter] = useState<'All' | PortfolioSource>('All');
+
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
   
@@ -33,13 +114,13 @@ const Dashboard: React.FC = () => {
   };
 
   const [loading, setLoading] = useState(true);
-  
+
   // Selection State
-  const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
+  const [selectedRow, setSelectedRow] = useState<PortfolioRow | null>(null);
   const [selectedEntity, setSelectedEntity] = useState<LegalEntity | null>(null); // State for Entity Modal
 
   // Delete State
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; source: PortfolioSource } | null>(null);
   
   // Sorting State
   const [sortConfig, setSortConfig] = useState<{ key: keyof Policy | string; direction: 'asc' | 'desc' }>({
@@ -61,11 +142,26 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch everything, filtering happens client side for this demo
-      const data = await DB.getAllPolicies();
-      setPolicies(data);
+      // Fetch all sources in parallel
+      const [policies, inwardReinsurance, slips] = await Promise.all([
+        DB.getAllPolicies(),
+        DB.getAllInwardReinsurance(),
+        DB.getSlips(),
+      ]);
+
+      // Map to unified PortfolioRow format
+      const directRows = policies.map(mapPolicyToPortfolioRow);
+      const inwardRows = inwardReinsurance.map(mapInwardReinsuranceToPortfolioRow);
+      const slipRows = slips.map(mapSlipToPortfolioRow);
+
+      // Merge and sort by inception date (newest first)
+      const allRows = [...directRows, ...inwardRows, ...slipRows].sort((a, b) =>
+        new Date(b.inceptionDate).getTime() - new Date(a.inceptionDate).getTime()
+      );
+
+      setPortfolioData(allRows);
     } catch (e) {
-      console.error("Failed to fetch policies", e);
+      console.error("Failed to fetch portfolio data", e);
     } finally {
       setLoading(false);
     }
@@ -75,26 +171,42 @@ const Dashboard: React.FC = () => {
     fetchData();
   }, []);
 
-  const initiateDelete = (e: React.MouseEvent, id: string) => {
+  const initiateDelete = (e: React.MouseEvent, row: PortfolioRow) => {
     e.preventDefault();
     e.stopPropagation();
-    setDeleteId(id);
+    setDeleteTarget({ id: row.id, source: row.source });
   };
 
-  const handleEdit = (e: React.MouseEvent, id: string) => {
+  const handleEdit = (e: React.MouseEvent, row: PortfolioRow) => {
     e.preventDefault();
     e.stopPropagation();
-    setEditingPolicyId(id);
-    setShowPolicyModal(true);
+    // Navigate based on source type
+    switch (row.source) {
+      case 'direct':
+        setEditingPolicyId(row.id);
+        setShowPolicyModal(true);
+        break;
+      case 'inward-foreign':
+        navigate(`/inward-reinsurance/foreign/edit/${row.id}`);
+        break;
+      case 'inward-domestic':
+        navigate(`/inward-reinsurance/domestic/edit/${row.id}`);
+        break;
+      case 'slip':
+        navigate(`/slip/${row.id}`);
+        break;
+    }
   };
 
-  const handleWording = (e: React.MouseEvent, id: string) => {
+  const handleWording = (e: React.MouseEvent, row: PortfolioRow) => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/wording/${id}`);
+    if (row.source === 'direct') {
+      navigate(`/wording/${row.id}`);
+    }
   };
 
-  const handleRestore = async (e: React.MouseEvent, id: string) => {
+  const handleRestore = async (e: React.MouseEvent, row: PortfolioRow) => {
     e.preventDefault();
     e.stopPropagation();
     if (user?.role !== 'Super Admin') {
@@ -102,8 +214,12 @@ const Dashboard: React.FC = () => {
         return;
     }
     try {
-        setPolicies(prev => prev.map(p => p.id === id ? { ...p, isDeleted: false } : p));
-        await DB.restorePolicy(id);
+        setPortfolioData(prev => prev.map(p => p.id === row.id ? { ...p, isDeleted: false, normalizedStatus: 'Active' as PortfolioStatus } : p));
+        // Restore based on source type
+        if (row.source === 'direct') {
+          await DB.restorePolicy(row.id);
+        }
+        // Add restore methods for other sources if available
     } catch (err) {
         console.error("Restore failed", err);
         fetchData();
@@ -111,15 +227,19 @@ const Dashboard: React.FC = () => {
   };
 
   const confirmDelete = async () => {
-    if (deleteId) {
+    if (deleteTarget) {
       try {
-        setPolicies(prev => prev.map(p => p.id === deleteId ? { ...p, isDeleted: true } : p));
-        await DB.deletePolicy(deleteId);
+        setPortfolioData(prev => prev.map(p => p.id === deleteTarget.id ? { ...p, isDeleted: true, normalizedStatus: 'Deleted' as PortfolioStatus } : p));
+        // Delete based on source type
+        if (deleteTarget.source === 'direct') {
+          await DB.deletePolicy(deleteTarget.id);
+        }
+        // Add delete methods for other sources if available
       } catch (err) {
         console.error("Delete failed", err);
         fetchData();
       } finally {
-        setDeleteId(null);
+        setDeleteTarget(null);
       }
     }
   };
@@ -145,7 +265,30 @@ const Dashboard: React.FC = () => {
     setSortConfig({ key, direction });
   };
 
-  const getSortedPolicies = (filtered: Policy[]) => {
+  const filteredRows = portfolioData.filter(row => {
+    // 1. Source Filter
+    if (sourceFilter !== 'All' && row.source !== sourceFilter) return false;
+
+    // 2. Status/Deleted Filter
+    if (statusFilter === 'Deleted') {
+        if (!row.isDeleted) return false;
+    } else {
+        if (row.isDeleted) return false;
+        if (statusFilter !== 'All' && row.normalizedStatus !== statusFilter) return false;
+    }
+
+    // 3. Search Filter
+    const searchLower = searchTerm.toLowerCase();
+    return (
+        row.referenceNumber.toLowerCase().includes(searchLower) ||
+        row.insuredName.toLowerCase().includes(searchLower) ||
+        (row.cedantName && row.cedantName.toLowerCase().includes(searchLower)) ||
+        (row.brokerName && row.brokerName.toLowerCase().includes(searchLower)) ||
+        (row.classOfBusiness && row.classOfBusiness.toLowerCase().includes(searchLower))
+    );
+  });
+
+  const getSortedRows = (filtered: PortfolioRow[]) => {
     return [...filtered].sort((a, b) => {
       const aValue = (a as any)[sortConfig.key];
       const bValue = (b as any)[sortConfig.key];
@@ -164,31 +307,7 @@ const Dashboard: React.FC = () => {
     });
   };
 
-  const filteredPolicies = policies.filter(p => {
-    // 1. Status/Deleted Filter
-    if (statusFilter === 'Deleted') {
-        if (!p.isDeleted) return false;
-    } else {
-        if (p.isDeleted) return false;
-        
-        if (statusFilter === 'Active' && p.status !== PolicyStatus.ACTIVE) return false;
-        if (statusFilter === 'Pending' && p.status !== PolicyStatus.PENDING) return false;
-        if (statusFilter === 'Cancelled' && (p.status !== PolicyStatus.CANCELLED && p.status !== PolicyStatus.NTU && p.status !== PolicyStatus.EARLY_TERMINATION)) return false;
-    }
-
-    // 2. Search Filter
-    const searchLower = searchTerm.toLowerCase();
-    return (
-        p.policyNumber.toLowerCase().includes(searchLower) ||
-        p.insuredName.toLowerCase().includes(searchLower) ||
-        (p.cedantName && p.cedantName.toLowerCase().includes(searchLower)) ||
-        ((p as any).brokerName && (p as any).brokerName.toLowerCase().includes(searchLower)) ||
-        (p.intermediaryName && p.intermediaryName.toLowerCase().includes(searchLower)) ||
-        (p.classOfInsurance && p.classOfInsurance.toLowerCase().includes(searchLower))
-    );
-  });
-
-  const sortedPolicies = getSortedPolicies(filteredPolicies);
+  const sortedRows = getSortedRows(filteredRows);
 
   const formatMoney = (amount: number | undefined, currency: Currency | string) => {
     if (amount === undefined || amount === null) return '-';
@@ -204,81 +323,8 @@ const Dashboard: React.FC = () => {
       return new Intl.NumberFormat('en-US').format(val);
   }
 
-  const getOverdueStatus = (policy: Policy) => {
-      if (policy.status !== PolicyStatus.ACTIVE) return { isOverdue: false, details: '' };
-      
-      const today = new Date();
-      today.setHours(0,0,0,0);
-
-      if (policy.installments && policy.installments.length > 0) {
-          let totalOverdue = 0;
-          let maxDaysOverdue = 0;
-          
-          policy.installments.forEach(inst => {
-              if (!inst.dueDate) return;
-              const due = new Date(inst.dueDate);
-              const paidAmt = inst.paidAmount || 0;
-              const dueAmt = inst.dueAmount || 0;
-              
-              if (due < today && paidAmt < dueAmt) {
-                  const diffTime = Math.abs(today.getTime() - due.getTime());
-                  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-                  totalOverdue += (dueAmt - paidAmt);
-                  if (diffDays > maxDaysOverdue) maxDaysOverdue = diffDays;
-              }
-          });
-
-          if (totalOverdue > 0) {
-              return {
-                  isOverdue: true,
-                  details: `OVERDUE: ${formatMoney(totalOverdue, policy.currency)} (${maxDaysOverdue} days late)`
-              };
-          }
-      } 
-      else if (policy.paymentDate) {
-          const due = new Date(policy.paymentDate);
-          if (due < today && policy.paymentStatus !== 'Paid') {
-               const diffTime = Math.abs(today.getTime() - due.getTime());
-               const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-               return {
-                  isOverdue: true,
-                  details: `OVERDUE: ${formatMoney(policy.grossPremium, policy.currency)} (${diffDays} days late)`
-               }
-          }
-      }
-
-      return { isOverdue: false, details: '' };
-  };
-
-  const getPaymentInfo = (policy: Policy) => {
-      const installments = policy.installments || [];
-      
-      if (installments.length === 0) {
-          const isPaid = policy.paymentStatus === 'Paid';
-          return {
-              nextDueDate: isPaid ? '-' : (policy.paymentDate || '-'),
-              nextDueAmount: isPaid ? 0 : policy.grossPremium,
-              lastPaidDate: isPaid ? (policy.paymentDate || 'Paid') : '-',
-              lastPaidAmount: isPaid ? policy.grossPremium : 0
-          };
-      }
-
-      const sortedByDue = [...installments].sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
-      const nextDue = sortedByDue.find(i => (i.paidAmount || 0) < (i.dueAmount || 0));
-      const paidItems = installments.filter(i => i.paidDate && (i.paidAmount || 0) > 0);
-      paidItems.sort((a, b) => new Date(b.paidDate!).getTime() - new Date(a.paidDate!).getTime());
-      const lastPaid = paidItems[0];
-
-      return {
-          nextDueDate: nextDue ? nextDue.dueDate : 'Fully Paid',
-          nextDueAmount: nextDue ? ((nextDue.dueAmount || 0) - (nextDue.paidAmount || 0)) : 0, 
-          lastPaidDate: lastPaid ? lastPaid.paidDate : '-',
-          lastPaidAmount: lastPaid ? lastPaid.paidAmount : 0
-      };
-  };
-
   const handleExport = async () => {
-    await ExcelService.exportPolicies(sortedPolicies); 
+    await ExcelService.exportPortfolio(sortedRows);
   };
 
   const SortableHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: string, className?: string }) => {
@@ -298,45 +344,35 @@ const Dashboard: React.FC = () => {
     );
   };
 
-  const StatusBadge = ({ status, isDeleted }: { status: PolicyStatus, isDeleted?: boolean }) => {
-    if (isDeleted) {
-        return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full border border-red-200"><Trash2 size={10}/> DELETED</span>
-    }
-    switch (status) {
-        case PolicyStatus.ACTIVE:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full"><CheckCircle size={10}/> ACTIVE</span>
-        case PolicyStatus.PENDING:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full"><AlertCircle size={10}/> PENDING</span>
-        case PolicyStatus.NTU:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-gray-600 bg-gray-100 px-2 py-0.5 rounded-full">NTU</span>
-        case PolicyStatus.CANCELLED:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded-full"><XCircle size={10}/> CANC</span>
-        case PolicyStatus.EARLY_TERMINATION:
-            return <span className="inline-flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full"><AlertTriangle size={10}/> TERM</span>
+  const SourceBadge = ({ source }: { source: PortfolioSource }) => {
+      switch (source) {
+        case 'direct':
+          return (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+              <Briefcase size={10} /> DIRECT
+            </span>
+          );
+        case 'inward-foreign':
+          return (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+              <Globe size={10} /> IN-FOREIGN
+            </span>
+          );
+        case 'inward-domestic':
+          return (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+              <Home size={10} /> IN-DOMESTIC
+            </span>
+          );
+        case 'slip':
+          return (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+              <FileSpreadsheet size={10} /> SLIP
+            </span>
+          );
         default:
-            return <span className="text-[10px] text-gray-500">{status}</span>
-    }
-  };
-
-  const ChannelBadge = ({ channel }: { channel: string }) => {
-      if (channel === 'Direct') return <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">DIRECT</span>
-      return <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">INWARD</span>
-  };
-
-  const IntermediaryBadge = ({ type, name }: { type: string, name?: string }) => {
-      if (type === 'Direct') return <span className="text-gray-400 text-[10px] italic">Direct Client</span>
-      return (
-          <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-700 uppercase">{type}</span>
-              <span 
-                className="text-[10px] text-blue-600 truncate max-w-[100px] hover:underline cursor-pointer" 
-                title={name}
-                onClick={(e) => { e.stopPropagation(); handleEntityClick(e, name); }} 
-              >
-                  {name}
-              </span>
-          </div>
-      )
+          return <span className="text-[10px] text-gray-500">{source}</span>;
+      }
   };
 
   return (
@@ -358,58 +394,84 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Filters & Search & View Toggle */}
-      <div className="flex flex-col xl:flex-row gap-4 items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          
-          {/* Status Tabs */}
-          <div className="flex bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto max-w-full">
-             {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
-                 <button
-                    key={status}
-                    onClick={() => setStatusFilter(status)}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
-                        statusFilter === status 
-                        ? 'bg-white text-blue-600 shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                 >
-                     {status}
-                 </button>
-             ))}
+      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+          {/* Source Filter Tabs */}
+          <div className="flex flex-wrap gap-2">
+            <span className="text-xs font-semibold text-gray-500 uppercase self-center mr-2">Source:</span>
+            {([
+              { key: 'All', label: 'All', icon: null },
+              { key: 'direct', label: 'Direct', icon: Briefcase },
+              { key: 'inward-foreign', label: 'Inward Foreign', icon: Globe },
+              { key: 'inward-domestic', label: 'Inward Domestic', icon: Home },
+              { key: 'slip', label: 'Slips', icon: FileSpreadsheet },
+            ] as const).map(({ key, label, icon: Icon }) => (
+              <button
+                key={key}
+                onClick={() => setSourceFilter(key as 'All' | PortfolioSource)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
+                  sourceFilter === key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {Icon && <Icon size={12} />}
+                {label}
+              </button>
+            ))}
           </div>
 
-          <div className="flex-1 w-full relative min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-            <input 
-            type="text" 
-            placeholder="Search by Policy No, Insured, Cedant, Broker..." 
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm text-gray-900"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+          <div className="flex flex-col xl:flex-row gap-4 items-center">
+            {/* Status Tabs */}
+            <div className="flex bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto max-w-full">
+               {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
+                   <button
+                      key={status}
+                      onClick={() => setStatusFilter(status)}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
+                          statusFilter === status
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                   >
+                       {status}
+                   </button>
+               ))}
+            </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
-             <button
-                onClick={() => handleViewModeChange('compact')}
-                className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
-                    viewMode === 'compact' 
-                    ? 'bg-white text-slate-800 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-             >
-                 <List size={14}/> Compact
-             </button>
-             <button
-                onClick={() => handleViewModeChange('extended')}
-                className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
-                    viewMode === 'extended' 
-                    ? 'bg-white text-slate-800 shadow-sm' 
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-             >
-                 <Columns size={14}/> Extended
-             </button>
+            <div className="flex-1 w-full relative min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <input
+              type="text"
+              placeholder="Search by Ref No, Insured, Cedant, Broker, Class..."
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm text-gray-900"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* View Mode Toggle */}
+            <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
+               <button
+                  onClick={() => handleViewModeChange('compact')}
+                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
+                      viewMode === 'compact'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+               >
+                   <List size={14}/> Compact
+               </button>
+               <button
+                  onClick={() => handleViewModeChange('extended')}
+                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
+                      viewMode === 'extended'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+               >
+                   <Columns size={14}/> Extended
+               </button>
+            </div>
           </div>
       </div>
 
@@ -421,189 +483,156 @@ const Dashboard: React.FC = () => {
                     {viewMode === 'compact' ? (
                         <tr>
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs">STATUS</th>
-                            <SortableHeader label="Channel" sortKey="channel" />
-                            <SortableHeader label="Policy Ref" sortKey="policyNumber" />
+                            <SortableHeader label="Source" sortKey="source" />
+                            <SortableHeader label="Ref No" sortKey="referenceNumber" />
                             <SortableHeader label="Insured / Cedant" sortKey="insuredName" />
-                            <SortableHeader label="Intermediary" sortKey="intermediaryType" />
-                            <SortableHeader label="Class" sortKey="classOfInsurance" />
-                            <SortableHeader label="Sum Insured" sortKey="sumInsured" className="text-right" />
-                            <SortableHeader label="Limit of Liab" sortKey="limitForeignCurrency" className="text-right" />
+                            <SortableHeader label="Broker" sortKey="brokerName" />
+                            <SortableHeader label="Class" sortKey="classOfBusiness" />
+                            <SortableHeader label="Territory" sortKey="territory" />
+                            <SortableHeader label="Limit" sortKey="limit" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
-                            
-                            <th className="px-3 py-3 border-b border-gray-200 text-right font-semibold text-gray-600 text-xs">Due</th>
-                            <th className="px-3 py-3 border-b border-gray-200 text-right font-semibold text-gray-600 text-xs">Paid</th>
-
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
+                            <SortableHeader label="Inception" sortKey="inceptionDate" />
+                            <SortableHeader label="Expiry" sortKey="expiryDate" />
                             <th className="px-3 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs">Actions</th>
                         </tr>
                     ) : (
                         <tr>
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">STATUS</th>
-                            
-                            <SortableHeader label="Channel" sortKey="channel" />
-                            <SortableHeader label="Ref No" sortKey="policyNumber" />
-                            <SortableHeader label="Sec Ref" sortKey="secondaryPolicyNumber" />
-                            <SortableHeader label="Agreement No" sortKey="agreementNumber" />
-                            <SortableHeader label="Bordereau No" sortKey="bordereauNo" />
+
+                            <SortableHeader label="Source" sortKey="source" />
+                            <SortableHeader label="Ref No" sortKey="referenceNumber" />
                             <SortableHeader label="Insured Name" sortKey="insuredName" />
-                            <SortableHeader label="Insured Address" sortKey="insuredAddress" />
                             <SortableHeader label="Cedant" sortKey="cedantName" />
-                            <SortableHeader label="Intermed Type" sortKey="intermediaryType" />
-                            <SortableHeader label="Intermed Name" sortKey="intermediaryName" />
-                            <SortableHeader label="Borrower" sortKey="borrower" />
-                            <SortableHeader label="Retrocedent" sortKey="retrocedent" />
-                            <SortableHeader label="Performer" sortKey="performer" />
-                            <SortableHeader label="Class" sortKey="classOfInsurance" />
-                            <SortableHeader label="Risk Code" sortKey="riskCode" />
-                            <SortableHeader label="Country" sortKey="territory" />
-                            <SortableHeader label="City" sortKey="city" />
-                            <SortableHeader label="Insured Risk" sortKey="insuredRisk" />
+                            <SortableHeader label="Broker" sortKey="brokerName" />
+                            <SortableHeader label="Class" sortKey="classOfBusiness" />
+                            <SortableHeader label="Territory" sortKey="territory" />
                             <SortableHeader label="Currency" sortKey="currency" />
-                            <SortableHeader label="Sum Insured" sortKey="sumInsured" className="text-right" />
-                            <SortableHeader label="Sum Insured (Nat)" sortKey="sumInsuredNational" className="text-right" />
+                            <SortableHeader label="Limit" sortKey="limit" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
-                            <SortableHeader label="Prem (Nat)" sortKey="premiumNationalCurrency" className="text-right" />
-                            <SortableHeader label="Exch Rate" sortKey="exchangeRate" />
-                            <SortableHeader label="Equiv USD" sortKey="equivalentUSD" className="text-right" />
-                            <SortableHeader label="Limit (FC)" sortKey="limitForeignCurrency" className="text-right" />
-                            <SortableHeader label="Excess (FC)" sortKey="excessForeignCurrency" className="text-right" />
+                            <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <SortableHeader label="Date of Slip" sortKey="dateOfSlip" />
-                            <SortableHeader label="Acc Date" sortKey="accountingDate" />
-                            <SortableHeader label="Pay Date" sortKey="paymentDate" />
-                            <SortableHeader label="Warranty" sortKey="warrantyPeriod" />
-                            <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
-                            <SortableHeader label="Net Prem" sortKey="netPremium" className="text-right" />
-                            
-                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 bg-red-50/50">Next Due Date</th>
-                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 text-right bg-red-50/50">Next Due Amt</th>
-                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 bg-green-50/50">Last Paid Date</th>
-                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600 text-right bg-green-50/50">Last Paid Amt</th>
+                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Type</th>
+                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Structure</th>
 
-                            <SortableHeader label="Comm %" sortKey="commissionPercent" className="text-right" />
-                            <SortableHeader label="Reinsured?" sortKey="hasOutwardReinsurance" />
-                            <SortableHeader label="Reinsurer" sortKey="reinsurerName" />
-                            <SortableHeader label="Ceded %" sortKey="cededShare" className="text-right" />
-                            <SortableHeader label="Ceded Prem" sortKey="cededPremiumForeign" className="text-right" />
-                            <SortableHeader label="Reins Comm %" sortKey="reinsuranceCommission" className="text-right" />
-                            <SortableHeader label="Net Payable" sortKey="netReinsurancePremium" className="text-right" />
-                            <SortableHeader label="Treaty Place" sortKey="treatyPlacement" />
-                            <SortableHeader label="Treaty Prem" sortKey="treatyPremium" className="text-right" />
-                            <SortableHeader label="AIC Comm" sortKey="aicCommission" className="text-right" />
-                            
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
                         </tr>
                     )}
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
-                    {sortedPolicies.map(p => {
-                        const overdueStatus = getOverdueStatus(p);
-                        const paymentInfo = getPaymentInfo(p);
-                        
-                        const rowClass = overdueStatus.isOverdue 
-                            ? 'bg-red-100 text-red-900 font-bold hover:bg-red-200' 
-                            : (p.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30');
+                    {sortedRows.map(row => {
+                        const rowClass = row.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30';
 
                         return (
-                        <tr 
-                            key={p.id} 
-                            onClick={() => setSelectedPolicy(p)}
+                        <tr
+                            key={`${row.source}-${row.id}`}
+                            onClick={() => setSelectedRow(row)}
                             className={`group transition-colors cursor-pointer ${rowClass}`}
-                            title={overdueStatus.details}
                         >
                             {viewMode === 'compact' ? (
                                 <>
                                     <td className="px-3 py-3 text-center">
-                                        <StatusBadge status={p.status} isDeleted={p.isDeleted} />
-                                        {overdueStatus.isOverdue && <div className="text-[10px] text-red-700 font-black mt-1 animate-pulse">OVERDUE</div>}
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                          row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
+                                          row.normalizedStatus === 'Pending' ? 'text-amber-700 bg-amber-100' :
+                                          row.normalizedStatus === 'Cancelled' ? 'text-red-700 bg-red-100' :
+                                          'text-gray-600 bg-gray-100'
+                                        }`}>
+                                          {row.isDeleted ? <><Trash2 size={10}/> DELETED</> : row.normalizedStatus.toUpperCase()}
+                                        </span>
                                     </td>
                                     <td className="px-3 py-3">
-                                        <ChannelBadge channel={p.channel} />
+                                        <SourceBadge source={row.source} />
                                     </td>
                                     <td className="px-3 py-3 font-mono text-xs text-blue-600 font-medium">
-                                        {p.policyNumber}
+                                        {row.referenceNumber}
                                     </td>
                                     <td className="px-3 py-3 font-medium text-gray-900">
-                                        {p.channel === 'Inward' ? (
+                                        {row.cedantName ? (
                                             <div className="flex flex-col">
-                                                <span 
+                                                <span
                                                     className="hover:text-blue-600 hover:underline cursor-pointer"
-                                                    onClick={(e) => handleEntityClick(e, p.cedantName)}
+                                                    onClick={(e) => handleEntityClick(e, row.cedantName)}
                                                 >
-                                                    {p.cedantName}
+                                                    {row.cedantName}
                                                 </span>
                                                 <span className="text-[10px] text-gray-500 flex gap-1">
-                                                    Orig: 
-                                                    <span 
+                                                    Orig:
+                                                    <span
                                                         className="hover:text-blue-600 hover:underline cursor-pointer"
-                                                        onClick={(e) => handleEntityClick(e, p.insuredName)}
+                                                        onClick={(e) => handleEntityClick(e, row.insuredName)}
                                                     >
-                                                        {p.insuredName}
+                                                        {row.insuredName}
                                                     </span>
                                                 </span>
                                             </div>
                                         ) : (
-                                            <span 
+                                            <span
                                                 className="hover:text-blue-600 hover:underline cursor-pointer"
-                                                onClick={(e) => handleEntityClick(e, p.insuredName)}
+                                                onClick={(e) => handleEntityClick(e, row.insuredName)}
                                             >
-                                                {p.insuredName}
+                                                {row.insuredName}
                                             </span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3">
-                                        <IntermediaryBadge type={p.intermediaryType} name={p.intermediaryName || (p as any).brokerName} />
+                                    <td className="px-3 py-3 text-xs text-gray-600">
+                                        {row.brokerName ? (
+                                            <span
+                                                className="text-blue-600 hover:underline cursor-pointer"
+                                                onClick={(e) => handleEntityClick(e, row.brokerName)}
+                                            >
+                                                {row.brokerName}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-400 italic">-</span>
+                                        )}
                                     </td>
                                     <td className="px-3 py-3 text-gray-600 text-xs">
-                                        {p.classOfInsurance}
+                                        {row.classOfBusiness}
+                                    </td>
+                                    <td className="px-3 py-3 text-gray-600 text-xs">
+                                        {row.territory || '-'}
                                     </td>
                                     <td className="px-3 py-3 text-right font-medium text-gray-700">
-                                        {formatMoney(p.sumInsured, p.currency)}
-                                    </td>
-                                    <td className="px-3 py-3 text-right text-gray-600 text-xs">
-                                        {formatMoney(p.limitForeignCurrency, p.currency)}
+                                        {formatMoney(row.limit, row.currency)}
                                     </td>
                                     <td className="px-3 py-3 text-right font-bold text-gray-900 bg-gray-50/50">
-                                        {formatMoney(p.grossPremium, p.currency)}
-                                    </td>
-                                    
-                                    <td className="px-3 py-3 text-right text-xs">
-                                        <div className="flex flex-col">
-                                            <span className={paymentInfo.nextDueDate !== 'Fully Paid' ? 'text-red-600 font-bold' : 'text-green-600'}>{formatDate(paymentInfo.nextDueDate)}</span>
-                                            {paymentInfo.nextDueAmount > 0 && <span className={paymentInfo.nextDueDate !== 'Fully Paid' ? 'text-red-600' : 'text-gray-500'}>{formatNumber(paymentInfo.nextDueAmount)}</span>}
-                                        </div>
+                                        {formatMoney(row.grossPremium, row.currency)}
                                     </td>
                                     <td className="px-3 py-3 text-right text-xs">
-                                        <div className="flex flex-col">
-                                            <span className="text-gray-900">{formatDate(paymentInfo.lastPaidDate)}</span>
-                                            {paymentInfo.lastPaidAmount > 0 && <span className="text-gray-500">{formatNumber(paymentInfo.lastPaidAmount)}</span>}
-                                        </div>
+                                        {row.ourShare}%
+                                    </td>
+                                    <td className="px-3 py-3 text-xs text-gray-600">
+                                        {formatDate(row.inceptionDate)}
+                                    </td>
+                                    <td className="px-3 py-3 text-xs text-gray-600">
+                                        {formatDate(row.expiryDate)}
                                     </td>
 
-                                    <td className="px-3 py-3 text-right text-xs">
-                                        {p.ourShare}%
-                                    </td>
-                                    
                                     <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
                                         <div className="flex justify-center gap-1">
-                                            {p.isDeleted ? (
-                                                user?.role === 'Super Admin' && (
-                                                    <button onClick={(e) => handleRestore(e, p.id)} title="Restore" className="p-1.5 text-green-600 hover:bg-green-100 rounded">
+                                            {row.isDeleted ? (
+                                                user?.role === 'Super Admin' && row.source === 'direct' && (
+                                                    <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1.5 text-green-600 hover:bg-green-100 rounded">
                                                         <RefreshCw size={14}/>
                                                     </button>
                                                 )
                                             ) : (
                                                 <>
-                                                    <button onClick={(e) => handleWording(e, p.id)} title="Wording" className="p-1.5 text-purple-600 hover:bg-purple-100 rounded">
-                                                        <FileText size={14}/>
-                                                    </button>
-                                                    <button onClick={(e) => handleEdit(e, p.id)} title="Edit" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded">
+                                                    {row.source === 'direct' && (
+                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-1.5 text-purple-600 hover:bg-purple-100 rounded">
+                                                            <FileText size={14}/>
+                                                        </button>
+                                                    )}
+                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded">
                                                         <Edit size={14}/>
                                                     </button>
-                                                    <button onClick={(e) => initiateDelete(e, p.id)} title="Delete" className="p-1.5 text-red-600 hover:bg-red-100 rounded">
-                                                        <Trash2 size={14}/>
-                                                    </button>
+                                                    {row.source === 'direct' && (
+                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-1.5 text-red-600 hover:bg-red-100 rounded">
+                                                            <Trash2 size={14}/>
+                                                        </button>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -612,101 +641,61 @@ const Dashboard: React.FC = () => {
                             ) : (
                                 <>
                                     {/* EXTENDED VIEW */}
-                                    <td className={`px-3 py-2 text-center sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors ${overdueStatus.isOverdue ? 'bg-red-100' : 'bg-white group-hover:bg-blue-50/30'}`}>
-                                        <StatusBadge status={p.status} isDeleted={p.isDeleted} />
-                                        {overdueStatus.isOverdue && <div className="text-[9px] text-red-700 font-black mt-1 uppercase tracking-tight">Overdue</div>}
+                                    <td className={`px-3 py-2 text-center sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`}>
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                                          row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
+                                          row.normalizedStatus === 'Pending' ? 'text-amber-700 bg-amber-100' :
+                                          row.normalizedStatus === 'Cancelled' ? 'text-red-700 bg-red-100' :
+                                          'text-gray-600 bg-gray-100'
+                                        }`}>
+                                          {row.isDeleted ? <><Trash2 size={10}/> DEL</> : row.normalizedStatus.toUpperCase()}
+                                        </span>
                                     </td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap"><ChannelBadge channel={p.channel} /></td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">{p.policyNumber}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.secondaryPolicyNumber}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.agreementNumber}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.bordereauNo}</td>
-                                    
-                                    <td 
+
+                                    <td className="px-3 py-2 whitespace-nowrap"><SourceBadge source={row.source} /></td>
+                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">{row.referenceNumber}</td>
+                                    <td
                                         className="px-3 py-2 whitespace-nowrap font-medium text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, p.insuredName)}
+                                        onClick={(e) => handleEntityClick(e, row.insuredName)}
                                     >
-                                        {p.insuredName}
+                                        {row.insuredName}
                                     </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500 truncate max-w-[150px]" title={p.insuredAddress}>{p.insuredAddress}</td>
-                                    <td 
+                                    <td
                                         className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, p.cedantName)}
+                                        onClick={(e) => handleEntityClick(e, row.cedantName)}
                                     >
-                                        {p.cedantName}
+                                        {row.cedantName || '-'}
                                     </td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.intermediaryType}</td>
-                                    <td 
+                                    <td
                                         className="px-3 py-2 whitespace-nowrap text-xs hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, p.intermediaryName)}
+                                        onClick={(e) => handleEntityClick(e, row.brokerName)}
                                     >
-                                        {p.intermediaryName}
+                                        {row.brokerName || '-'}
                                     </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.borrower}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.retrocedent}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{p.performer}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.classOfInsurance}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.riskCode}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.territory}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.city}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs truncate max-w-[150px]" title={p.insuredRisk}>{p.insuredRisk}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center font-bold">{p.currency}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-blue-50/30">{formatNumber(p.sumInsured)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-blue-50/30">{formatNumber(p.sumInsuredNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-green-50/30 font-bold">{formatNumber(p.grossPremium)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-green-50/30">{formatNumber(p.premiumNationalCurrency)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{p.exchangeRate}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatMoney(p.equivalentUSD, 'USD')}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.limitForeignCurrency)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.excessForeignCurrency)}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.inceptionDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.expiryDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.dateOfSlip)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.accountingDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(p.paymentDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{p.warrantyPeriod}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-bold text-blue-700">{p.ourShare}%</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-medium">{formatNumber(p.netPremium)}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs font-medium text-red-600 bg-red-50/50">{formatDate(paymentInfo.nextDueDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-mono bg-red-50/50 text-red-600 font-bold">{formatNumber(paymentInfo.nextDueAmount)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-green-700 bg-green-50/50">{formatDate(paymentInfo.lastPaidDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-mono bg-green-50/50 text-green-700 font-bold">{formatNumber(paymentInfo.lastPaidAmount)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{row.classOfBusiness}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{row.territory || '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center font-bold">{row.currency}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-blue-50/30">{formatNumber(row.limit)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-green-50/30 font-bold">{formatNumber(row.grossPremium)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-bold text-blue-700">{row.ourShare}%</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.inceptionDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.expiryDate)}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.contractType || '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.structure || '-'}</td>
 
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{p.commissionPercent}%</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{p.hasOutwardReinsurance ? 'Yes' : 'No'}</td>
-                                    <td 
-                                        className="px-3 py-2 whitespace-nowrap text-xs bg-amber-50/30 hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, p.reinsurerName)}
-                                    >
-                                        {p.reinsurerName}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{p.cededShare ? `${p.cededShare}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{formatNumber(p.cededPremiumForeign)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{p.reinsuranceCommission ? `${p.reinsuranceCommission}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-amber-50/30">{formatNumber(p.netReinsurancePremium)}</td>
-                                    
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{p.treatyPlacement}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.treatyPremium)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(p.aicCommission)}</td>
-
-                                    <td className={`px-3 py-2 text-center sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors ${overdueStatus.isOverdue ? 'bg-red-100' : 'bg-white group-hover:bg-blue-50/30'}`} onClick={e => e.stopPropagation()}>
+                                    <td className={`px-3 py-2 text-center sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`} onClick={e => e.stopPropagation()}>
                                         <div className="flex justify-center gap-1">
-                                            {!p.isDeleted && (
+                                            {!row.isDeleted && (
                                                 <>
-                                                    <button onClick={(e) => handleWording(e, p.id)} title="Wording" className="p-1 text-purple-600 hover:bg-purple-100 rounded">
-                                                        <FileText size={14}/>
-                                                    </button>
-                                                    <button onClick={(e) => handleEdit(e, p.id)} title="Edit" className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
-                                                    <button onClick={(e) => initiateDelete(e, p.id)} title="Delete" className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                                    {row.source === 'direct' && (
+                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-1 text-purple-600 hover:bg-purple-100 rounded">
+                                                            <FileText size={14}/>
+                                                        </button>
+                                                    )}
+                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
+                                                    {row.source === 'direct' && (
+                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
+                                                    )}
                                                 </>
                                             )}
                                         </div>
@@ -715,13 +704,13 @@ const Dashboard: React.FC = () => {
                             )}
                         </tr>
                     )})}
-                    
-                    {!loading && sortedPolicies.length === 0 && (
+
+                    {!loading && sortedRows.length === 0 && (
                         <tr>
-                            <td colSpan={viewMode === 'compact' ? 15 : 51} className="py-12 text-center text-gray-400">
+                            <td colSpan={viewMode === 'compact' ? 13 : 17} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
-                                    <p>No policies found matching your criteria.</p>
+                                    <p>No records found matching your criteria.</p>
                                 </div>
                             </td>
                         </tr>
@@ -732,11 +721,11 @@ const Dashboard: React.FC = () => {
       </div>
 
       <ConfirmDialog
-        isOpen={!!deleteId}
-        title="Delete Policy?"
-        message="Are you sure you want to delete this policy? It will be moved to the Deleted Records bin."
+        isOpen={!!deleteTarget}
+        title="Delete Record?"
+        message="Are you sure you want to delete this record? It will be moved to the Deleted Records bin."
         onConfirm={confirmDelete}
-        onCancel={() => setDeleteId(null)}
+        onCancel={() => setDeleteTarget(null)}
         variant="danger"
         confirmText="Delete"
       />
@@ -751,11 +740,11 @@ const Dashboard: React.FC = () => {
         confirmText="Create Entity"
       />
 
-      {selectedPolicy && (
-          <DetailModal 
-            item={selectedPolicy} 
-            onClose={() => setSelectedPolicy(null)} 
-            onRefresh={fetchData} 
+      {selectedRow && selectedRow.source === 'direct' && (
+          <DetailModal
+            item={selectedRow.originalData as Policy}
+            onClose={() => setSelectedRow(null)}
+            onRefresh={fetchData}
             title="Policy Details"
           />
       )}
