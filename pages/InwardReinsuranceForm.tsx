@@ -21,6 +21,39 @@ import {
   User, Shield, AlertCircle
 } from 'lucide-react';
 
+// Country list for Risk Location
+const ALL_COUNTRIES = [
+  'Afghanistan', 'Albania', 'Algeria', 'Argentina', 'Armenia', 'Australia', 'Austria', 'Azerbaijan',
+  'Bahrain', 'Bangladesh', 'Belarus', 'Belgium', 'Brazil', 'Bulgaria',
+  'Canada', 'Chile', 'China', 'Colombia', 'Croatia', 'Cyprus', 'Czech Republic',
+  'Denmark',
+  'Egypt', 'Estonia',
+  'Finland', 'France',
+  'Georgia', 'Germany', 'Greece',
+  'Hong Kong', 'Hungary',
+  'India', 'Indonesia', 'Iran', 'Iraq', 'Ireland', 'Israel', 'Italy',
+  'Japan', 'Jordan',
+  'Kazakhstan', 'Kenya', 'Kuwait', 'Kyrgyzstan',
+  'Latvia', 'Lebanon', 'Lithuania', 'Luxembourg',
+  'Malaysia', 'Mexico', 'Moldova', 'Mongolia', 'Morocco',
+  'Netherlands', 'New Zealand', 'Nigeria', 'Norway',
+  'Oman',
+  'Pakistan', 'Philippines', 'Poland', 'Portugal',
+  'Qatar',
+  'Romania', 'Russia',
+  'Saudi Arabia', 'Serbia', 'Singapore', 'Slovakia', 'Slovenia', 'South Africa', 'South Korea', 'Spain', 'Sweden', 'Switzerland',
+  'Taiwan', 'Tajikistan', 'Thailand', 'Turkey', 'Turkmenistan',
+  'Ukraine', 'United Arab Emirates', 'United Kingdom', 'United States', 'Uzbekistan',
+  'Vietnam',
+  'Other'
+];
+
+// Countries for Foreign (excluding Uzbekistan)
+const FOREIGN_COUNTRIES = ALL_COUNTRIES.filter(c => c !== 'Uzbekistan');
+
+// Countries for Domestic (only Uzbekistan)
+const DOMESTIC_COUNTRIES = ['Uzbekistan'];
+
 // Form Section Card Component (non-collapsible, matching prototype)
 interface FormSectionProps {
   title: string;
@@ -772,14 +805,17 @@ const InwardReinsuranceForm: React.FC = () => {
                 </div>
                 <div>
                   <label className={labelClass}>Risk Location</label>
-                  <input
-                    type="text"
+                  <select
                     name="territory"
                     value={formData.territory || ''}
                     onChange={handleChange}
-                    placeholder="City, Country"
                     className={inputClass}
-                  />
+                  >
+                    <option value="">Select country...</option>
+                    {(pathOrigin === 'FOREIGN' ? FOREIGN_COUNTRIES : DOMESTIC_COUNTRIES).map(country => (
+                      <option key={country} value={country}>{country}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </FormSection>
