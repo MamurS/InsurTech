@@ -343,7 +343,7 @@ const Dashboard: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">Policy Dashboard</h2>
+          <h2 className="text-2xl font-bold text-gray-800">Policy Portfolio</h2>
           <p className="text-gray-500 text-sm">Unified view of all Direct Insurance and Inward Reinsurance business.</p>
         </div>
         <div className="flex gap-2">

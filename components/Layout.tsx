@@ -84,10 +84,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Link
             to="/"
             className={getLinkClass('/', true)}
-            title="Dashboard"
+            title="Portfolio"
           >
             <LayoutDashboard size={20} className="flex-shrink-0" />
-            <span>Dashboard</span>
+            <span>Portfolio</span>
           </Link>
 
           {/* Direct Insurance */}
