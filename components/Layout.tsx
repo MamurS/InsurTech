@@ -117,6 +117,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             >
               <Link
                 to="/inward-reinsurance"
+                onClick={() => setIsInwardReinsuranceOpen(true)}
                 className="flex items-center gap-3 flex-1"
                 title="Inward Reinsurance Dashboard"
               >
