@@ -1,16 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
-import { CBUService } from '../services/cbuService';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ContextBar } from '../components/ContextBar';
-import { ExchangeRate, Currency } from '../types';
 import {
   Save, Download, Upload, Database,
   Building, Globe, Moon, Bell, Shield,
-  HardDrive, Check, RefreshCw, TrendingUp,
-  AlertCircle, CheckCircle
+  HardDrive, Check, RefreshCw
 } from 'lucide-react';
 
 const SETTINGS_KEY = 'insurtech_app_settings';
@@ -42,12 +39,6 @@ const Settings: React.FC = () => {
   const [restoreConfirm, setRestoreConfirm] = useState<{ isOpen: boolean; file: File | null }>({ isOpen: false, file: null });
   const toast = useToast();
 
-  // FX Rate state
-  const [fxRates, setFxRates] = useState<ExchangeRate[]>([]);
-  const [fxSyncing, setFxSyncing] = useState(false);
-  const [fxLastSync, setFxLastSync] = useState<string | null>(null);
-  const [fxError, setFxError] = useState<string | null>(null);
-
   useEffect(() => {
     // Load Settings
     const stored = localStorage.getItem(SETTINGS_KEY);
@@ -55,40 +46,7 @@ const Settings: React.FC = () => {
       setSettings(JSON.parse(stored));
     }
     calculateStorage();
-    loadFxRates();
   }, []);
-
-  const loadFxRates = async () => {
-    try {
-      const rates = await DB.getExchangeRates();
-      setFxRates(rates);
-      if (rates.length > 0) {
-        // Find the most recent date
-        const latestDate = rates.reduce((latest, rate) => {
-          return rate.date > latest ? rate.date : latest;
-        }, rates[0].date);
-        setFxLastSync(latestDate);
-      }
-    } catch (err) {
-      console.error('Failed to load FX rates:', err);
-    }
-  };
-
-  const handleSyncCBU = async () => {
-    setFxSyncing(true);
-    setFxError(null);
-    try {
-      const result = await CBUService.syncRates();
-      toast.success(`Updated ${result.updated} exchange rates for ${result.date}`);
-      await loadFxRates();
-      setFxLastSync(result.date);
-    } catch (err: any) {
-      setFxError(err.message || 'Failed to sync rates');
-      toast.error('Failed to fetch CBU rates');
-    } finally {
-      setFxSyncing(false);
-    }
-  };
 
   const calculateStorage = () => {
     let total = 0;
@@ -364,83 +322,6 @@ const Settings: React.FC = () => {
             </div>
         </div>
 
-        {/* Exchange Rates */}
-        <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="p-4 border-b bg-gray-50 font-bold text-gray-700 flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <TrendingUp size={18} /> Exchange Rates (CBU)
-            </span>
-            <button
-              onClick={handleSyncCBU}
-              disabled={fxSyncing}
-              className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <RefreshCw size={16} className={fxSyncing ? 'animate-spin' : ''} />
-              {fxSyncing ? 'Syncing...' : 'Sync from CBU'}
-            </button>
-          </div>
-          <div className="p-6">
-            {/* Status Bar */}
-            <div className="flex items-center gap-4 mb-4 text-sm">
-              {fxLastSync && (
-                <span className="flex items-center gap-1 text-green-600">
-                  <CheckCircle size={14} />
-                  Last sync: {fxLastSync}
-                </span>
-              )}
-              {fxError && (
-                <span className="flex items-center gap-1 text-red-600">
-                  <AlertCircle size={14} />
-                  {fxError}
-                </span>
-              )}
-            </div>
-
-            {/* Rates Grid */}
-            {fxRates.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <TrendingUp size={32} className="mx-auto mb-2 opacity-50" />
-                <p>No exchange rates loaded.</p>
-                <p className="text-sm">Click "Sync from CBU" to fetch current rates.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                {fxRates
-                  .filter((r, i, arr) => arr.findIndex(x => x.currency === r.currency) === i)
-                  .sort((a, b) => {
-                    const priority = ['USD', 'EUR', 'RUB', 'GBP', 'CHF'];
-                    const aIdx = priority.indexOf(a.currency);
-                    const bIdx = priority.indexOf(b.currency);
-                    if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
-                    if (aIdx !== -1) return -1;
-                    if (bIdx !== -1) return 1;
-                    return a.currency.localeCompare(b.currency);
-                  })
-                  .map(rate => (
-                    <div
-                      key={rate.currency}
-                      className="bg-gray-50 rounded-lg p-3 border border-gray-200"
-                    >
-                      <div className="text-xs text-gray-500 uppercase tracking-wide">
-                        {rate.currency}
-                      </div>
-                      <div className="text-lg font-bold text-gray-800 font-mono">
-                        {rate.rate.toLocaleString('en-US', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
-                      </div>
-                      <div className="text-xs text-gray-400">UZS</div>
-                    </div>
-                  ))}
-              </div>
-            )}
-
-            <p className="text-xs text-gray-400 mt-4">
-              Source: Central Bank of Uzbekistan (cbu.uz). Rates are official daily rates in UZS.
-            </p>
-          </div>
-        </div>
       </div>
 
       <ConfirmDialog
