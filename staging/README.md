@@ -5,30 +5,30 @@ Complete guide for setting up a staging Supabase project with imported portfolio
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        ENVIRONMENTS                              │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  STAGING                           PRODUCTION                    │
-│  ┌──────────────────────┐         ┌──────────────────────────┐  │
-│  │ mosaic-erp-staging   │         │ onppnfyoffhyaxemsqoz     │  │
-│  │ (Your new project)   │         │ (Render deployment)      │  │
-│  └──────────┬───────────┘         └──────────────────────────┘  │
-│             │                                                    │
-│             ▼                                                    │
-│  ┌──────────────────────┐                                        │
-│  │ npm run dev (local)  │                                        │
-│  │ localhost:5173       │                                        │
-│  └──────────────────────┘                                        │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              ARCHITECTURE                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  GITHUB CODESPACES (development & testing)                                   │
+│  ├── Run Python import script here                                           │
+│  ├── Run npm run dev here (port forwarded)                                   │
+│  └── Upload Excel files here                                                 │
+│                                                                              │
+│  SUPABASE (databases)                                                        │
+│  ├── Production: onppnfyoffhyaxemsqoz                                        │
+│  └── Staging: mosaic-erp-staging (new)                                       │
+│                                                                              │
+│  RENDER (production deployment)                                              │
+│  └── Auto-deploys from GitHub main branch                                    │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Prerequisites
 
-- Node.js 18+ and npm
-- Python 3.8+
+- A GitHub Codespace (or any cloud development environment)
 - A Supabase account
+- Excel portfolio file (.xlsb) to import
 
 ## Step 1: Create Supabase Project
 
@@ -61,9 +61,31 @@ Complete guide for setting up a staging Supabase project with imported portfolio
 1. Go to **Project Settings → API**
 2. Copy these values:
    - **Project URL** (e.g., `https://abcdef.supabase.co`)
-   - **service_role key** (the secret one, not anon)
+   - **service_role key** (for the import script - the secret one)
+   - **anon key** (for the React app - the public one)
 
-## Step 5: Configure Import Script
+## Step 5: Upload Excel File to Codespace
+
+If you're working in a GitHub Codespace:
+
+**Option A: Drag and Drop**
+1. Open the file explorer in VS Code (Codespace)
+2. Navigate to the `staging/` folder
+3. Drag your `.xlsb` file from your computer into the folder
+
+**Option B: Using GitHub CLI**
+```bash
+# From your local machine, copy file to Codespace
+gh codespace cp ./Reinsurance_Portfolio.xlsb remote:/workspaces/InsurTech/staging/
+```
+
+**Option C: Download from cloud storage**
+```bash
+# If file is hosted somewhere accessible
+curl -o staging/Reinsurance_Portfolio.xlsb "https://your-file-url"
+```
+
+## Step 6: Configure Import Script
 
 ```bash
 cd staging
@@ -71,8 +93,7 @@ cd staging
 # Create .env from template
 cp .env.template .env
 
-# Edit .env with your values
-nano .env  # or use any editor
+# Edit .env with your values (use the built-in editor)
 ```
 
 Fill in your `.env`:
@@ -85,18 +106,15 @@ EXCEL_PASSWORD=
 DRY_RUN=true
 ```
 
-## Step 6: Install Python Dependencies
+## Step 7: Install Python Dependencies
 
 ```bash
 pip install supabase pyxlsb msoffcrypto-tool python-dotenv
 ```
 
-## Step 7: Dry Run Import
+## Step 8: Dry Run Import
 
 ```bash
-# Make sure your Excel file is in the staging folder
-# or update EXCEL_FILE path in .env
-
 python import_portfolio.py
 ```
 
@@ -108,7 +126,7 @@ This will:
 
 Review `import_preview.json` to verify the data looks correct.
 
-## Step 8: Real Import
+## Step 9: Real Import
 
 ```bash
 # Edit .env and set:
@@ -122,32 +140,61 @@ The script will:
 2. Retry failed batches row-by-row
 3. Print a summary of inserted/failed records
 
-## Step 9: Point React App at Staging
+## Step 10: Run the React App
 
-Edit the **root** `.env` file (not the staging one):
+The app has a built-in **Environment Switcher** that lets you switch between Production and Staging databases without editing `.env` files.
+
+### Configure Environment Variables
+
+In the **root** `.env` file, add your staging credentials:
 
 ```env
-# Root .env file
-SUPABASE_URL=https://your-staging-project.supabase.co
-SUPABASE_KEY=eyJ...your-anon-key...  # Use anon key, not service_role
+# Production (existing)
+SUPABASE_URL=https://onppnfyoffhyaxemsqoz.supabase.co
+SUPABASE_KEY=production-anon-key
+
+# Staging (new - enables the in-app switcher)
+SUPABASE_STAGING_URL=https://your-staging-project.supabase.co
+SUPABASE_STAGING_KEY=staging-anon-key
 ```
 
-**Note:** The app uses plain `SUPABASE_URL` and `SUPABASE_KEY` (without `VITE_` prefix). The `vite.config.ts` injects these via `loadEnv` + `define`.
-
-## Step 10: Run the App
+### Run Development Server
 
 ```bash
 # From project root
+npm install
 npm run dev
 ```
 
-Open http://localhost:5173 and log in with your test user.
+The Codespace will automatically forward the port. Look for the popup or check the **Ports** tab to get the URL.
 
-## Verify Data
+### Switch Environments
 
-1. Go to **Inward Reinsurance → Foreign** or **Domestic**
-2. You should see the imported records
-3. Go to **Analytics Dashboard** to see KPI summaries
+1. On the **Login page**, you'll see an environment switcher in the top-right corner
+2. Select "Staging" to connect to the staging database
+3. The page will reload with the new connection
+4. A yellow banner at the top confirms you're on staging
+
+## Step 11: Verify Data
+
+1. Log in with your test user credentials
+2. Go to **Inward Reinsurance → Foreign** or **Domestic**
+3. You should see the imported records
+4. Go to **Analytics Dashboard** to see KPI summaries
+
+---
+
+## Environment Switcher
+
+The app includes an in-app environment switcher:
+
+- **Login Page**: Visible to everyone (top-right corner)
+- **Settings Page**: Visible to Super Admin and Admin only
+- **Staging Banner**: Yellow warning bar shown when connected to staging
+
+When connected to staging:
+- A persistent yellow banner shows: "⚠️ STAGING ENVIRONMENT"
+- The switcher shows an amber dot instead of green
 
 ---
 
@@ -230,3 +277,21 @@ pip install pyxlsb msoffcrypto-tool
 
 ### Dates look wrong
 The script handles Excel serial numbers and various date formats. Check `import_preview.json` to see how dates are being parsed.
+
+### Port not accessible in Codespace
+Check the **Ports** tab in VS Code and make sure port 5173 is set to "Public" visibility.
+
+---
+
+## Render Deployment
+
+To enable the environment switcher in the Render deployment, add these environment variables in the Render dashboard (Settings → Environment):
+
+```
+SUPABASE_URL=https://onppnfyoffhyaxemsqoz.supabase.co
+SUPABASE_KEY=production-anon-key
+SUPABASE_STAGING_URL=https://staging-project.supabase.co
+SUPABASE_STAGING_KEY=staging-anon-key
+```
+
+This allows the deployed app on Render to also switch between environments.

@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { supabase } from '../services/supabase';
 import { Loader2, CheckCircle, Mail, Key } from 'lucide-react';
 import { MosaicLogo, MosaicIcon } from '../components/MosaicLogo';
+import EnvironmentSwitcher from '../components/EnvironmentSwitcher';
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -175,7 +176,12 @@ const Login: React.FC = () => {
       </div>
 
       {/* Right Panel - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-8 relative">
+        {/* Environment Switcher - Top Right */}
+        <div className="absolute top-4 right-4">
+          <EnvironmentSwitcher compact />
+        </div>
+
         <div className="w-full max-w-md">
 
           {/* Mobile Logo */}
