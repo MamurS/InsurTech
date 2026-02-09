@@ -129,7 +129,6 @@ const Analytics: React.FC = () => {
           subtitle="Total GWP year to date"
           icon={<DollarSign className="w-5 h-5 text-white" />}
           color="bg-blue-500"
-          trend={{ value: 12, isPositive: true }}
         />
         <KPICard
           title="Net Written Premium"
@@ -137,7 +136,6 @@ const Analytics: React.FC = () => {
           subtitle="After cessions"
           icon={<Activity className="w-5 h-5 text-white" />}
           color="bg-emerald-500"
-          trend={{ value: 8, isPositive: true }}
         />
         <KPICard
           title="Loss Ratio"
@@ -145,7 +143,6 @@ const Analytics: React.FC = () => {
           subtitle="Incurred / Earned"
           icon={<PieChartIcon className="w-5 h-5 text-white" />}
           color={kpis && kpis.lossRatio > 70 ? "bg-red-500" : "bg-amber-500"}
-          trend={{ value: 3, isPositive: false }}
         />
         <KPICard
           title="Active Policies"
@@ -153,7 +150,6 @@ const Analytics: React.FC = () => {
           subtitle={kpis ? `${kpis.openClaims} open claims` : ''}
           icon={<FileText className="w-5 h-5 text-white" />}
           color="bg-violet-500"
-          trend={{ value: 15, isPositive: true }}
         />
       </div>
 
