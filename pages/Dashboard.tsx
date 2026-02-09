@@ -68,6 +68,8 @@ const mapPolicyToPortfolioRow = (p: Policy): PortfolioRow => ({
   premiumNational: p.premiumNationalCurrency,
   netPremium: p.netPremium,
   netPremiumNational: p.netPremiumNational,
+  fullPremiumForeign: p.fullPremiumForeign,
+  fullPremiumNational: p.fullPremiumNational,
   ourShare: p.ourShare,
 
   // Rates and percentages
