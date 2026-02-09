@@ -19,9 +19,12 @@ import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, 
 const normalizeStatus = (status: string, isDeleted?: boolean): PortfolioStatus => {
   if (isDeleted) return 'Deleted';
   const s = status?.toUpperCase() || '';
-  if (s.includes('ACTIVE')) return 'Active';
-  if (s.includes('PENDING') || s.includes('DRAFT')) return 'Pending';
-  if (s.includes('CANCEL') || s.includes('NTU') || s.includes('TERMINATION') || s.includes('EXPIRED')) return 'Cancelled';
+  // Active statuses
+  if (s.includes('ACTIVE') || s === 'BOUND' || s === 'SIGNED') return 'Active';
+  // Pending statuses
+  if (s.includes('PENDING') || s.includes('DRAFT') || s === 'QUOTED' || s === 'SENT') return 'Pending';
+  // Cancelled/Closed statuses
+  if (s.includes('CANCEL') || s.includes('NTU') || s.includes('TERMINATION') || s.includes('EXPIRED') || s === 'CLOSED' || s === 'DECLINED') return 'Cancelled';
   return 'Active';
 };
 
@@ -32,7 +35,9 @@ const mapPolicyToPortfolioRow = (p: Policy): PortfolioRow => ({
   secondaryRef: p.secondaryPolicyNumber,
   slipNumber: p.slipNumber,
   agreementNumber: p.agreementNumber,
+  bordereauNo: p.bordereauNo,
   accountingCode: p.accountingCode,
+  referenceLink: p.referenceLink,
 
   // Parties
   insuredName: p.insuredName,
@@ -140,13 +145,25 @@ const mapInwardReinsuranceToPortfolioRow = (ir: InwardReinsurance): PortfolioRow
 
   // Classification
   classOfBusiness: ir.classOfCover,
+  typeOfInsurance: ir.typeOfCover,
+  insuredRisk: ir.riskDescription,
+  industry: ir.industry,
   territory: ir.territory,
 
   // Financial
   currency: ir.currency,
   limit: ir.limitOfLiability,
+  excess: ir.deductible,
+  prioritySum: ir.retention,
   grossPremium: ir.grossPremium,
+  netPremium: ir.netPremium,
   ourShare: ir.ourShare,
+
+  // Rates and percentages
+  commissionPercent: ir.commissionPercent,
+
+  // Reinsurance details
+  reinsuranceType: ir.structure === 'NON_PROPORTIONAL' ? 'XL' : '%',
 
   // Dates
   inceptionDate: ir.inceptionDate,
@@ -304,6 +321,24 @@ const Dashboard: React.FC = () => {
     e.stopPropagation();
     if (row.source === 'direct') {
       navigate(`/wording/${row.id}`);
+    }
+  };
+
+  const handleRowClick = (row: PortfolioRow) => {
+    // Navigate based on source type
+    switch (row.source) {
+      case 'direct':
+        setSelectedRow(row); // Open DetailModal
+        break;
+      case 'inward-foreign':
+        navigate(`/inward-reinsurance/foreign/edit/${row.id}`);
+        break;
+      case 'inward-domestic':
+        navigate(`/inward-reinsurance/domestic/edit/${row.id}`);
+        break;
+      case 'slip':
+        navigate(`/slips/edit/${row.id}`);
+        break;
     }
   };
 
@@ -607,7 +642,9 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Secondary Ref" sortKey="secondaryRef" />
                             <SortableHeader label="Slip No" sortKey="slipNumber" />
                             <SortableHeader label="Agreement No" sortKey="agreementNumber" />
+                            <SortableHeader label="Bordereau No" sortKey="bordereauNo" />
                             <SortableHeader label="1C Code" sortKey="accountingCode" />
+                            <SortableHeader label="Ref Link" sortKey="referenceLink" />
 
                             {/* Parties */}
                             <SortableHeader label="Insured Name" sortKey="insuredName" />
@@ -713,7 +750,7 @@ const Dashboard: React.FC = () => {
                         return (
                         <tr
                             key={`${row.source}-${row.id}`}
-                            onClick={() => setSelectedRow(row)}
+                            onClick={() => handleRowClick(row)}
                             className={`group transition-colors cursor-pointer ${rowClass}`}
                         >
                             {viewMode === 'compact' ? (
@@ -844,7 +881,13 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.secondaryRef || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.slipNumber || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.agreementNumber || '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.bordereauNo || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.accountingCode || '-'}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap text-xs">
+                                        {row.referenceLink ? (
+                                            <a href={row.referenceLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>Link</a>
+                                        ) : '-'}
+                                    </td>
 
                                     {/* Parties */}
                                     <td
@@ -978,7 +1021,7 @@ const Dashboard: React.FC = () => {
 
                     {!loading && sortedRows.length === 0 && (
                         <tr>
-                            <td colSpan={viewMode === 'compact' ? 13 : 77} className="py-12 text-center text-gray-400">
+                            <td colSpan={viewMode === 'compact' ? 13 : 79} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     <p>No records found matching your criteria.</p>

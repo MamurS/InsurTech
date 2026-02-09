@@ -131,7 +131,16 @@ const toDbPolicy = (policy: Policy): any => {
   numericFields.forEach(field => {
       payload[field] = policy[field as keyof Policy] || 0;
   });
-  
+
+  // 5. Explicitly map string fields for new Excel Portfolio columns
+  const stringFields = [
+      'accountingCode', 'referenceLink', 'reinsuranceType',
+      'premiumPaymentDate', 'receivedPremiumCurrency', 'actualPaymentDate'
+  ];
+  stringFields.forEach(field => {
+      payload[field] = policy[field as keyof Policy] || null;
+  });
+
   return payload;
 };
 
