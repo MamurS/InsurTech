@@ -9,6 +9,7 @@ import {
   ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
+import EnvironmentBadge from './EnvironmentBadge';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -72,8 +73,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   return (
-    <div className="h-screen bg-gray-50 flex overflow-hidden">
-      
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Environment Banner - shown when on staging */}
+      <EnvironmentBadge />
+
+      <div className="flex-1 bg-gray-50 flex overflow-hidden">
       {/* Sidebar */}
       <aside
         className={`bg-slate-900 text-white flex-shrink-0 flex flex-col z-30 transition-all duration-300 ease-in-out shadow-xl relative
@@ -335,6 +339,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 {children}
              </div>
           </main>
+      </div>
       </div>
     </div>
   );

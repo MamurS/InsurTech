@@ -2,12 +2,15 @@
 import React, { useState, useEffect } from 'react';
 import { DB } from '../services/db';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ContextBar } from '../components/ContextBar';
+import EnvironmentSwitcher from '../components/EnvironmentSwitcher';
+import { getDbEnvironment } from '../services/supabase';
 import {
   Save, Download, Upload, Database,
   Building, Globe, Moon, Bell, Shield,
-  HardDrive, Check, RefreshCw
+  HardDrive, Check, RefreshCw, Server
 } from 'lucide-react';
 
 const SETTINGS_KEY = 'insurtech_app_settings';
@@ -38,6 +41,9 @@ const Settings: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const [restoreConfirm, setRestoreConfirm] = useState<{ isOpen: boolean; file: File | null }>({ isOpen: false, file: null });
   const toast = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'Super Admin' || user?.role === 'Admin';
+  const currentEnv = getDbEnvironment();
 
   useEffect(() => {
     // Load Settings
@@ -321,6 +327,31 @@ const Settings: React.FC = () => {
                 </div>
             </div>
         </div>
+
+        {/* Database Environment - Admin Only */}
+        {isAdmin && (
+          <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-gray-50 font-bold text-gray-700 flex items-center gap-2">
+              <Server size={18} /> Database Environment
+            </div>
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-700 font-medium">Current Environment</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Switch between production and staging databases. The page will reload when switching.
+                  </p>
+                  {currentEnv === 'staging' && (
+                    <p className="text-xs text-amber-600 mt-2 font-medium">
+                      You are connected to the staging environment. Changes will not affect production.
+                    </p>
+                  )}
+                </div>
+                <EnvironmentSwitcher />
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
 
