@@ -616,6 +616,8 @@ export interface PortfolioRow {
   premiumNational?: number;
   netPremium?: number;
   netPremiumNational?: number;
+  fullPremiumForeign?: number;
+  fullPremiumNational?: number;
   ourShare: number;
 
   // Premium rates and percentages
