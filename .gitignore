@@ -40,3 +40,8 @@ credentials/
 # Build outputs that might contain secrets
 .vercel
 .netlify
+
+# Staging import files - NEVER commit
+staging/.env
+staging/import_preview.json
+staging/*.xlsb
