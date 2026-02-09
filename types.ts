@@ -580,7 +580,9 @@ export interface PortfolioRow {
   secondaryRef?: string;   // secondaryPolicyNumber
   slipNumber?: string;
   agreementNumber?: string;
+  bordereauNo?: string;
   accountingCode?: string; // 1C Code
+  referenceLink?: string;  // Link to slip document
 
   // Parties
   insuredName: string;
