@@ -185,8 +185,19 @@ const Analytics: React.FC = () => {
     : data?.channels.find(c => c.channel === selectedChannel);
 
   // Prepare channel comparison data for bar chart
+  // Use concise but distinct labels for each channel
+  const getChartLabel = (channel: ChannelType): string => {
+    switch (channel) {
+      case 'direct': return 'Direct';
+      case 'inward-foreign': return 'Inward Foreign';
+      case 'inward-domestic': return 'Inward Domestic';
+      case 'slip': return 'Slips';
+      default: return 'Total';
+    }
+  };
+
   const channelComparisonData = data?.channels.map(ch => ({
-    name: ch.label.split(' ')[0], // First word only for brevity
+    name: getChartLabel(ch.channel),
     gwp: ch.grossWrittenPremium,
     nwp: ch.netWrittenPremium,
     records: ch.recordCount,
@@ -427,9 +438,9 @@ const Analytics: React.FC = () => {
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={{ fontSize: 12 }}
+                tick={{ fontSize: 11 }}
                 stroke="#94a3b8"
-                width={80}
+                width={110}
               />
               <Tooltip
                 formatter={(value: number) => [formatCurrency(value), '']}
