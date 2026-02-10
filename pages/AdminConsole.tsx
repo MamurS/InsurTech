@@ -810,17 +810,23 @@ const AdminConsole: React.FC = () => {
             <button onClick={fetchActivityLogs} className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium"><RefreshCw size={16}/>Refresh</button>
         </div>
         <div className="bg-white p-4 rounded-xl shadow-sm border">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <input type="text" placeholder="Search..." value={activitySearch} onChange={e=>{setActivitySearch(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"/>
-                <select value={activityCategory} onChange={e=>{setActivityCategory(e.target.value);setActivityPage(0);}} className="w-full p-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
-                    <option value="">All Categories</option>
-                    <option value="POLICY">Policies</option>
-                    <option value="SLIP">Slips</option>
-                    <option value="CLAIM">Claims</option>
-                    <option value="INSURER">Insurers</option>
-                    <option value="TASK">Tasks</option>
-                    <option value="USER">Users</option>
-                </select>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Search</label>
+                    <input type="text" placeholder="Search..." value={activitySearch} onChange={e=>{setActivitySearch(e.target.value);setActivityPage(0);}} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"/>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1.5">Category</label>
+                    <select value={activityCategory} onChange={e=>{setActivityCategory(e.target.value);setActivityPage(0);}} className="w-full p-2.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                        <option value="">All Categories</option>
+                        <option value="POLICY">Policies</option>
+                        <option value="SLIP">Slips</option>
+                        <option value="CLAIM">Claims</option>
+                        <option value="INSURER">Insurers</option>
+                        <option value="TASK">Tasks</option>
+                        <option value="USER">Users</option>
+                    </select>
+                </div>
                 <DatePickerInput label="From" value={parseDate(activityDateFrom)} onChange={(date) => {setActivityDateFrom(toISODateString(date) || '');setActivityPage(0);}}/>
                 <DatePickerInput label="To" value={parseDate(activityDateTo)} onChange={(date) => {setActivityDateTo(toISODateString(date) || '');setActivityPage(0);}}/>
             </div>
