@@ -96,7 +96,9 @@ const DirectInsuranceList: React.FC = () => {
   };
 
   const handleViewPolicy = (id: string) => {
-    navigate(`/policy/${id}`);
+    // Open the form modal to view/edit the policy
+    setEditingPolicyId(id);
+    setShowFormModal(true);
   };
 
   const handleDeletePolicy = async () => {
@@ -288,7 +290,11 @@ const DirectInsuranceList: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredPolicies.map((policy) => (
-                  <tr key={policy.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={policy.id}
+                    onClick={() => handleViewPolicy(policy.id)}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3">
                       <span className="font-medium text-slate-800">{policy.policyNumber}</span>
                     </td>
@@ -316,7 +322,7 @@ const DirectInsuranceList: React.FC = () => {
                     <td className="px-4 py-3 text-center">
                       {getStatusBadge(policy.status)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={() => handleViewPolicy(policy.id)}

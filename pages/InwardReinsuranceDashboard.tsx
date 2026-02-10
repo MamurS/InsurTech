@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { InwardReinsurance, Currency } from '../types';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/dateUtils';
+import { FormModal } from '../components/FormModal';
+import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import {
   ArrowDownRight, Search, RefreshCw, Download,
   Globe, Home, TrendingUp, DollarSign,
@@ -20,6 +21,11 @@ const InwardReinsuranceDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
+
+  // Modal state
+  const [showFormModal, setShowFormModal] = useState(false);
+  const [editingContractId, setEditingContractId] = useState<string | null>(null);
+  const [editingOrigin, setEditingOrigin] = useState<'FOREIGN' | 'DOMESTIC'>('FOREIGN');
 
   // Load all inward reinsurance contracts
   const loadContracts = async () => {
@@ -454,7 +460,15 @@ const InwardReinsuranceDashboard: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredContracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-slate-50 transition-colors">
+                  <tr
+                    key={contract.id}
+                    onClick={() => {
+                      setEditingContractId(contract.id);
+                      setEditingOrigin(contract.origin as 'FOREIGN' | 'DOMESTIC');
+                      setShowFormModal(true);
+                    }}
+                    className="hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3">
                       <span className="font-medium text-slate-800">{contract.contractNumber}</span>
                     </td>
@@ -492,13 +506,17 @@ const InwardReinsuranceDashboard: React.FC = () => {
                       {getStatusBadge(contract.status)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <Link
-                        to={`/inward-reinsurance/${contract.origin?.toLowerCase() || 'foreign'}/edit/${contract.id}`}
+                      <button
+                        onClick={() => {
+                          setEditingContractId(contract.id);
+                          setEditingOrigin(contract.origin as 'FOREIGN' | 'DOMESTIC');
+                          setShowFormModal(true);
+                        }}
                         className="p-2 hover:bg-slate-100 rounded-lg transition-colors inline-block"
                         title="View / Edit"
                       >
                         <Eye size={16} className="text-slate-500" />
-                      </Link>
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -507,6 +525,31 @@ const InwardReinsuranceDashboard: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Form Modal */}
+      <FormModal
+        isOpen={showFormModal}
+        onClose={() => {
+          setShowFormModal(false);
+          setEditingContractId(null);
+        }}
+        title={editingContractId ? 'Edit Inward Reinsurance' : 'New Inward Reinsurance'}
+        subtitle={editingOrigin === 'FOREIGN' ? 'Foreign Contract' : 'Domestic Contract'}
+      >
+        <InwardReinsuranceFormContent
+          id={editingContractId || undefined}
+          origin={editingOrigin}
+          onSave={() => {
+            setShowFormModal(false);
+            setEditingContractId(null);
+            loadContracts();
+          }}
+          onCancel={() => {
+            setShowFormModal(false);
+            setEditingContractId(null);
+          }}
+        />
+      </FormModal>
     </div>
   );
 };

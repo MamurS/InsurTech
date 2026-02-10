@@ -11,6 +11,8 @@ import { DetailModal } from '../components/DetailModal';
 import { EntityDetailModal } from '../components/EntityDetailModal';
 import { FormModal } from '../components/FormModal';
 import { PolicyFormContent } from '../components/PolicyFormContent';
+import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
+import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List, Globe, Home, Briefcase, FileSpreadsheet } from 'lucide-react';
 
@@ -270,6 +272,15 @@ const Dashboard: React.FC = () => {
   const [showPolicyModal, setShowPolicyModal] = useState(false);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
+  // Inward Reinsurance Form Modal State
+  const [showInwardModal, setShowInwardModal] = useState(false);
+  const [editingInwardId, setEditingInwardId] = useState<string | null>(null);
+  const [editingInwardOrigin, setEditingInwardOrigin] = useState<'FOREIGN' | 'DOMESTIC'>('FOREIGN');
+
+  // Slip Form Modal State
+  const [showSlipModal, setShowSlipModal] = useState(false);
+  const [editingSlipId, setEditingSlipId] = useState<string | null>(null);
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -311,20 +322,25 @@ const Dashboard: React.FC = () => {
   const handleEdit = (e: React.MouseEvent, row: PortfolioRow) => {
     e.preventDefault();
     e.stopPropagation();
-    // Navigate based on source type
+    // Open modal based on source type
     switch (row.source) {
       case 'direct':
         setEditingPolicyId(row.id);
         setShowPolicyModal(true);
         break;
       case 'inward-foreign':
-        navigate(`/inward-reinsurance/foreign/edit/${row.id}`);
+        setEditingInwardId(row.id);
+        setEditingInwardOrigin('FOREIGN');
+        setShowInwardModal(true);
         break;
       case 'inward-domestic':
-        navigate(`/inward-reinsurance/domestic/edit/${row.id}`);
+        setEditingInwardId(row.id);
+        setEditingInwardOrigin('DOMESTIC');
+        setShowInwardModal(true);
         break;
       case 'slip':
-        navigate(`/slip/${row.id}`);
+        setEditingSlipId(row.id);
+        setShowSlipModal(true);
         break;
     }
   };
@@ -338,19 +354,24 @@ const Dashboard: React.FC = () => {
   };
 
   const handleRowClick = (row: PortfolioRow) => {
-    // Navigate based on source type
+    // Open modal based on source type
     switch (row.source) {
       case 'direct':
         setSelectedRow(row); // Open DetailModal
         break;
       case 'inward-foreign':
-        navigate(`/inward-reinsurance/foreign/edit/${row.id}`);
+        setEditingInwardId(row.id);
+        setEditingInwardOrigin('FOREIGN');
+        setShowInwardModal(true);
         break;
       case 'inward-domestic':
-        navigate(`/inward-reinsurance/domestic/edit/${row.id}`);
+        setEditingInwardId(row.id);
+        setEditingInwardOrigin('DOMESTIC');
+        setShowInwardModal(true);
         break;
       case 'slip':
-        navigate(`/slips/edit/${row.id}`);
+        setEditingSlipId(row.id);
+        setShowSlipModal(true);
         break;
     }
   };
@@ -1196,6 +1217,54 @@ const Dashboard: React.FC = () => {
           onCancel={() => {
             setShowPolicyModal(false);
             setEditingPolicyId(null);
+          }}
+        />
+      </FormModal>
+
+      {/* Inward Reinsurance Form Modal */}
+      <FormModal
+        isOpen={showInwardModal}
+        onClose={() => {
+          setShowInwardModal(false);
+          setEditingInwardId(null);
+        }}
+        title={editingInwardId ? 'Edit Inward Reinsurance' : 'New Inward Reinsurance'}
+        subtitle={editingInwardOrigin === 'FOREIGN' ? 'Foreign Contract' : 'Domestic Contract'}
+      >
+        <InwardReinsuranceFormContent
+          id={editingInwardId || undefined}
+          origin={editingInwardOrigin}
+          onSave={() => {
+            setShowInwardModal(false);
+            setEditingInwardId(null);
+            fetchData();
+          }}
+          onCancel={() => {
+            setShowInwardModal(false);
+            setEditingInwardId(null);
+          }}
+        />
+      </FormModal>
+
+      {/* Slip Form Modal */}
+      <FormModal
+        isOpen={showSlipModal}
+        onClose={() => {
+          setShowSlipModal(false);
+          setEditingSlipId(null);
+        }}
+        title={editingSlipId ? 'Edit Reinsurance Slip' : 'New Reinsurance Slip'}
+      >
+        <SlipFormContent
+          id={editingSlipId || undefined}
+          onSave={() => {
+            setShowSlipModal(false);
+            setEditingSlipId(null);
+            fetchData();
+          }}
+          onCancel={() => {
+            setShowSlipModal(false);
+            setEditingSlipId(null);
           }}
         />
       </FormModal>

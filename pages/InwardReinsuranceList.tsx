@@ -388,7 +388,14 @@ const InwardReinsuranceList: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {contracts.map((contract) => (
-                  <tr key={contract.id} className="hover:bg-gray-50 transition-colors">
+                  <tr
+                    key={contract.id}
+                    onClick={() => {
+                      setEditingContractId(contract.id);
+                      setShowFormModal(true);
+                    }}
+                    className="hover:bg-gray-50 transition-colors cursor-pointer"
+                  >
                     <td className="px-4 py-3">
                       <div className="font-medium text-gray-900">{contract.contractNumber}</div>
                       <div className="text-xs text-gray-500">UW {contract.uwYear}</div>
@@ -421,9 +428,12 @@ const InwardReinsuranceList: React.FC = () => {
                     <td className="px-4 py-3 text-center">
                       {getStatusBadge(contract.status)}
                     </td>
-                    <td className="px-4 py-3 text-center relative">
+                    <td className="px-4 py-3 text-center relative" onClick={(e) => e.stopPropagation()}>
                       <button
-                        onClick={() => setActionMenuOpen(actionMenuOpen === contract.id ? null : contract.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActionMenuOpen(actionMenuOpen === contract.id ? null : contract.id);
+                        }}
                         className="p-1 text-gray-400 hover:text-gray-600 rounded"
                       >
                         <MoreVertical size={16} />
@@ -432,7 +442,8 @@ const InwardReinsuranceList: React.FC = () => {
                         <div className="absolute right-4 top-10 bg-white border shadow-lg rounded-lg py-1 z-10 min-w-[120px]">
                           <button
                             onClick={() => {
-                              navigate(`/inward-reinsurance/${origin.toLowerCase()}/view/${contract.id}`);
+                              setEditingContractId(contract.id);
+                              setShowFormModal(true);
                               setActionMenuOpen(null);
                             }}
                             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
