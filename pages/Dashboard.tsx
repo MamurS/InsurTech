@@ -219,7 +219,7 @@ const Dashboard: React.FC = () => {
 
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
-  
+
   // View Mode State - Persistent
   const [viewMode, setViewMode] = useState<'compact' | 'extended'>(() => {
       const savedMode = localStorage.getItem('insurtech_dashboard_view');
@@ -229,6 +229,19 @@ const Dashboard: React.FC = () => {
   const handleViewModeChange = (mode: 'compact' | 'extended') => {
       setViewMode(mode);
       localStorage.setItem('insurtech_dashboard_view', mode);
+  };
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
+      const saved = localStorage.getItem('insurtech_dashboard_rows_per_page');
+      return saved ? parseInt(saved, 10) : 50;
+  });
+
+  const handleRowsPerPageChange = (value: number) => {
+      setRowsPerPage(value);
+      localStorage.setItem('insurtech_dashboard_rows_per_page', String(value));
+      setCurrentPage(1);
   };
 
   const [loading, setLoading] = useState(true);
@@ -445,6 +458,34 @@ const Dashboard: React.FC = () => {
 
   const sortedRows = getSortedRows(filteredRows);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sourceFilter, statusFilter, searchTerm]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedRows.length / rowsPerPage);
+  const startIndex = (currentPage - 1) * rowsPerPage;
+  const endIndex = Math.min(startIndex + rowsPerPage, sortedRows.length);
+  const paginatedRows = sortedRows.slice(startIndex, endIndex);
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = [];
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (currentPage <= 3) {
+        pages.push(1, 2, 3, 4, '...', totalPages);
+      } else if (currentPage >= totalPages - 2) {
+        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
   const formatMoney = (amount: number | undefined, currency: Currency | string) => {
     if (amount === undefined || amount === null) return '-';
     try {
@@ -466,8 +507,8 @@ const Dashboard: React.FC = () => {
   const SortableHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: string, className?: string }) => {
     const isActive = sortConfig.key === sortKey;
     return (
-      <th 
-        className={`px-3 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group select-none whitespace-nowrap ${className}`}
+      <th
+        className={`px-3 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group select-none whitespace-nowrap bg-gray-50 ${className}`}
         onClick={() => handleSort(sortKey)}
       >
         <div className="flex items-center gap-1">
@@ -512,113 +553,179 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-800">Policy Portfolio</h2>
-          <p className="text-gray-500 text-sm">Unified view of all Direct Insurance and Inward Reinsurance business.</p>
-        </div>
-        <div className="flex gap-2">
-            <button 
-            type="button"
-            onClick={handleExport}
-            className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2 rounded-lg font-medium transition-all shadow-sm cursor-pointer text-sm"
+    <div className="space-y-2">
+      {/* Row 1: Title and Export */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-gray-800">Policy Portfolio</h2>
+        <button
+          type="button"
+          onClick={handleExport}
+          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm cursor-pointer text-xs"
+        >
+          <Download size={14} /> Export Excel
+        </button>
+      </div>
+
+      {/* Row 2: All Filters in One Row */}
+      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
+        {/* Source Filter Pills */}
+        {([
+          { key: 'All', label: 'All', icon: null },
+          { key: 'direct', label: 'Direct', icon: Briefcase },
+          { key: 'inward-foreign', label: 'In-Foreign', icon: Globe },
+          { key: 'inward-domestic', label: 'In-Domestic', icon: Home },
+          { key: 'slip', label: 'Slips', icon: FileSpreadsheet },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setSourceFilter(key as 'All' | PortfolioSource)}
+            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${
+              sourceFilter === key
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {Icon && <Icon size={10} />}
+            {label}
+          </button>
+        ))}
+
+        <div className="w-px h-5 bg-gray-300 mx-1" />
+
+        {/* Status Tabs */}
+        <div className="flex bg-gray-100 p-0.5 rounded-md">
+          {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+                statusFilter === status
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
             >
-            <Download size={16} /> Export Excel
+              {status}
             </button>
+          ))}
+        </div>
+
+        <div className="w-px h-5 bg-gray-300 mx-1" />
+
+        {/* Search */}
+        <div className="flex-1 relative min-w-[180px]">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <input
+            type="text"
+            placeholder="Search..."
+            className="w-full pl-7 pr-3 py-1 bg-gray-50 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        <div className="w-px h-5 bg-gray-300 mx-1" />
+
+        {/* Rows per page */}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-500">Show:</span>
+          <select
+            value={rowsPerPage}
+            onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
+            className="text-xs border border-gray-200 rounded px-1 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+          >
+            {[25, 50, 100, 200, 500].map(n => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex bg-gray-100 p-0.5 rounded-md">
+          <button
+            onClick={() => handleViewModeChange('compact')}
+            className={`px-2 py-1 text-xs font-medium rounded transition-all flex items-center gap-1 ${
+              viewMode === 'compact'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <List size={12} /> Compact
+          </button>
+          <button
+            onClick={() => handleViewModeChange('extended')}
+            className={`px-2 py-1 text-xs font-medium rounded transition-all flex items-center gap-1 ${
+              viewMode === 'extended'
+                ? 'bg-white text-slate-800 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Columns size={12} /> Extended
+          </button>
         </div>
       </div>
 
-      {/* Filters & Search & View Toggle */}
-      <div className="flex flex-col gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-          {/* Source Filter Tabs */}
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs font-semibold text-gray-500 uppercase self-center mr-2">Source:</span>
-            {([
-              { key: 'All', label: 'All', icon: null },
-              { key: 'direct', label: 'Direct', icon: Briefcase },
-              { key: 'inward-foreign', label: 'Inward Foreign', icon: Globe },
-              { key: 'inward-domestic', label: 'Inward Domestic', icon: Home },
-              { key: 'slip', label: 'Slips', icon: FileSpreadsheet },
-            ] as const).map(({ key, label, icon: Icon }) => (
+      {/* Pagination Bar */}
+      <div className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-t-lg border border-b-0 border-gray-200 text-xs">
+        <span className="text-gray-600">
+          Showing {sortedRows.length === 0 ? 0 : startIndex + 1}–{endIndex} of {sortedRows.length} records
+        </span>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
+          >
+            First
+          </button>
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
+          >
+            Prev
+          </button>
+          {getPageNumbers().map((page, idx) => (
+            typeof page === 'number' ? (
               <button
-                key={key}
-                onClick={() => setSourceFilter(key as 'All' | PortfolioSource)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full transition-all ${
-                  sourceFilter === key
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                key={idx}
+                onClick={() => setCurrentPage(page)}
+                className={`px-2 py-1 rounded border ${
+                  currentPage === page
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'border-gray-300 bg-white hover:bg-gray-100'
                 }`}
               >
-                {Icon && <Icon size={12} />}
-                {label}
+                {page}
               </button>
-            ))}
-          </div>
-
-          <div className="flex flex-col xl:flex-row gap-4 items-center">
-            {/* Status Tabs */}
-            <div className="flex bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto max-w-full">
-               {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
-                   <button
-                      key={status}
-                      onClick={() => setStatusFilter(status)}
-                      className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
-                          statusFilter === status
-                          ? 'bg-white text-blue-600 shadow-sm'
-                          : 'text-gray-500 hover:text-gray-700'
-                      }`}
-                   >
-                       {status}
-                   </button>
-               ))}
-            </div>
-
-            <div className="flex-1 w-full relative min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <input
-              type="text"
-              placeholder="Search by Ref No, Insured, Cedant, Broker, Class..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm text-gray-900"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            {/* View Mode Toggle */}
-            <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
-               <button
-                  onClick={() => handleViewModeChange('compact')}
-                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
-                      viewMode === 'compact'
-                      ? 'bg-white text-slate-800 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-               >
-                   <List size={14}/> Compact
-               </button>
-               <button
-                  onClick={() => handleViewModeChange('extended')}
-                  className={`px-3 py-1.5 text-xs font-bold uppercase rounded-md transition-all flex items-center gap-1 ${
-                      viewMode === 'extended'
-                      ? 'bg-white text-slate-800 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-               >
-                   <Columns size={14}/> Extended
-               </button>
-            </div>
-          </div>
+            ) : (
+              <span key={idx} className="px-1 text-gray-400">...</span>
+            )
+          ))}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
+          >
+            Next
+          </button>
+          <button
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages || totalPages === 0}
+            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
+          >
+            Last
+          </button>
+        </div>
       </div>
 
       {/* Unified Table */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden relative">
-        <div className="overflow-x-auto min-h-[400px]">
+      <div className="bg-white border border-gray-200 rounded-b-xl shadow-sm overflow-hidden relative">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
             <table className="w-full text-left border-collapse">
                 <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                     {viewMode === 'compact' ? (
                         <tr>
-                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs">STATUS</th>
+                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
                             <SortableHeader label="Source" sortKey="source" />
                             <SortableHeader label="Ref No" sortKey="referenceNumber" />
                             <SortableHeader label="Insured / Cedant" sortKey="insuredName" />
@@ -630,7 +737,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <th className="px-3 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs">Actions</th>
+                            <th className="px-3 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
                         </tr>
                     ) : (
                         <tr>
@@ -744,7 +851,7 @@ const Dashboard: React.FC = () => {
                     )}
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
-                    {sortedRows.map(row => {
+                    {paginatedRows.map(row => {
                         const rowClass = row.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30';
 
                         return (
@@ -1019,9 +1126,9 @@ const Dashboard: React.FC = () => {
                         </tr>
                     )})}
 
-                    {!loading && sortedRows.length === 0 && (
+                    {!loading && paginatedRows.length === 0 && (
                         <tr>
-                            <td colSpan={viewMode === 'compact' ? 13 : 79} className="py-12 text-center text-gray-400">
+                            <td colSpan={viewMode === 'compact' ? 13 : 80} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     <p>No records found matching your criteria.</p>
