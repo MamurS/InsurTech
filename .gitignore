@@ -45,3 +45,10 @@ credentials/
 staging/.env
 staging/import_preview.json
 staging/*.xlsb
+
+# Production import files - NEVER commit
+production/.env
+production/backups/
+production/previews/
+production/*.xlsb
+production/*.xlsx
