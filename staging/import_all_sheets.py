@@ -103,44 +103,52 @@ CONTRACTS_NUMERIC_COLUMNS: Dict[int, str] = {
 # ==============================================================================
 OUTWARD_SHEET_PATTERNS = ["outward", "исходящ"]
 
+# CORRECT Column mappings based on actual Excel inspection:
+# Row 0 = headers, Row 1 = totals/sub-headers, Data starts at Row 2
+OUTWARD_HEADER_ROWS = 2  # Skip first 2 rows
+
 OUTWARD_TEXT_COLUMNS: Dict[int, str] = {
-    0: 'accountingCode',           # A: Accounting code
-    1: 'policyNumber',             # B: Original policy number
-    2: 'secondaryPolicyNumber',    # C: Outward policy number
-    3: 'slipNumber',               # D: Slip number
-    4: 'insuredName',              # E: Insured
-    5: 'reinsurerName',            # F: Reinsurer
-    6: 'brokerName',               # G: Broker
-    7: 'classOfInsurance',         # H: Class
-    8: 'typeOfInsurance',          # I: Type
-    9: 'insuredRisk',              # J: Risk description
-    10: 'territory',               # K: Territory
-    11: 'currency',                # L: Currency
-    32: 'reinsuranceType',         # AG: Reinsurance type (QS/Surplus/XL)
+    # Col 0 = Row number (№ п/п) - SKIP
+    1: 'insuredName',              # Col 1: Insured
+    2: 'brokerName',               # Col 2: Broker
+    3: 'reinsurerName',            # Col 3: Reinsurer / Retrocessioner
+    6: 'slipNumber',               # Col 6: Номер перестраховочного слипа (Slip number)
+    9: 'classOfInsurance',         # Col 9: Класс (Class)
+    10: 'typeOfInsurance',         # Col 10: Вид страхо-вания (Type of insurance)
+    11: 'policyNumber',            # Col 11: Номер полиса (Policy number)
+    15: 'territory',               # Col 15: Территория страхования (Territory)
+    17: 'currency',                # Col 17: Валюта (Currency)
+    32: 'reinsuranceType',         # Col 32: Тип перестрахования (Reinsurance type)
 }
 
 OUTWARD_DATE_COLUMNS: Dict[int, str] = {
-    18: 'reinsuranceInceptionDate', # S: RI inception
-    19: 'reinsuranceExpiryDate',    # T: RI expiry
+    8: 'accountingDate',            # Col 8: Дата бухг. начис-ления (Accounting date)
+    26: 'inceptionDate',            # Col 26: Период страхования start (Insurance period start)
+    27: 'expiryDate',               # Col 27: Insurance period end
+    29: 'reinsuranceInceptionDate', # Col 29: Период перестрахования start (RI inception)
+    30: 'reinsuranceExpiryDate',    # Col 30: RI expiry
+    63: 'actualPaymentDate',        # Col 63: Дата фактической оплаты (Actual payment date)
 }
 
 OUTWARD_NUMERIC_COLUMNS: Dict[int, str] = {
-    12: 'sumInsured',              # M: Sum insured (original)
-    13: 'limitForeignCurrency',    # N: Limit foreign
-    14: 'limitNationalCurrency',   # O: Limit national
-    15: 'cededShare',              # P: Ceded share %
-    16: 'sumReinsuredForeign',     # Q: Sum reinsured foreign
-    17: 'sumReinsuredNational',    # R: Sum reinsured national
-    20: 'reinsuranceDays',         # U: RI days
-    21: 'grossPremium',            # V: Gross premium (original)
-    22: 'cededPremiumForeign',     # W: Ceded premium foreign
-    23: 'cededPremiumNational',    # X: Ceded premium national
-    24: 'reinsuranceCommission',   # Y: RI commission %
-    25: 'netReinsurancePremium',   # Z: Net RI premium
-    26: 'receivedPremiumForeign',  # AA: Received premium foreign
-    27: 'receivedPremiumNational', # AB: Received premium national
-    28: 'exchangeRateUSD',         # AC: Exchange rate
-    29: 'equivalentUSD',           # AD: Equivalent USD
+    18: 'exchangeRate',            # Col 18: Exchange rate (Курс валюты)
+    21: 'sumInsured',              # Col 21: Страховая сумма в иностранной валюте (Sum insured foreign)
+    22: 'sumInsuredNational',      # Col 22: Страховая сумма в сумах (Sum insured national)
+    24: 'grossPremium',            # Col 24: Страховая премия в иностранной валюте (Gross premium foreign)
+    25: 'premiumNationalCurrency', # Col 25: Страховая премия в сумах (Premium national)
+    28: 'insuranceDays',           # Col 28: Insurance days
+    31: 'reinsuranceDays',         # Col 31: RI days
+    33: 'limitForeignCurrency',    # Col 33: Reinsurance Programme limit foreign
+    34: 'limitNationalCurrency',   # Col 34: Limit national
+    40: 'cededShare',              # Col 40: Доля перестра-ховщика (Ceded share %)
+    42: 'cededPremiumForeign',     # Col 42: Валовая премия в иностранной валюте (Ceded premium foreign)
+    43: 'cededPremiumNational',    # Col 43: Валовая премия в сумах (Ceded premium national)
+    46: 'sumReinsuredForeign',     # Col 46: Обязательства перестраховщика в ин.вал. (Sum reinsured foreign)
+    47: 'sumReinsuredNational',    # Col 47: Обязательства перестраховщика в сумах (Sum reinsured national)
+    48: 'reinsuranceCommission',   # Col 48: Перестраховочная комиссия (RI commission %)
+    54: 'netReinsurancePremium',   # Col 54: Нетто премия в иностранной валюте (Net RI premium foreign)
+    59: 'receivedPremiumForeign',  # Col 59: Оплачена в иностранной валюте (Received premium foreign)
+    62: 'receivedPremiumNational', # Col 62: Оплачена в сумах (Received premium national)
 }
 
 # ==============================================================================
@@ -444,8 +452,8 @@ def parse_outward_row(row: List, row_number: int) -> Optional[Dict[str, Any]]:
     for col_idx, field_name in OUTWARD_NUMERIC_COLUMNS.items():
         value = get_cell_value(row, col_idx)
         parsed = parse_number(value)
-        # Convert reinsuranceDays to integer (database expects INTEGER)
-        if field_name == 'reinsuranceDays' and parsed is not None:
+        # Convert days fields to integer (database expects INTEGER)
+        if field_name in ('reinsuranceDays', 'insuranceDays') and parsed is not None:
             parsed = int(parsed)
         record[field_name] = parsed
 
@@ -815,8 +823,10 @@ def main():
                 header_rows=CONTRACTS_HEADER_ROWS
             )
         elif sheet_type == "outward":
+            # Outward: skip 2 header rows (Row 0 = headers, Row 1 = totals/sub-headers)
             inserted, errors, skipped = process_sheet(
-                wb, OUTWARD_SHEET_PATTERNS, parse_outward_row, "policies", supabase, dry_run
+                wb, OUTWARD_SHEET_PATTERNS, parse_outward_row, "policies", supabase, dry_run,
+                header_rows=OUTWARD_HEADER_ROWS
             )
         elif sheet_type == "slips":
             inserted, errors, skipped = process_sheet(
