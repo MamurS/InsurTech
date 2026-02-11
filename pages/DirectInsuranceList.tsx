@@ -151,27 +151,7 @@ const DirectInsuranceList: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <Briefcase className="text-blue-600" size={28} />
-            Direct Insurance
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Policies issued in Uzbekistan for local and foreign companies
-          </p>
-        </div>
-        <button
-          onClick={handleNewPolicy}
-          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium shadow-lg shadow-blue-600/20"
-        >
-          <Plus size={20} />
-          New Policy
-        </button>
-      </div>
-
+    <div className="space-y-4">
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
@@ -204,18 +184,25 @@ const DirectInsuranceList: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4">
-        <div className="flex flex-wrap items-center gap-4">
+      {/* Filters - Combined with Title */}
+      <div className="bg-white rounded-xl border border-slate-200 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Page title as compact label */}
+          <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
+            <Briefcase className="text-blue-600" size={16} />
+            Direct Insurance
+          </span>
+          <div className="w-px h-5 bg-slate-300" />
+
           {/* Search */}
-          <div className="relative flex-1 min-w-[250px]">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by policy number or insured name..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
             />
           </div>
 
@@ -223,7 +210,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={countryFilter}
             onChange={(e) => setCountryFilter(e.target.value)}
-            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
           >
             <option value="all">All Countries</option>
             <option value="uzbekistan">Uzbekistan</option>
@@ -234,7 +221,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white"
+            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
           >
             <option value="all">All Statuses</option>
             <option value="Draft">Draft</option>
@@ -246,10 +233,21 @@ const DirectInsuranceList: React.FC = () => {
           {/* Refresh */}
           <button
             onClick={loadPolicies}
-            className="p-2.5 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
             title="Refresh"
           >
-            <RefreshCw size={18} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+          </button>
+
+          <div className="w-px h-5 bg-slate-300" />
+
+          {/* New Policy Button */}
+          <button
+            onClick={handleNewPolicy}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+          >
+            <Plus size={16} />
+            New Policy
           </button>
         </div>
       </div>

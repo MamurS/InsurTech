@@ -575,20 +575,12 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="space-y-2">
-      {/* Row 1: Title and Export */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-gray-800">Policy Portfolio</h2>
-        <button
-          type="button"
-          onClick={handleExport}
-          className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 rounded-lg font-medium transition-all shadow-sm cursor-pointer text-xs"
-        >
-          <Download size={14} /> Export Excel
-        </button>
-      </div>
-
-      {/* Row 2: All Filters in One Row */}
+      {/* Row 1: Title + All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
+        {/* Page title as compact label */}
+        <span className="text-sm font-bold text-gray-800 mr-1">Portfolio</span>
+        <div className="w-px h-5 bg-gray-300" />
+
         {/* Source Filter Pills */}
         {([
           { key: 'All', label: 'All', icon: null },
@@ -691,6 +683,15 @@ const Dashboard: React.FC = () => {
           Showing {sortedRows.length === 0 ? 0 : startIndex + 1}–{endIndex} of {sortedRows.length} records
         </span>
         <div className="flex items-center gap-1">
+          {/* Export button - moved here */}
+          <button
+            type="button"
+            onClick={handleExport}
+            className="flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-600"
+          >
+            <Download size={12} /> Export
+          </button>
+          <div className="w-px h-4 bg-gray-300" />
           <button
             onClick={() => setCurrentPage(1)}
             disabled={currentPage === 1}

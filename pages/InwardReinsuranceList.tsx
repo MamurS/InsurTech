@@ -233,42 +233,26 @@ const InwardReinsuranceList: React.FC = () => {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-            {origin === 'FOREIGN' ? <Globe size={28} /> : <Home size={28} />}
-            {origin === 'FOREIGN' ? 'Foreign' : 'Domestic'} Inward Reinsurance
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {origin === 'FOREIGN' ? 'Overseas/International' : 'Domestic'} reinsurance contracts
-          </p>
-        </div>
-        <button
-          onClick={() => {
-            setEditingContractId(null);
-            setShowFormModal(true);
-          }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium shadow-sm"
-        >
-          <Plus size={18} />
-          New Contract
-        </button>
-      </div>
+    <div className="space-y-4">
+      {/* Filters - Combined with Title */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Page title as compact label */}
+          <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
+            {origin === 'FOREIGN' ? <Globe size={16} className="text-purple-600" /> : <Home size={16} className="text-emerald-600" />}
+            Inward Reinsurance
+          </span>
+          <div className="w-px h-5 bg-gray-300" />
 
-      {/* Filters */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-wrap items-center gap-4">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by contract number, cedant, broker..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-              className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             />
           </div>
 
@@ -314,7 +298,21 @@ const InwardReinsuranceList: React.FC = () => {
             className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
             title="Refresh"
           >
-            <RefreshCw size={18} />
+            <RefreshCw size={16} />
+          </button>
+
+          <div className="w-px h-5 bg-gray-300" />
+
+          {/* New Contract Button */}
+          <button
+            onClick={() => {
+              setEditingContractId(null);
+              setShowFormModal(true);
+            }}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
+          >
+            <Plus size={16} />
+            New Contract
           </button>
         </div>
       </div>
