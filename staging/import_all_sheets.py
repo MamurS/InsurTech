@@ -376,7 +376,11 @@ def parse_contracts_row(row: List, row_number: int) -> Optional[Dict[str, Any]]:
     # Numeric columns
     for col_idx, field_name in CONTRACTS_NUMERIC_COLUMNS.items():
         value = get_cell_value(row, col_idx)
-        record[field_name] = parse_number(value)
+        parsed = parse_number(value)
+        # Convert insuranceDays to integer (database expects INTEGER)
+        if field_name == 'insuranceDays' and parsed is not None:
+            parsed = int(parsed)
+        record[field_name] = parsed
 
     # Skip empty rows
     if not record.get('policyNumber') and not record.get('insuredName'):
@@ -411,7 +415,11 @@ def parse_outward_row(row: List, row_number: int) -> Optional[Dict[str, Any]]:
     # Numeric columns
     for col_idx, field_name in OUTWARD_NUMERIC_COLUMNS.items():
         value = get_cell_value(row, col_idx)
-        record[field_name] = parse_number(value)
+        parsed = parse_number(value)
+        # Convert reinsuranceDays to integer (database expects INTEGER)
+        if field_name == 'reinsuranceDays' and parsed is not None:
+            parsed = int(parsed)
+        record[field_name] = parsed
 
     # Skip empty rows
     if not record.get('policyNumber') and not record.get('insuredName') and not record.get('slipNumber'):
