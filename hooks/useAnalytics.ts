@@ -135,9 +135,9 @@ export const useAnalyticsSummary = () => {
 
       // Fetch all data sources in parallel
       const [policiesRes, inwardRes, slipsRes, claimsRes] = await Promise.all([
-        supabase.from('policies').select('*').eq('is_deleted', false),
+        supabase.from('policies').select('*').eq('isDeleted', false),
         supabase.from('inward_reinsurance').select('*').eq('is_deleted', false),
-        supabase.from('slips').select('*').eq('is_deleted', false),
+        supabase.from('slips').select('*').eq('isDeleted', false),
         supabase.from('claims').select('*'),
       ]);
 
@@ -620,8 +620,8 @@ export const useRecentClaims = (limit: number = 10) => {
 
         const { data: claims } = await supabase
           .from('claims')
-          .select('id, claim_number, claimant_name, loss_date, total_incurred_our_share, status')
-          .order('total_incurred_our_share', { ascending: false })
+          .select('id, claim_number, claimant_name, loss_date, imported_total_incurred, status')
+          .order('imported_total_incurred', { ascending: false, nullsFirst: false })
           .limit(limit);
 
         const result = claims?.map(c => ({
@@ -629,7 +629,7 @@ export const useRecentClaims = (limit: number = 10) => {
           claimNumber: c.claim_number,
           insuredName: c.claimant_name || 'Unknown',
           lossDate: c.loss_date,
-          incurred: c.total_incurred_our_share || 0,
+          incurred: c.imported_total_incurred || 0,
           status: c.status,
         })) || [];
 
