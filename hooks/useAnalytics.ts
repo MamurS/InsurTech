@@ -267,15 +267,24 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     const exchangeRate = Number(first.exchangeRate) || Number(first.exchange_rate) || 0;
     const commissionPct = Number(first.commissionPercent) || Number(first.commission_percent) || 0;
 
-    // Currency conversion helper
+    // Currency conversion helper - ONLY convert based on actual currency field
+    // Note: exchangeRate stores UZS/USD rate for ALL records regardless of currency
     const toUSD = (amount: number): number => {
       if (!amount || amount === 0) return 0;
-      if (currency === 'UZS' || exchangeRate > 100) {
-        return exchangeRate > 0 ? amount / exchangeRate : 0;
-      } else if (currency === 'EUR') {
+      if (currency === 'UZS') {
+        return exchangeRate > 0 ? amount / exchangeRate : amount / 12800;
+      } else if (currency?.startsWith('EUR')) {
         return amount * 1.08;
+      } else if (currency === 'RUB') {
+        return amount / 90;
+      } else if (currency === 'KZT') {
+        return amount / 470;
+      } else if (currency === 'TWD') {
+        return amount / 32;
+      } else if (currency === 'PGK') {
+        return amount / 3.8;
       }
-      return amount;
+      return amount; // USD and others
     };
 
     // SUM premiums across installments (each row is a payment)
@@ -390,15 +399,23 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
     const exchangeRate = Number(first.exchange_rate) || 1;
     const commissionPct = Number(first.commission_percent) || 0;
 
-    // Currency conversion helper
+    // Currency conversion helper - ONLY convert based on actual currency field
     const toUSD = (amount: number): number => {
       if (!amount || amount === 0) return 0;
-      if (currency === 'UZS' || exchangeRate > 100) {
-        return exchangeRate > 0 ? amount / exchangeRate : 0;
-      } else if (currency === 'EUR') {
+      if (currency === 'UZS') {
+        return exchangeRate > 1 ? amount / exchangeRate : amount / 12800;
+      } else if (currency?.startsWith('EUR')) {
         return amount * 1.08;
+      } else if (currency === 'RUB') {
+        return amount / 90;
+      } else if (currency === 'KZT') {
+        return amount / 470;
+      } else if (currency === 'TWD') {
+        return amount / 32;
+      } else if (currency === 'PGK') {
+        return amount / 3.8;
       }
-      return amount;
+      return amount; // USD and others
     };
 
     // SUM premiums across installments
@@ -514,15 +531,17 @@ function processOutwardPolicies(policies: any[]): ChannelMetrics {
     const currency = first.currency || 'USD';
     const exchangeRate = Number(first.exchangeRate) || Number(first.exchange_rate) || 0;
 
-    // Currency conversion helper
+    // Currency conversion helper - ONLY convert based on actual currency field
     const toUSD = (amount: number): number => {
       if (!amount || amount === 0) return 0;
-      if (currency === 'UZS' || exchangeRate > 100) {
-        return exchangeRate > 0 ? amount / exchangeRate : 0;
-      } else if (currency === 'EUR') {
+      if (currency === 'UZS') {
+        return exchangeRate > 0 ? amount / exchangeRate : amount / 12800;
+      } else if (currency?.startsWith('EUR')) {
         return amount * 1.08;
+      } else if (currency === 'RUB') {
+        return amount / 90;
       }
-      return amount;
+      return amount; // USD and others
     };
 
     // SUM cededPremiumForeign across all reinsurers (each gets their share)
