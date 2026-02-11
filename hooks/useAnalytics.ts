@@ -533,11 +533,23 @@ function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
     }
 
     // imported_total_incurred/imported_total_paid are the actual columns in claims table
-    const incurred = Number(c.imported_total_incurred) || Number(c.total_incurred_our_share) || Number(c.totalIncurredOurShare) || 0;
-    const paid = Number(c.imported_total_paid) || Number(c.total_paid_our_share) || Number(c.totalPaidOurShare) || 0;
+    const incurred = Number(c.imported_total_incurred) || 0;
+    const paid = Number(c.imported_total_paid) || 0;
+    const currency = c.currency || 'USD';
 
-    metrics.totalIncurred += incurred;
-    metrics.totalPaid += paid;
+    // Convert to USD
+    let incurredUSD = incurred;
+    let paidUSD = paid;
+    if (currency === 'UZS') {
+      incurredUSD = incurred / 12800;  // approximate UZS/USD rate
+      paidUSD = paid / 12800;
+    } else if (currency === 'EUR') {
+      incurredUSD = incurred * 1.08;  // approximate EUR/USD rate
+      paidUSD = paid * 1.08;
+    }
+
+    metrics.totalIncurred += incurredUSD;
+    metrics.totalPaid += paidUSD;
   });
 
   metrics.totalReserve = metrics.totalIncurred - metrics.totalPaid;
@@ -579,7 +591,18 @@ function calculateLossRatioByClass(policies: any[], claims: any[]): LossRatioDat
       const cls = policy.classOfInsurance || policy.class_of_insurance || 'Other';
       if (classData[cls]) {
         // imported_total_incurred is the actual column in claims table
-        classData[cls].losses += Number(c.imported_total_incurred) || Number(c.total_incurred_our_share) || 0;
+        const incurred = Number(c.imported_total_incurred) || 0;
+        const currency = c.currency || 'USD';
+
+        // Convert to USD
+        let incurredUSD = incurred;
+        if (currency === 'UZS') {
+          incurredUSD = incurred / 12800;  // approximate UZS/USD rate
+        } else if (currency === 'EUR') {
+          incurredUSD = incurred * 1.08;  // approximate EUR/USD rate
+        }
+
+        classData[cls].losses += incurredUSD;
         classData[cls].claimCount++;
       }
     }
