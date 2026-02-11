@@ -395,10 +395,10 @@ def parse_contracts_row(row: List, row_number: int) -> Optional[Dict[str, Any]]:
     if not record.get('policyNumber') and not record.get('insuredName'):
         return None
 
-    # Set defaults
-    record['channel'] = 'DIRECT'
+    # Set defaults (use Title Case to match frontend expectations)
+    record['channel'] = 'Direct'
     record['recordType'] = 'INSURANCE'
-    record['status'] = 'ACTIVE'
+    record['status'] = 'Active'
     record['hasOutwardReinsurance'] = False
 
     if not record.get('currency'):
@@ -434,10 +434,10 @@ def parse_outward_row(row: List, row_number: int) -> Optional[Dict[str, Any]]:
     if not record.get('policyNumber') and not record.get('insuredName') and not record.get('slipNumber'):
         return None
 
-    # Set defaults
-    record['channel'] = 'REINSURANCE'
+    # Set defaults (use Title Case to match frontend expectations)
+    record['channel'] = 'Reinsurance'
     record['recordType'] = 'OUTWARD'
-    record['status'] = 'ACTIVE'
+    record['status'] = 'Active'
     record['hasOutwardReinsurance'] = True
 
     if not record.get('currency'):
