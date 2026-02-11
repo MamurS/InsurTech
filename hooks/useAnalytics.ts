@@ -237,27 +237,37 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     else if (status === 'pending') metrics.pendingCount++;
     else metrics.cancelledCount++;
 
-    // Get raw amounts in original currency
+    // Get raw amounts
     const gwpOriginal = Number(p.grossPremium) || Number(p.gross_premium_original) || 0;
     const currency = p.currency || 'USD';
-    const exchangeRate = Number(p.exchangeRate) || Number(p.exchange_rate) || 1;
+    const exchangeRate = Number(p.exchangeRate) || Number(p.exchange_rate) || 0;
     const commissionPct = Number(p.commissionPercent) || Number(p.commission_percent) || 0;
+    const nwpOriginal = Number(p.netPremium) || Number(p.net_premium_original) || 0;
+    const limitOriginal = Number(p.limitForeignCurrency) || Number(p.limit_foreign_currency) || Number(p.sumInsured) || 0;
 
     // Convert to USD for aggregate totals
-    const gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
+    // If exchangeRate > 100, amounts are stored in UZS (even if currency says 'USD') - divide by rate
+    let gwpUSD: number;
+    let nwpUSD: number;
+    let limitUSD: number;
 
-    // Calculate NWP: use provided netPremium or derive from commission
-    const nwpOriginal = Number(p.netPremium) || Number(p.net_premium_original);
-    const nwpUSD = nwpOriginal
-      ? convertToUSD(nwpOriginal, currency, exchangeRate)
-      : gwpUSD * (1 - commissionPct / 100);
+    if (exchangeRate > 100) {
+      // Outward records: grossPremium is in UZS, divide by exchangeRate to get USD
+      gwpUSD = gwpOriginal / exchangeRate;
+      nwpUSD = nwpOriginal > 0 ? nwpOriginal / exchangeRate : gwpUSD * (1 - commissionPct / 100);
+      limitUSD = limitOriginal > 0 ? limitOriginal / exchangeRate : 0;
+    } else {
+      // Normal records: use standard conversion
+      gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
+      nwpUSD = nwpOriginal > 0
+        ? convertToUSD(nwpOriginal, currency, exchangeRate)
+        : gwpUSD * (1 - commissionPct / 100);
+      limitUSD = convertToUSD(limitOriginal, currency, exchangeRate);
+    }
 
     // Normalize ourShare (some records store as decimal, e.g., 0.05 = 5%)
     const ourShareRaw = Number(p.ourShare) || Number(p.our_share) || 100;
     const ourShare = normalizeOurShare(ourShareRaw);
-
-    const limit = Number(p.limitForeignCurrency) || Number(p.limit_foreign_currency) || Number(p.sumInsured) || 0;
-    const limitUSD = convertToUSD(limit, currency, exchangeRate);
     const classOfIns = p.classOfInsurance || p.class_of_insurance || 'Other';
     const insuredName = p.insuredName || p.insured_name || 'Unknown';
     const inceptionDate = p.inceptionDate || p.inception_date;
