@@ -295,10 +295,15 @@ def parse_date(value: Any) -> Optional[str]:
 
 def parse_number(value: Any) -> Optional[float]:
     """Parse numeric values, handling various formats."""
+    import math
+
     if value is None:
         return None
 
     if isinstance(value, (int, float)):
+        # Handle infinity and NaN values
+        if math.isinf(value) or math.isnan(value):
+            return None
         return float(value)
 
     if isinstance(value, str):
