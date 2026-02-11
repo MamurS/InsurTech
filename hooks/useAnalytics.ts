@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase';
 // TYPES
 // =============================================
 
-export type ChannelType = 'direct' | 'inward-foreign' | 'inward-domestic' | 'slip' | 'total';
+export type ChannelType = 'direct' | 'inward-foreign' | 'inward-domestic' | 'outward' | 'total';
 
 export interface ChannelMetrics {
   channel: ChannelType;
@@ -68,7 +68,7 @@ const CHANNEL_CONFIG: Record<ChannelType, { label: string; color: string }> = {
   'direct': { label: 'Direct Insurance', color: '#3b82f6' },
   'inward-foreign': { label: 'Inward Foreign', color: '#8b5cf6' },
   'inward-domestic': { label: 'Inward Domestic', color: '#10b981' },
-  'slip': { label: 'Reinsurance Slips', color: '#f59e0b' },
+  'outward': { label: 'Outward Cessions', color: '#f59e0b' },
   'total': { label: 'Total Portfolio', color: '#1e293b' },
 };
 
@@ -164,21 +164,27 @@ export const useAnalyticsSummary = () => {
       }
 
       // Fetch all data sources in parallel
-      const [policiesRes, inwardRes, slipsRes, claimsRes] = await Promise.all([
+      // Use RPC for claims to get properly calculated totals
+      const [policiesRes, inwardRes, claimsRes] = await Promise.all([
         supabase.from('policies').select('*').eq('isDeleted', false),
         supabase.from('inward_reinsurance').select('*').eq('is_deleted', false),
-        supabase.from('slips').select('*').eq('isDeleted', false),
-        supabase.from('claims').select('*'),
+        supabase.rpc('get_claims_with_totals'),
       ]);
 
       // Handle potential errors gracefully
-      const policies = policiesRes.data || [];
+      const allPolicies = policiesRes.data || [];
       const inwardContracts = inwardRes.data || [];
-      const slips = slipsRes.data || [];
       const claims = claimsRes.data || [];
 
+      // Separate Direct from Outward (Reinsurance channel) policies
+      const directPolicies = allPolicies.filter((p: any) => p.channel === 'Direct');
+      const outwardPolicies = allPolicies.filter((p: any) => p.channel === 'Reinsurance');
+
       // Process each channel
-      const directMetrics = processDirectPolicies(policies);
+      // Direct: Mosaic issues policies to clients (REVENUE)
+      const directMetrics = processDirectPolicies(directPolicies);
+
+      // Inward: Mosaic accepts risks from other insurers (REVENUE)
       const inwardForeignMetrics = processInwardReinsurance(
         inwardContracts.filter((c: any) => c.origin === 'FOREIGN'),
         'inward-foreign'
@@ -187,17 +193,19 @@ export const useAnalyticsSummary = () => {
         inwardContracts.filter((c: any) => c.origin === 'DOMESTIC'),
         'inward-domestic'
       );
-      const slipMetrics = processSlips(slips);
 
-      // Calculate totals
-      const channels = [directMetrics, inwardForeignMetrics, inwardDomesticMetrics, slipMetrics];
-      const totalMetrics = calculateTotalMetrics(channels);
+      // Outward: Mosaic cedes risks to reinsurers (COST)
+      const outwardMetrics = processOutwardPolicies(outwardPolicies);
 
-      // Process claims
+      // Calculate totals with correct NWP (Revenue - Cost)
+      const channels = [directMetrics, inwardForeignMetrics, inwardDomesticMetrics, outwardMetrics];
+      const totalMetrics = calculateTotalMetrics(channels, outwardMetrics);
+
+      // Process claims using RPC data (already has Mosaic's share calculated)
       const claimsMetrics = processClaimsMetrics(claims, totalMetrics.netWrittenPremium);
 
-      // Loss ratio by class (from policies + claims)
-      const lossRatioByClass = calculateLossRatioByClass(policies, claims);
+      // Loss ratio by class (from all policies + claims)
+      const lossRatioByClass = calculateLossRatioByClass(allPolicies, claims);
 
       setData({
         channels,
@@ -225,52 +233,68 @@ export const useAnalyticsSummary = () => {
 // DATA PROCESSORS
 // =============================================
 
+/**
+ * Process Direct Insurance policies.
+ * Multiple rows per policyNumber = premium INSTALLMENTS → SUM premiums.
+ * sumInsured, ourShare = same value repeated → take ONCE per policyNumber.
+ */
 function processDirectPolicies(policies: any[]): ChannelMetrics {
   const metrics = createEmptyChannelMetrics('direct');
   const monthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
   const cedantData: Record<string, { premium: number; count: number }> = {};
 
+  // Group by policyNumber first (multiple rows = installments)
+  const policyGroups = new Map<string, any[]>();
   policies.forEach(p => {
-    metrics.recordCount++;
-    const status = normalizeStatus(p.status);
+    const key = p.policyNumber || p.id;
+    if (!policyGroups.has(key)) policyGroups.set(key, []);
+    policyGroups.get(key)!.push(p);
+  });
+
+  metrics.recordCount = policyGroups.size; // Count UNIQUE policies, not rows
+
+  policyGroups.forEach((installments, _policyNumber) => {
+    const first = installments[0]; // Use first row for non-additive fields
+
+    // Status from first row
+    const status = normalizeStatus(first.status);
     if (status === 'active') metrics.activeCount++;
     else if (status === 'pending') metrics.pendingCount++;
     else metrics.cancelledCount++;
 
-    // Get raw amounts
-    const gwpOriginal = Number(p.grossPremium) || Number(p.gross_premium_original) || 0;
-    const currency = p.currency || 'USD';
-    const exchangeRate = Number(p.exchangeRate) || Number(p.exchange_rate) || 0;
-    const commissionPct = Number(p.commissionPercent) || Number(p.commission_percent) || 0;
-    const nwpOriginal = Number(p.netPremium) || Number(p.net_premium_original) || 0;
-    const limitOriginal = Number(p.limitForeignCurrency) || Number(p.limit_foreign_currency) || Number(p.sumInsured) || 0;
+    // Currency info from first row
+    const currency = first.currency || 'USD';
+    const exchangeRate = Number(first.exchangeRate) || Number(first.exchange_rate) || 0;
+    const commissionPct = Number(first.commissionPercent) || Number(first.commission_percent) || 0;
 
-    // Convert to USD for aggregate totals
-    // If exchangeRate > 100, amounts are stored in UZS (even if currency says 'USD') - divide by rate
-    let gwpUSD: number;
-    let nwpUSD: number;
-    let limitUSD: number;
+    // Currency conversion helper
+    const toUSD = (amount: number): number => {
+      if (!amount || amount === 0) return 0;
+      if (currency === 'UZS' || exchangeRate > 100) {
+        return exchangeRate > 0 ? amount / exchangeRate : 0;
+      } else if (currency === 'EUR') {
+        return amount * 1.08;
+      }
+      return amount;
+    };
 
-    if (exchangeRate > 100) {
-      // Outward records: grossPremium is in UZS, divide by exchangeRate to get USD
-      gwpUSD = gwpOriginal / exchangeRate;
-      nwpUSD = nwpOriginal > 0 ? nwpOriginal / exchangeRate : gwpUSD * (1 - commissionPct / 100);
-      limitUSD = limitOriginal > 0 ? limitOriginal / exchangeRate : 0;
-    } else {
-      // Normal records: use standard conversion
-      gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
-      nwpUSD = nwpOriginal > 0
-        ? convertToUSD(nwpOriginal, currency, exchangeRate)
-        : gwpUSD * (1 - commissionPct / 100);
-      limitUSD = convertToUSD(limitOriginal, currency, exchangeRate);
-    }
+    // SUM premiums across installments (each row is a payment)
+    const totalGWP = installments.reduce((sum, p) =>
+      sum + (Number(p.grossPremium) || Number(p.gross_premium_original) || 0), 0);
+    const gwpUSD = toUSD(totalGWP);
+    const nwpUSD = gwpUSD * (1 - commissionPct / 100);
+
+    // Take ONCE: sum insured, ourShare (from first row)
+    const limitOriginal = Number(first.limitForeignCurrency) || Number(first.limit_foreign_currency) || Number(first.sumInsured) || 0;
+    const limitUSD = toUSD(limitOriginal);
 
     // Normalize ourShare (some records store as decimal, e.g., 0.05 = 5%)
-    const ourShareRaw = Number(p.ourShare) || Number(p.our_share) || 100;
-    const ourShare = normalizeOurShare(ourShareRaw);
-    const classOfIns = p.classOfInsurance || p.class_of_insurance || 'Other';
-    const insuredName = p.insuredName || p.insured_name || 'Unknown';
-    const inceptionDate = p.inceptionDate || p.inception_date;
+    let ourShare = Number(first.ourShare) || Number(first.our_share) || 100;
+    ourShare = normalizeOurShare(ourShare);
+
+    const classOfIns = first.classOfInsurance || first.class_of_insurance || 'Other';
+    const insuredName = first.insuredName || first.insured_name || 'Unknown';
+    const inceptionDate = first.inceptionDate || first.inception_date;
 
     // Use USD-converted amounts for aggregate totals
     metrics.grossWrittenPremium += gwpUSD;
@@ -279,12 +303,12 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     metrics.totalLimit += limitUSD;
     metrics.avgOurShare += ourShare;
 
-    // Currency breakdown - keep original currency amounts for display
+    // Currency breakdown - store USD amounts for consistency
     if (!metrics.currencyBreakdown[currency]) {
       metrics.currencyBreakdown[currency] = { count: 0, premium: 0 };
     }
     metrics.currencyBreakdown[currency].count++;
-    metrics.currencyBreakdown[currency].premium += gwpOriginal;
+    metrics.currencyBreakdown[currency].premium += gwpUSD;
 
     // Class breakdown - use USD for consistency
     if (!metrics.classBreakdown[classOfIns]) {
@@ -333,56 +357,81 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
   return metrics;
 }
 
+/**
+ * Process Inward Reinsurance contracts.
+ * Multiple rows per contract_number = premium INSTALLMENTS → SUM premiums.
+ * limit_of_liability, our_share = same value repeated → take ONCE per contract.
+ * our_share is DECIMAL (0.005 = 0.5%).
+ */
 function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 'inward-domestic'): ChannelMetrics {
   const metrics = createEmptyChannelMetrics(channel);
   const monthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
   const cedantData: Record<string, { premium: number; count: number }> = {};
 
+  // Group by contract_number first (multiple rows = installments)
+  const contractGroups = new Map<string, any[]>();
   contracts.forEach(c => {
-    metrics.recordCount++;
-    const status = normalizeStatus(c.status);
+    const key = c.contract_number || c.id;
+    if (!contractGroups.has(key)) contractGroups.set(key, []);
+    contractGroups.get(key)!.push(c);
+  });
+
+  metrics.recordCount = contractGroups.size; // Count UNIQUE contracts, not rows
+
+  contractGroups.forEach((installments, _contractNumber) => {
+    const first = installments[0]; // Use first row for non-additive fields
+
+    const status = normalizeStatus(first.status);
     if (status === 'active') metrics.activeCount++;
     else if (status === 'pending') metrics.pendingCount++;
     else metrics.cancelledCount++;
 
-    // Get raw amounts in original currency
-    const gwpOriginal = Number(c.gross_premium) || 0;
-    const currency = c.currency || 'USD';
-    const exchangeRate = Number(c.exchange_rate) || 1;
-    const commissionPct = Number(c.commission_percent) || 0;
+    const currency = first.currency || 'USD';
+    const exchangeRate = Number(first.exchange_rate) || 1;
+    const commissionPct = Number(first.commission_percent) || 0;
 
-    // Convert to USD for aggregate totals
-    const gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
+    // Currency conversion helper
+    const toUSD = (amount: number): number => {
+      if (!amount || amount === 0) return 0;
+      if (currency === 'UZS' || exchangeRate > 100) {
+        return exchangeRate > 0 ? amount / exchangeRate : 0;
+      } else if (currency === 'EUR') {
+        return amount * 1.08;
+      }
+      return amount;
+    };
 
-    // Calculate NWP: use provided net_premium or derive from commission
-    const nwpOriginal = Number(c.net_premium);
-    const nwpUSD = nwpOriginal
-      ? convertToUSD(nwpOriginal, currency, exchangeRate)
-      : gwpUSD * (1 - commissionPct / 100);
+    // SUM premiums across installments
+    const totalGWP = installments.reduce((sum, c) =>
+      sum + (Number(c.gross_premium) || 0), 0);
+    const gwpUSD = toUSD(totalGWP);
+    const nwpUSD = gwpUSD * (1 - commissionPct / 100);
 
-    // Normalize ourShare (some records store as decimal, e.g., 0.05 = 5%)
-    const ourShareRaw = Number(c.our_share) || 100;
-    const ourShare = normalizeOurShare(ourShareRaw);
+    // our_share: DECIMAL (0.005 = 0.5%). Take from first row.
+    let ourShare = Number(first.our_share) || 0;
+    // Convert to percentage for display
+    let ourSharePct = ourShare <= 1 ? ourShare * 100 : ourShare;
 
-    const limit = Number(c.limit_of_liability) || 0;
-    const limitUSD = convertToUSD(limit, currency, exchangeRate);
-    const classOfCover = c.class_of_cover || 'Other';
-    const cedantName = c.cedant_name || 'Unknown';
-    const inceptionDate = c.inception_date;
+    // Take ONCE: limit of liability
+    const limit = Number(first.limit_of_liability) || 0;
+    const limitUSD = toUSD(limit);
+    const classOfCover = first.class_of_cover || 'Other';
+    const cedantName = first.cedant_name || 'Unknown';
+    const inceptionDate = first.inception_date;
 
     // Use USD-converted amounts for aggregate totals
     metrics.grossWrittenPremium += gwpUSD;
     metrics.netWrittenPremium += nwpUSD;
     metrics.commission += (gwpUSD * commissionPct / 100);
     metrics.totalLimit += limitUSD;
-    metrics.avgOurShare += ourShare;
+    metrics.avgOurShare += ourSharePct;
 
-    // Currency breakdown - keep original currency amounts for display
+    // Currency breakdown - store USD amounts for consistency
     if (!metrics.currencyBreakdown[currency]) {
       metrics.currencyBreakdown[currency] = { count: 0, premium: 0 };
     }
     metrics.currencyBreakdown[currency].count++;
-    metrics.currencyBreakdown[currency].premium += gwpOriginal;
+    metrics.currencyBreakdown[currency].premium += gwpUSD;
 
     // Class breakdown - use USD for consistency
     if (!metrics.classBreakdown[classOfCover]) {
@@ -431,35 +480,166 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
   return metrics;
 }
 
-function processSlips(slips: any[]): ChannelMetrics {
-  const metrics = createEmptyChannelMetrics('slip');
+/**
+ * Process Outward Reinsurance policies (Mosaic cedes risks to reinsurers).
+ * Multiple rows per policyNumber = DIFFERENT REINSURERS (not installments).
+ * Each row has a different reinsurerName and slipNumber.
+ * grossPremium = SAME original premium repeated → take ONCE per policyNumber.
+ * cededPremiumForeign = what EACH reinsurer receives → SUM these (total ceded).
+ * cededShare = each reinsurer's share → SUM per policyNumber = total % ceded.
+ */
+function processOutwardPolicies(policies: any[]): ChannelMetrics {
+  const metrics = createEmptyChannelMetrics('outward');
+  const monthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
+  const reinsurerData: Record<string, { premium: number; count: number }> = {};
 
-  slips.forEach(s => {
-    metrics.recordCount++;
-    const status = normalizeStatus(s.status || 'Draft');
+  // Group by policyNumber (each row is a different reinsurer, not installment)
+  const policyGroups = new Map<string, any[]>();
+  policies.forEach(p => {
+    const key = p.policyNumber || p.id;
+    if (!policyGroups.has(key)) policyGroups.set(key, []);
+    policyGroups.get(key)!.push(p);
+  });
+
+  metrics.recordCount = policyGroups.size; // Unique policies, not rows
+
+  policyGroups.forEach((reinsurers, _policyNumber) => {
+    const first = reinsurers[0];
+
+    const status = normalizeStatus(first.status);
     if (status === 'active') metrics.activeCount++;
     else if (status === 'pending') metrics.pendingCount++;
     else metrics.cancelledCount++;
 
-    const limit = Number(s.limit_of_liability) || Number(s.limitOfLiability) || 0;
-    metrics.totalLimit += limit;
+    const currency = first.currency || 'USD';
+    const exchangeRate = Number(first.exchangeRate) || Number(first.exchange_rate) || 0;
+
+    // Currency conversion helper
+    const toUSD = (amount: number): number => {
+      if (!amount || amount === 0) return 0;
+      if (currency === 'UZS' || exchangeRate > 100) {
+        return exchangeRate > 0 ? amount / exchangeRate : 0;
+      } else if (currency === 'EUR') {
+        return amount * 1.08;
+      }
+      return amount;
+    };
+
+    // SUM cededPremiumForeign across all reinsurers (each gets their share)
+    const totalCeded = reinsurers.reduce((sum, p) =>
+      sum + (Number(p.cededPremiumForeign) || Number(p.ceded_premium_foreign) || 0), 0);
+    const cededUSD = toUSD(totalCeded);
+
+    // grossPremium = original premium, take ONCE (for reference, not for GWP calculation)
+    // For outward, GWP represents ceded premium
+    const _originalGWP = toUSD(Number(first.grossPremium) || 0);
+
+    // Sum insured take ONCE
+    const sumInsured = toUSD(Number(first.sumInsured) || Number(first.limitForeignCurrency) || 0);
+
+    // Total ceded share = sum of individual reinsurer shares
+    const totalCededShare = reinsurers.reduce((sum, p) =>
+      sum + (Number(p.cededShare) || Number(p.ceded_share) || 0), 0);
+    const mosaicRetention = Math.max(0, 1 - totalCededShare) * 100; // as percentage
+
+    const classOfIns = first.classOfInsurance || first.class_of_insurance || 'Other';
+    const insuredName = first.insuredName || first.insured_name || 'Unknown';
+    const inceptionDate = first.inceptionDate || first.inception_date;
+
+    // For outward, GWP = what's ceded (this is the cost)
+    metrics.grossWrittenPremium += cededUSD;
+    metrics.netWrittenPremium += cededUSD; // Same for outward since it's all ceded
+    metrics.totalLimit += sumInsured;
+    metrics.avgOurShare += mosaicRetention;
+
+    // Currency breakdown - store USD amounts
+    if (!metrics.currencyBreakdown[currency]) {
+      metrics.currencyBreakdown[currency] = { count: 0, premium: 0 };
+    }
+    metrics.currencyBreakdown[currency].count++;
+    metrics.currencyBreakdown[currency].premium += cededUSD;
+
+    // Class breakdown - use USD for consistency
+    if (!metrics.classBreakdown[classOfIns]) {
+      metrics.classBreakdown[classOfIns] = { count: 0, premium: 0 };
+    }
+    metrics.classBreakdown[classOfIns].count++;
+    metrics.classBreakdown[classOfIns].premium += cededUSD;
+
+    // Monthly trend - use USD
+    const monthKey = getMonthKey(inceptionDate);
+    if (monthKey) {
+      if (!monthlyData[monthKey]) {
+        monthlyData[monthKey] = { gwp: 0, nwp: 0, count: 0 };
+      }
+      monthlyData[monthKey].gwp += cededUSD;
+      monthlyData[monthKey].nwp += cededUSD;
+      monthlyData[monthKey].count++;
+    }
+
+    // Track by reinsurer (top cedants = top reinsurers for outward)
+    reinsurers.forEach(r => {
+      const name = r.reinsurerName || r.reinsurer_name || 'Unknown';
+      if (name && name !== 'Unknown') {
+        if (!reinsurerData[name]) {
+          reinsurerData[name] = { premium: 0, count: 0 };
+        }
+        const reinsuredAmount = toUSD(Number(r.cededPremiumForeign) || Number(r.ceded_premium_foreign) || 0);
+        reinsurerData[name].premium += reinsuredAmount;
+        reinsurerData[name].count++;
+      }
+    });
+
+    // Also track the insured name at policy level
+    if (insuredName && insuredName !== 'Unknown') {
+      if (!reinsurerData[insuredName]) {
+        reinsurerData[insuredName] = { premium: 0, count: 0 };
+      }
+    }
   });
+
+  // Finalize metrics
+  if (metrics.recordCount > 0) {
+    metrics.avgPremium = metrics.grossWrittenPremium / metrics.recordCount;
+    metrics.avgOurShare = metrics.avgOurShare / metrics.recordCount;
+  }
+
+  // Convert monthly data to array
+  metrics.monthlyTrend = Object.entries(monthlyData)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .slice(-12)
+    .map(([key, val]) => ({ month: getMonthLabel(key), ...val }));
+
+  // Top reinsurers (displayed as "top cedants" but these are actually reinsurers)
+  metrics.topCedants = Object.entries(reinsurerData)
+    .map(([name, val]) => ({ name, ...val }))
+    .sort((a, b) => b.premium - a.premium)
+    .slice(0, 10);
 
   return metrics;
 }
 
-function calculateTotalMetrics(channels: ChannelMetrics[]): ChannelMetrics {
+/**
+ * Calculate total metrics across all channels.
+ * NWP = Revenue (Direct + Inward) - Cost (Outward cessions)
+ * GWP = Sum of all revenue channels (Direct + Inward), Outward shown separately
+ */
+function calculateTotalMetrics(channels: ChannelMetrics[], outwardMetrics?: ChannelMetrics): ChannelMetrics {
   const total = createEmptyChannelMetrics('total');
   const allMonthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
   const allCedantData: Record<string, { premium: number; count: number }> = {};
 
-  channels.forEach(ch => {
+  // Separate revenue channels from cost channel
+  const revenueChannels = channels.filter(ch => ch.channel !== 'outward');
+  const cededAmount = outwardMetrics?.grossWrittenPremium || 0;
+
+  // Aggregate revenue channels (Direct + Inward)
+  revenueChannels.forEach(ch => {
     total.recordCount += ch.recordCount;
     total.activeCount += ch.activeCount;
     total.pendingCount += ch.pendingCount;
     total.cancelledCount += ch.cancelledCount;
     total.grossWrittenPremium += ch.grossWrittenPremium;
-    total.netWrittenPremium += ch.netWrittenPremium;
     total.commission += ch.commission;
     total.totalLimit += ch.totalLimit;
 
@@ -501,10 +681,13 @@ function calculateTotalMetrics(channels: ChannelMetrics[]): ChannelMetrics {
     });
   });
 
+  // NWP = Revenue (GWP from Direct + Inward) - Cost (Ceded to reinsurers)
+  total.netWrittenPremium = total.grossWrittenPremium - cededAmount;
+
   // Calculate averages
   if (total.recordCount > 0) {
     total.avgPremium = total.grossWrittenPremium / total.recordCount;
-    const totalOurShare = channels.reduce((sum, ch) => sum + (ch.avgOurShare * ch.recordCount), 0);
+    const totalOurShare = revenueChannels.reduce((sum, ch) => sum + (ch.avgOurShare * ch.recordCount), 0);
     total.avgOurShare = totalOurShare / total.recordCount;
   }
 
@@ -522,6 +705,11 @@ function calculateTotalMetrics(channels: ChannelMetrics[]): ChannelMetrics {
   return total;
 }
 
+/**
+ * Process claims metrics using RPC data.
+ * RPC returns total_incurred_our_share and total_paid_our_share which are
+ * already calculated as Mosaic's share. Still need currency conversion.
+ */
 function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
   const metrics: ClaimsMetrics = {
     totalClaims: claims.length,
@@ -542,9 +730,10 @@ function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
       metrics.closedClaims++;
     }
 
-    // imported_total_incurred/imported_total_paid are the actual columns in claims table
-    const incurred = Number(c.imported_total_incurred) || 0;
-    const paid = Number(c.imported_total_paid) || 0;
+    // RPC returns total_incurred_our_share and total_paid_our_share
+    // These are already Mosaic's share, but may need currency conversion
+    const incurred = Number(c.total_incurred_our_share) || Number(c.imported_total_incurred) || 0;
+    const paid = Number(c.total_paid_our_share) || Number(c.imported_total_paid) || 0;
     const currency = c.currency || 'USD';
 
     // Convert to USD
@@ -600,8 +789,8 @@ function calculateLossRatioByClass(policies: any[], claims: any[]): LossRatioDat
     if (policy) {
       const cls = policy.classOfInsurance || policy.class_of_insurance || 'Other';
       if (classData[cls]) {
-        // imported_total_incurred is the actual column in claims table
-        const incurred = Number(c.imported_total_incurred) || 0;
+        // Use RPC fields (total_incurred_our_share) or fallback to imported_total_incurred
+        const incurred = Number(c.total_incurred_our_share) || Number(c.imported_total_incurred) || 0;
         const currency = c.currency || 'USD';
 
         // Convert to USD

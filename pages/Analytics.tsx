@@ -45,7 +45,7 @@ const CHANNEL_ICONS: Record<ChannelType, React.ReactNode> = {
   'direct': <Building2 size={20} />,
   'inward-foreign': <Globe size={20} />,
   'inward-domestic': <Home size={20} />,
-  'slip': <FileCheck size={20} />,
+  'outward': <FileCheck size={20} />,
   'total': <BarChart3 size={20} />,
 };
 
@@ -191,7 +191,7 @@ const Analytics: React.FC = () => {
       case 'direct': return 'Direct';
       case 'inward-foreign': return 'Inward Foreign';
       case 'inward-domestic': return 'Inward Domestic';
-      case 'slip': return 'Slips';
+      case 'outward': return 'Outward Ceded';
       default: return 'Total';
     }
   };
