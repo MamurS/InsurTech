@@ -319,7 +319,11 @@ def parse_number(value: Any) -> Optional[float]:
             return None
 
         try:
-            return float(cleaned)
+            result = float(cleaned)
+            # Check if the converted value is infinity or NaN
+            if math.isinf(result) or math.isnan(result):
+                return None
+            return result
         except ValueError:
             return None
 
