@@ -95,6 +95,36 @@ const normalizeStatus = (status: string): 'active' | 'pending' | 'cancelled' => 
   return 'cancelled';
 };
 
+/**
+ * Convert an amount to USD based on currency and exchange rate.
+ * Exchange rate is assumed to be local-currency-per-1-USD.
+ */
+const convertToUSD = (amount: number, currency: string, exchangeRate: number): number => {
+  if (!amount || amount === 0) return 0;
+
+  if (currency === 'USD') {
+    return amount;
+  } else if (currency === 'UZS') {
+    // UZS amounts need to be divided by exchange rate
+    return exchangeRate > 1 ? amount / exchangeRate : 0;
+  } else {
+    // EUR, GBP, etc. - use the amount as-is (close enough for reporting)
+    return amount;
+  }
+};
+
+/**
+ * Normalize ourShare to percentage format.
+ * Some records store as decimal (0.05 = 5%), others as percentage (5 = 5%).
+ */
+const normalizeOurShare = (ourShare: number): number => {
+  if (ourShare > 0 && ourShare < 1) {
+    // Looks like a decimal fraction, convert to percentage
+    return ourShare * 100;
+  }
+  return ourShare;
+};
+
 const createEmptyChannelMetrics = (channel: ChannelType): ChannelMetrics => ({
   channel,
   label: CHANNEL_CONFIG[channel].label,
@@ -207,52 +237,68 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     else if (status === 'pending') metrics.pendingCount++;
     else metrics.cancelledCount++;
 
-    const gwp = Number(p.grossPremium) || Number(p.gross_premium_original) || 0;
-    const nwp = Number(p.netPremium) || Number(p.net_premium_original) || gwp * 0.8;
-    const ourShare = Number(p.ourShare) || Number(p.our_share) || 100;
-    const limit = Number(p.limitForeignCurrency) || Number(p.limit_foreign_currency) || Number(p.sumInsured) || 0;
-    const commission = Number(p.commissionPercent) || 0;
+    // Get raw amounts in original currency
+    const gwpOriginal = Number(p.grossPremium) || Number(p.gross_premium_original) || 0;
     const currency = p.currency || 'USD';
+    const exchangeRate = Number(p.exchangeRate) || Number(p.exchange_rate) || 1;
+    const commissionPct = Number(p.commissionPercent) || Number(p.commission_percent) || 0;
+
+    // Convert to USD for aggregate totals
+    const gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
+
+    // Calculate NWP: use provided netPremium or derive from commission
+    const nwpOriginal = Number(p.netPremium) || Number(p.net_premium_original);
+    const nwpUSD = nwpOriginal
+      ? convertToUSD(nwpOriginal, currency, exchangeRate)
+      : gwpUSD * (1 - commissionPct / 100);
+
+    // Normalize ourShare (some records store as decimal, e.g., 0.05 = 5%)
+    const ourShareRaw = Number(p.ourShare) || Number(p.our_share) || 100;
+    const ourShare = normalizeOurShare(ourShareRaw);
+
+    const limit = Number(p.limitForeignCurrency) || Number(p.limit_foreign_currency) || Number(p.sumInsured) || 0;
+    const limitUSD = convertToUSD(limit, currency, exchangeRate);
     const classOfIns = p.classOfInsurance || p.class_of_insurance || 'Other';
     const insuredName = p.insuredName || p.insured_name || 'Unknown';
     const inceptionDate = p.inceptionDate || p.inception_date;
 
-    metrics.grossWrittenPremium += gwp;
-    metrics.netWrittenPremium += nwp;
-    metrics.commission += (gwp * commission / 100);
-    metrics.totalLimit += limit;
+    // Use USD-converted amounts for aggregate totals
+    metrics.grossWrittenPremium += gwpUSD;
+    metrics.netWrittenPremium += nwpUSD;
+    metrics.commission += (gwpUSD * commissionPct / 100);
+    metrics.totalLimit += limitUSD;
     metrics.avgOurShare += ourShare;
 
-    // Currency breakdown
+    // Currency breakdown - keep original currency amounts for display
     if (!metrics.currencyBreakdown[currency]) {
       metrics.currencyBreakdown[currency] = { count: 0, premium: 0 };
     }
     metrics.currencyBreakdown[currency].count++;
-    metrics.currencyBreakdown[currency].premium += gwp;
+    metrics.currencyBreakdown[currency].premium += gwpOriginal;
 
-    // Class breakdown
+    // Class breakdown - use USD for consistency
     if (!metrics.classBreakdown[classOfIns]) {
       metrics.classBreakdown[classOfIns] = { count: 0, premium: 0 };
     }
     metrics.classBreakdown[classOfIns].count++;
-    metrics.classBreakdown[classOfIns].premium += gwp;
+    metrics.classBreakdown[classOfIns].premium += gwpUSD;
 
-    // Monthly trend
+    // Monthly trend - use USD
     const monthKey = getMonthKey(inceptionDate);
     if (monthKey) {
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { gwp: 0, nwp: 0, count: 0 };
       }
-      monthlyData[monthKey].gwp += gwp;
-      monthlyData[monthKey].nwp += nwp;
+      monthlyData[monthKey].gwp += gwpUSD;
+      monthlyData[monthKey].nwp += nwpUSD;
       monthlyData[monthKey].count++;
     }
 
-    // Top cedants/insureds
+    // Top cedants/insureds - use USD
     if (!cedantData[insuredName]) {
       cedantData[insuredName] = { premium: 0, count: 0 };
     }
-    cedantData[insuredName].premium += gwp;
+    cedantData[insuredName].premium += gwpUSD;
     cedantData[insuredName].count++;
   });
 
@@ -289,52 +335,68 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
     else if (status === 'pending') metrics.pendingCount++;
     else metrics.cancelledCount++;
 
-    const gwp = Number(c.gross_premium) || 0;
-    const nwp = Number(c.net_premium) || gwp * 0.85;
-    const ourShare = Number(c.our_share) || 100;
-    const limit = Number(c.limit_of_liability) || 0;
-    const commission = Number(c.commission_percent) || 0;
+    // Get raw amounts in original currency
+    const gwpOriginal = Number(c.gross_premium) || 0;
     const currency = c.currency || 'USD';
+    const exchangeRate = Number(c.exchange_rate) || 1;
+    const commissionPct = Number(c.commission_percent) || 0;
+
+    // Convert to USD for aggregate totals
+    const gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
+
+    // Calculate NWP: use provided net_premium or derive from commission
+    const nwpOriginal = Number(c.net_premium);
+    const nwpUSD = nwpOriginal
+      ? convertToUSD(nwpOriginal, currency, exchangeRate)
+      : gwpUSD * (1 - commissionPct / 100);
+
+    // Normalize ourShare (some records store as decimal, e.g., 0.05 = 5%)
+    const ourShareRaw = Number(c.our_share) || 100;
+    const ourShare = normalizeOurShare(ourShareRaw);
+
+    const limit = Number(c.limit_of_liability) || 0;
+    const limitUSD = convertToUSD(limit, currency, exchangeRate);
     const classOfCover = c.class_of_cover || 'Other';
     const cedantName = c.cedant_name || 'Unknown';
     const inceptionDate = c.inception_date;
 
-    metrics.grossWrittenPremium += gwp;
-    metrics.netWrittenPremium += nwp;
-    metrics.commission += (gwp * commission / 100);
-    metrics.totalLimit += limit;
+    // Use USD-converted amounts for aggregate totals
+    metrics.grossWrittenPremium += gwpUSD;
+    metrics.netWrittenPremium += nwpUSD;
+    metrics.commission += (gwpUSD * commissionPct / 100);
+    metrics.totalLimit += limitUSD;
     metrics.avgOurShare += ourShare;
 
-    // Currency breakdown
+    // Currency breakdown - keep original currency amounts for display
     if (!metrics.currencyBreakdown[currency]) {
       metrics.currencyBreakdown[currency] = { count: 0, premium: 0 };
     }
     metrics.currencyBreakdown[currency].count++;
-    metrics.currencyBreakdown[currency].premium += gwp;
+    metrics.currencyBreakdown[currency].premium += gwpOriginal;
 
-    // Class breakdown
+    // Class breakdown - use USD for consistency
     if (!metrics.classBreakdown[classOfCover]) {
       metrics.classBreakdown[classOfCover] = { count: 0, premium: 0 };
     }
     metrics.classBreakdown[classOfCover].count++;
-    metrics.classBreakdown[classOfCover].premium += gwp;
+    metrics.classBreakdown[classOfCover].premium += gwpUSD;
 
-    // Monthly trend
+    // Monthly trend - use USD
     const monthKey = getMonthKey(inceptionDate);
     if (monthKey) {
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = { gwp: 0, nwp: 0, count: 0 };
       }
-      monthlyData[monthKey].gwp += gwp;
-      monthlyData[monthKey].nwp += nwp;
+      monthlyData[monthKey].gwp += gwpUSD;
+      monthlyData[monthKey].nwp += nwpUSD;
       monthlyData[monthKey].count++;
     }
 
-    // Top cedants
+    // Top cedants - use USD
     if (!cedantData[cedantName]) {
       cedantData[cedantName] = { premium: 0, count: 0 };
     }
-    cedantData[cedantName].premium += gwp;
+    cedantData[cedantName].premium += gwpUSD;
     cedantData[cedantName].count++;
   });
 
@@ -470,8 +532,9 @@ function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
       metrics.closedClaims++;
     }
 
-    const incurred = Number(c.total_incurred_our_share) || Number(c.totalIncurredOurShare) || 0;
-    const paid = Number(c.total_paid_our_share) || Number(c.totalPaidOurShare) || 0;
+    // imported_total_incurred/imported_total_paid are the actual columns in claims table
+    const incurred = Number(c.imported_total_incurred) || Number(c.total_incurred_our_share) || Number(c.totalIncurredOurShare) || 0;
+    const paid = Number(c.imported_total_paid) || Number(c.total_paid_our_share) || Number(c.totalPaidOurShare) || 0;
 
     metrics.totalIncurred += incurred;
     metrics.totalPaid += paid;
@@ -487,15 +550,25 @@ function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
 function calculateLossRatioByClass(policies: any[], claims: any[]): LossRatioData[] {
   const classData: Record<string, { premium: number; losses: number; claimCount: number }> = {};
 
-  // Aggregate premium by class
+  // Aggregate premium by class (converting to USD for consistency)
   policies.forEach(p => {
     const cls = p.classOfInsurance || p.class_of_insurance || 'Other';
-    const nwp = Number(p.netPremium) || Number(p.net_premium_original) || 0;
+    const currency = p.currency || 'USD';
+    const exchangeRate = Number(p.exchangeRate) || Number(p.exchange_rate) || 1;
+    const commissionPct = Number(p.commissionPercent) || Number(p.commission_percent) || 0;
+
+    // Get NWP or derive from GWP and commission
+    const gwpOriginal = Number(p.grossPremium) || Number(p.gross_premium_original) || 0;
+    const nwpOriginal = Number(p.netPremium) || Number(p.net_premium_original);
+    const gwpUSD = convertToUSD(gwpOriginal, currency, exchangeRate);
+    const nwpUSD = nwpOriginal
+      ? convertToUSD(nwpOriginal, currency, exchangeRate)
+      : gwpUSD * (1 - commissionPct / 100);
 
     if (!classData[cls]) {
       classData[cls] = { premium: 0, losses: 0, claimCount: 0 };
     }
-    classData[cls].premium += nwp;
+    classData[cls].premium += nwpUSD;
   });
 
   // Aggregate claims by class (via policy_id lookup)
@@ -505,7 +578,8 @@ function calculateLossRatioByClass(policies: any[], claims: any[]): LossRatioDat
     if (policy) {
       const cls = policy.classOfInsurance || policy.class_of_insurance || 'Other';
       if (classData[cls]) {
-        classData[cls].losses += Number(c.total_incurred_our_share) || 0;
+        // imported_total_incurred is the actual column in claims table
+        classData[cls].losses += Number(c.imported_total_incurred) || Number(c.total_incurred_our_share) || 0;
         classData[cls].claimCount++;
       }
     }
