@@ -56,41 +56,46 @@ PREVIEW_ROWS = 10
 # ==============================================================================
 CONTRACTS_SHEET_PATTERNS = ["insurance contracts", "insurance", "contracts", "договор"]
 
-# Column mappings (0-indexed Excel columns → policies camelCase columns)
+# CORRECT Column mappings (0-indexed Excel columns → policies camelCase columns)
+# Col 0 = Row number (SKIP)
+# Data starts at Row 2 (Row 0 = headers, Row 1 = sub-headers/totals)
+CONTRACTS_HEADER_ROWS = 2  # Skip first 2 rows
+
 CONTRACTS_TEXT_COLUMNS: Dict[int, str] = {
-    0: 'accountingCode',           # A: Accounting code
-    1: 'policyNumber',             # B: Policy number
-    2: 'insuredName',              # C: Insured name
-    3: 'brokerName',               # D: Broker
-    4: 'classOfInsurance',         # E: Class of insurance
-    5: 'typeOfInsurance',          # F: Type of insurance
-    6: 'insuredRisk',              # G: Insured risk / object
-    7: 'territory',                # H: Territory
-    8: 'city',                     # I: City
-    9: 'currency',                 # J: Currency
-    28: 'referenceLink',           # AC: Reference/link
-    29: 'conditions',              # AD: Special conditions
+    1: 'insuredName',              # B: Insured name (e.g. "RES DANISMANLIK")
+    2: 'industry',                 # C: Industry
+    3: 'brokerName',               # D: Broker (also used to derive intermediaryType)
+    4: 'policyNumber',             # E: Policy number (e.g. "AIC/D/TPRP/0000000016/0621/001")
+    6: 'classOfInsurance',         # G: Class of insurance (numeric code as text)
+    7: 'typeOfInsurance',          # H: Type (e.g. "Property Damage")
+    8: 'secondaryPolicyNumber',    # I: Secondary policy number
+    9: 'riskCode',                 # J: Risk code
+    10: 'territory',               # K: Territory (e.g. "Uzbekistan")
+    11: 'city',                    # L: City (e.g. "Tashkent")
+    12: 'currency',                # M: Currency (e.g. "USD")
+    33: 'receivedPremiumCurrency', # AH: Currency of payment received
 }
 
 CONTRACTS_DATE_COLUMNS: Dict[int, str] = {
-    14: 'inceptionDate',           # O: Inception date
-    15: 'expiryDate',              # P: Expiry date
-    22: 'paymentDate',             # W: Payment date
+    5: 'accountingDate',           # F: Accounting date
+    20: 'inceptionDate',           # U: Inception date
+    21: 'expiryDate',              # V: Expiry date
+    29: 'premiumPaymentDate',      # AD: First installment/payment date
+    36: 'actualPaymentDate',       # AK: Actual payment date
 }
 
 CONTRACTS_NUMERIC_COLUMNS: Dict[int, str] = {
-    10: 'sumInsured',              # K: Sum insured
-    11: 'sumInsuredNational',      # L: Sum insured (national)
-    12: 'premiumRate',             # M: Premium rate
-    13: 'insuranceDays',           # N: Insurance days
-    16: 'grossPremium',            # Q: Gross premium
-    17: 'grossPremiumNational',    # R: Gross premium (national)
-    18: 'commissionPercent',       # S: Commission %
-    19: 'commissionNational',      # T: Commission amount
-    20: 'netPremium',              # U: Net premium
-    21: 'netPremiumNational',      # V: Net premium (national)
-    23: 'exchangeRateUSD',         # X: Exchange rate to USD
-    24: 'equivalentUSD',           # Y: Equivalent in USD
+    13: 'exchangeRate',            # N: Exchange rate
+    15: 'sumInsured',              # P: Sum insured (foreign currency)
+    16: 'sumInsuredNational',      # Q: Sum insured (UZS)
+    17: 'premiumRate',             # R: Premium rate (decimal)
+    18: 'grossPremium',            # S: Gross premium (foreign currency)
+    19: 'premiumNationalCurrency', # T: Premium (UZS)
+    22: 'insuranceDays',           # W: Insurance days
+    26: 'ourShare',                # AA: AIC share (percentage, default 100)
+    32: 'receivedPremiumForeign',  # AG: Paid amount (foreign currency)
+    34: 'receivedPremiumExchangeRate',  # AI: Exchange rate at payment
+    35: 'receivedPremiumNational', # AJ: Paid amount (UZS)
 }
 
 # ==============================================================================
@@ -391,15 +396,29 @@ def parse_contracts_row(row: List, row_number: int) -> Optional[Dict[str, Any]]:
             parsed = int(parsed)
         record[field_name] = parsed
 
-    # Skip empty rows
-    if not record.get('policyNumber') and not record.get('insuredName'):
+    # Skip rows where insuredName (Col 1) is empty
+    if not record.get('insuredName'):
         return None
+
+    # Derive intermediaryType from brokerName
+    broker_name = record.get('brokerName', '')
+    if broker_name and broker_name.lower() == 'direct':
+        record['intermediaryType'] = 'Direct'
+        record['intermediaryName'] = None
+    else:
+        record['intermediaryType'] = 'Broker'
+        record['intermediaryName'] = broker_name if broker_name else None
 
     # Set defaults (use Title Case to match frontend expectations)
     record['channel'] = 'Direct'
-    record['recordType'] = 'INSURANCE'
+    record['recordType'] = 'Direct'  # Changed from 'INSURANCE'
     record['status'] = 'Active'
+    record['isDeleted'] = False
     record['hasOutwardReinsurance'] = False
+
+    # Default ourShare to 100 if not set
+    if record.get('ourShare') is None:
+        record['ourShare'] = 100
 
     if not record.get('currency'):
         record['currency'] = 'USD'
@@ -640,7 +659,8 @@ def process_sheet(
     parse_func,
     table_name: str,
     supabase: Optional[Client],
-    dry_run: bool
+    dry_run: bool,
+    header_rows: Optional[int] = None  # If specified, skip this many rows instead of auto-detecting
 ) -> Tuple[int, int, int]:
     """Process a single sheet and import to database."""
     sheet, sheet_name, found = find_sheet_by_pattern(wb, sheet_patterns)
@@ -652,7 +672,13 @@ def process_sheet(
     print(f"\nProcessing sheet: {sheet_name}")
 
     rows = list(sheet.rows())
-    header_row_idx = find_header_row(rows)
+
+    # Use specified header rows or auto-detect
+    if header_rows is not None:
+        header_row_idx = header_rows - 1  # Convert to 0-indexed
+        print(f"  Using specified header rows: {header_rows} (data starts at row {header_rows + 1})")
+    else:
+        header_row_idx = find_header_row(rows)
 
     parsed_records: List[Dict[str, Any]] = []
     skipped_count = 0
@@ -674,6 +700,21 @@ def process_sheet(
 
     if not parsed_records:
         return 0, 0, skipped_count
+
+    # Preview first 3 records before import
+    print(f"\n  Preview of first 3 records:")
+    for i, rec in enumerate(parsed_records[:3]):
+        print(f"    Record {i+1}:")
+        print(f"      policyNumber: {rec.get('policyNumber')}")
+        print(f"      insuredName: {rec.get('insuredName')}")
+        print(f"      brokerName: {rec.get('brokerName')}")
+        print(f"      territory: {rec.get('territory')}")
+        print(f"      currency: {rec.get('currency')}")
+        print(f"      sumInsured: {rec.get('sumInsured')}")
+        print(f"      grossPremium: {rec.get('grossPremium')}")
+        print(f"      inceptionDate: {rec.get('inceptionDate')}")
+        print(f"      expiryDate: {rec.get('expiryDate')}")
+    print()
 
     inserted, errors = import_sheet(
         supabase, table_name, parsed_records, dry_run, sheet_name
@@ -768,8 +809,10 @@ def main():
 
     for sheet_type in sheets_to_process:
         if sheet_type == "contracts":
+            # Insurance Contracts: skip 2 header rows (Row 0 = headers, Row 1 = sub-headers/totals)
             inserted, errors, skipped = process_sheet(
-                wb, CONTRACTS_SHEET_PATTERNS, parse_contracts_row, "policies", supabase, dry_run
+                wb, CONTRACTS_SHEET_PATTERNS, parse_contracts_row, "policies", supabase, dry_run,
+                header_rows=CONTRACTS_HEADER_ROWS
             )
         elif sheet_type == "outward":
             inserted, errors, skipped = process_sheet(
