@@ -7,12 +7,12 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     define: {
-      'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
-      'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || ''),
-      'process.env.SUPABASE_KEY': JSON.stringify(env.SUPABASE_KEY || ''),
+      'process.env.API_KEY': JSON.stringify(env.API_KEY || process.env.API_KEY || ''),
+      'process.env.SUPABASE_URL': JSON.stringify(env.SUPABASE_URL || process.env.SUPABASE_URL || ''),
+      'process.env.SUPABASE_KEY': JSON.stringify(env.SUPABASE_KEY || process.env.SUPABASE_KEY || ''),
       // Staging credentials (enables in-app environment switcher)
-      'process.env.SUPABASE_STAGING_URL': JSON.stringify(env.SUPABASE_STAGING_URL || ''),
-      'process.env.SUPABASE_STAGING_KEY': JSON.stringify(env.SUPABASE_STAGING_KEY || ''),
+      'process.env.SUPABASE_STAGING_URL': JSON.stringify(env.SUPABASE_STAGING_URL || process.env.SUPABASE_STAGING_URL || ''),
+      'process.env.SUPABASE_STAGING_KEY': JSON.stringify(env.SUPABASE_STAGING_KEY || process.env.SUPABASE_STAGING_KEY || ''),
       'process.env.NODE_ENV': JSON.stringify(mode)
     }
   };
