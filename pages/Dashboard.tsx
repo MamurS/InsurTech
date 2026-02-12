@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, LegalEntity, Installment, PortfolioRow, PortfolioSource, PortfolioStatus, InwardReinsurance, ReinsuranceSlip } from '../types';
@@ -266,7 +266,7 @@ const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): Portfolio
 
 const Dashboard: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioRow[]>([]);
-  const [outwardByPolicy, setOutwardByPolicy] = useState<Map<string, Policy[]>>(new Map());
+  const outwardByPolicyRef = useRef<Map<string, Policy[]>>(new Map());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Source Filter State
@@ -348,14 +348,14 @@ const Dashboard: React.FC = () => {
       const directPolicies = allPolicies.filter(p => p.channel === 'Direct' && !p.isDeleted);
       const outwardPolicies = allPolicies.filter(p => p.channel === 'Reinsurance' && !p.isDeleted);
 
-      // Build outward map: policyNumber → Policy[] (for detail modal reinsurance tab)
+      // Build outward map (ref — no re-render)
       const outwardMap = new Map<string, Policy[]>();
       outwardPolicies.forEach(p => {
         const key = p.policyNumber || p.id;
         if (!outwardMap.has(key)) outwardMap.set(key, []);
         outwardMap.get(key)!.push(p);
       });
-      setOutwardByPolicy(outwardMap);
+      outwardByPolicyRef.current = outwardMap;
 
       // Consolidate: group by policyNumber/contractNumber, sum premiums
       const directRows = consolidateDirectPolicies(directPolicies);
@@ -364,7 +364,7 @@ const Dashboard: React.FC = () => {
       );
       const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
 
-      // Merge and sort by inception date (newest first)
+      // Merge and sort by inception date (newest first) — single setState
       const allRows = [...directRows, ...inwardRows, ...slipRows].sort((a, b) =>
         new Date(b.inceptionDate).getTime() - new Date(a.inceptionDate).getTime()
       );
@@ -1254,7 +1254,7 @@ const Dashboard: React.FC = () => {
       {selectedRow && (selectedRow.source === 'direct' || selectedRow.source === 'inward-foreign' || selectedRow.source === 'inward-domestic') && (
           <MasterDetailModal
             row={selectedRow}
-            outwardPolicies={selectedRow.source === 'direct' ? (outwardByPolicy.get(selectedRow.referenceNumber) || []) : []}
+            outwardPolicies={selectedRow.source === 'direct' ? (outwardByPolicyRef.current.get(selectedRow.referenceNumber) || []) : []}
             onClose={() => setSelectedRow(null)}
             onRefresh={fetchData}
             onEdit={(r) => {
