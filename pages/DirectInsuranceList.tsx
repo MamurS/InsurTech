@@ -1,4 +1,3 @@
-// Build: 2026-02-12 - force redeploy with .limit(10000) fix
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -10,7 +9,7 @@ import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormCon
 import { formatDate } from '../utils/dateUtils';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
-  Building2, RefreshCw, Globe, MapPin, Briefcase
+  Building2, RefreshCw, Globe, MapPin
 } from 'lucide-react';
 
 const DirectInsuranceList: React.FC = () => {
@@ -188,13 +187,6 @@ const DirectInsuranceList: React.FC = () => {
       {/* Filters - Combined with Title */}
       <div className="bg-white rounded-xl border border-slate-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
-          {/* Page title as compact label */}
-          <span className="text-base font-semibold text-slate-800 flex items-center gap-2">
-            <Briefcase className="text-blue-600" size={16} />
-            Direct Insurance
-          </span>
-          <div className="w-px h-5 bg-slate-300" />
-
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />

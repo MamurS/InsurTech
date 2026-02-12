@@ -29,6 +29,24 @@ const routeGroups: Record<string, string[]> = {
   '/admin': ['/admin'],
 };
 
+const getPageTitle = (pathname: string): string => {
+  if (pathname === '/') return 'Portfolio';
+  if (pathname.startsWith('/direct-insurance') || pathname.startsWith('/policy') || pathname.startsWith('/new') || pathname.startsWith('/edit')) return 'Direct Insurance';
+  if (pathname.includes('/inward-reinsurance/foreign')) return 'Inward Reinsurance — Foreign';
+  if (pathname.includes('/inward-reinsurance/domestic')) return 'Inward Reinsurance — Domestic';
+  if (pathname.startsWith('/inward-reinsurance')) return 'Inward Reinsurance';
+  if (pathname.startsWith('/analytics')) return 'Analytics';
+  if (pathname.startsWith('/slips') || pathname.startsWith('/slip')) return 'Slips';
+  if (pathname.startsWith('/claims') || pathname.startsWith('/claim')) return 'Claims';
+  if (pathname.startsWith('/entities')) return 'Legal Entities';
+  if (pathname.startsWith('/clauses')) return 'Clause Library';
+  if (pathname.startsWith('/admin')) return 'Admin Console';
+  if (pathname.startsWith('/agenda')) return 'My Agenda';
+  if (pathname.startsWith('/wording')) return 'Policy Wording';
+  if (pathname.startsWith('/settings')) return 'Settings';
+  return '';
+};
+
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -318,19 +336,22 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col h-full min-w-0">
-          
+
           {/* Global Header (Fixed at top of content area) */}
-          <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm z-20 flex-shrink-0">
-                <div className="flex items-center gap-4">
-                    <button 
+          <header className="bg-white border-b border-gray-200 px-4 py-2 flex items-center shadow-sm z-20 flex-shrink-0">
+                <div className="flex items-center">
+                    <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                         className="p-2 text-slate-500 hover:bg-gray-100 hover:text-slate-800 rounded-lg transition-colors focus:outline-none"
                         title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
                     >
-                        {isSidebarOpen ? <PanelLeftClose size={24} /> : <PanelLeftOpen size={24} />}
+                        {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
                     </button>
                 </div>
-
+                <div className="flex-1 text-center">
+                    <h1 className="text-lg font-bold text-gray-800">{getPageTitle(location.pathname)}</h1>
+                </div>
+                <div className="w-10"></div>
           </header>
 
           {/* Scrollable Page Content */}
