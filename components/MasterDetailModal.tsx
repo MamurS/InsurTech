@@ -601,7 +601,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
         </div>
 
         {/* ── Content ── */}
-        <div className="flex-1 overflow-y-auto p-5 bg-white">
+        <div className="min-h-[60vh] max-h-[70vh] overflow-y-auto p-5 bg-white">
           {renderActiveTab()}
         </div>
 

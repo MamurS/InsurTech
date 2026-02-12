@@ -214,52 +214,70 @@ const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => ({
 // --- CONSOLIDATION HELPERS ---
 
 const consolidateDirectPolicies = (policies: Policy[]): PortfolioRow[] => {
-  const groups: Record<string, Policy[]> = {};
-  policies.forEach(p => {
+  const groups = new Map<string, Policy[]>();
+  for (const p of policies) {
     const key = p.policyNumber || p.id;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(p);
-  });
+    const existing = groups.get(key);
+    if (existing) existing.push(p);
+    else groups.set(key, [p]);
+  }
 
-  return Object.values(groups).map(items => {
-    const first = items[0];
-    const row = mapPolicyToPortfolioRow(first);
+  const result: PortfolioRow[] = [];
+  for (const items of groups.values()) {
+    const row = mapPolicyToPortfolioRow(items[0]);
 
     // Sum premium fields across installments
-    row.grossPremium = items.reduce((sum, p) => sum + Number(p.grossPremium || 0), 0);
-    row.netPremium = items.reduce((sum, p) => sum + Number(p.netPremium || 0), 0);
-    row.grossPremiumNational = items.reduce((sum, p) => sum + Number(p.grossPremiumNational || 0), 0);
-    row.netPremiumNational = items.reduce((sum, p) => sum + Number(p.netPremiumNational || 0), 0);
-    row.fullPremiumForeign = items.reduce((sum, p) => sum + Number(p.fullPremiumForeign || 0), 0);
-    row.fullPremiumNational = items.reduce((sum, p) => sum + Number(p.fullPremiumNational || 0), 0);
+    let gross = 0, net = 0, grossNat = 0, netNat = 0, fullFor = 0, fullNat = 0;
+    for (const p of items) {
+      gross += Number(p.grossPremium || 0);
+      net += Number(p.netPremium || 0);
+      grossNat += Number(p.grossPremiumNational || 0);
+      netNat += Number(p.netPremiumNational || 0);
+      fullFor += Number(p.fullPremiumForeign || 0);
+      fullNat += Number(p.fullPremiumNational || 0);
+    }
+    row.grossPremium = gross;
+    row.netPremium = net;
+    row.grossPremiumNational = grossNat;
+    row.netPremiumNational = netNat;
+    row.fullPremiumForeign = fullFor;
+    row.fullPremiumNational = fullNat;
 
     // Keep limit/sumInsured from first row only (same across installments)
     row.installmentCount = items.length;
     row.installments = items;
-    return row;
-  });
+    result.push(row);
+  }
+  return result;
 };
 
 const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): PortfolioRow[] => {
-  const groups: Record<string, InwardReinsurance[]> = {};
-  contracts.forEach(ir => {
+  const groups = new Map<string, InwardReinsurance[]>();
+  for (const ir of contracts) {
     const key = ir.contractNumber || ir.id;
-    if (!groups[key]) groups[key] = [];
-    groups[key].push(ir);
-  });
+    const existing = groups.get(key);
+    if (existing) existing.push(ir);
+    else groups.set(key, [ir]);
+  }
 
-  return Object.values(groups).map(items => {
-    const first = items[0];
-    const row = mapInwardReinsuranceToPortfolioRow(first);
+  const result: PortfolioRow[] = [];
+  for (const items of groups.values()) {
+    const row = mapInwardReinsuranceToPortfolioRow(items[0]);
 
     // Sum premium fields across installments
-    row.grossPremium = items.reduce((sum, ir) => sum + Number(ir.grossPremium || 0), 0);
-    row.netPremium = items.reduce((sum, ir) => sum + Number(ir.netPremium || 0), 0);
+    let gross = 0, net = 0;
+    for (const ir of items) {
+      gross += Number(ir.grossPremium || 0);
+      net += Number(ir.netPremium || 0);
+    }
+    row.grossPremium = gross;
+    row.netPremium = net;
 
     row.installmentCount = items.length;
     row.installments = items;
-    return row;
-  });
+    result.push(row);
+  }
+  return result;
 };
 
 // --- DASHBOARD COMPONENT ---
@@ -344,35 +362,44 @@ const Dashboard: React.FC = () => {
         DB.getSlips(),
       ]);
 
-      // Separate Direct from Outward/Reinsurance based on channel
-      const directPolicies = allPolicies.filter(p => p.channel === 'Direct' && !p.isDeleted);
-      const outwardPolicies = allPolicies.filter(p => p.channel === 'Reinsurance' && !p.isDeleted);
+      // Defer heavy computation to next tick so UI can paint the loading state
+      setTimeout(() => {
+        try {
+          // Separate Direct from Outward/Reinsurance based on channel
+          const directPolicies = allPolicies.filter(p => p.channel === 'Direct' && !p.isDeleted);
+          const outwardPolicies = allPolicies.filter(p => p.channel === 'Reinsurance' && !p.isDeleted);
 
-      // Build outward map (ref — no re-render)
-      const outwardMap = new Map<string, Policy[]>();
-      outwardPolicies.forEach(p => {
-        const key = p.policyNumber || p.id;
-        if (!outwardMap.has(key)) outwardMap.set(key, []);
-        outwardMap.get(key)!.push(p);
-      });
-      outwardByPolicyRef.current = outwardMap;
+          // Build outward map (ref — no re-render)
+          const outwardMap = new Map<string, Policy[]>();
+          for (const p of outwardPolicies) {
+            const key = p.policyNumber || p.id;
+            const existing = outwardMap.get(key);
+            if (existing) existing.push(p);
+            else outwardMap.set(key, [p]);
+          }
+          outwardByPolicyRef.current = outwardMap;
 
-      // Consolidate: group by policyNumber/contractNumber, sum premiums
-      const directRows = consolidateDirectPolicies(directPolicies);
-      const inwardRows = consolidateInwardReinsurance(
-        inwardReinsurance.filter(ir => !ir.isDeleted)
-      );
-      const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+          // Consolidate: group by policyNumber/contractNumber, sum premiums
+          const directRows = consolidateDirectPolicies(directPolicies);
+          const inwardRows = consolidateInwardReinsurance(
+            inwardReinsurance.filter(ir => !ir.isDeleted)
+          );
+          const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
 
-      // Merge and sort by inception date (newest first) — single setState
-      const allRows = [...directRows, ...inwardRows, ...slipRows].sort((a, b) =>
-        new Date(b.inceptionDate).getTime() - new Date(a.inceptionDate).getTime()
-      );
+          // Merge and sort by inception date (newest first) — single setState
+          const allRows = [...directRows, ...inwardRows, ...slipRows].sort((a, b) =>
+            new Date(b.inceptionDate).getTime() - new Date(a.inceptionDate).getTime()
+          );
 
-      setPortfolioData(allRows);
+          setPortfolioData(allRows);
+        } catch (e) {
+          console.error("Failed to process portfolio data", e);
+        } finally {
+          setLoading(false);
+        }
+      }, 0);
     } catch (e) {
       console.error("Failed to fetch portfolio data", e);
-    } finally {
       setLoading(false);
     }
   };
