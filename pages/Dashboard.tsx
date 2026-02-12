@@ -450,8 +450,8 @@ const Dashboard: React.FC = () => {
     // 3. Search Filter
     const searchLower = searchTerm.toLowerCase();
     return (
-        row.referenceNumber.toLowerCase().includes(searchLower) ||
-        row.insuredName.toLowerCase().includes(searchLower) ||
+        (row.referenceNumber || '').toLowerCase().includes(searchLower) ||
+        (row.insuredName || '').toLowerCase().includes(searchLower) ||
         (row.cedantName && row.cedantName.toLowerCase().includes(searchLower)) ||
         (row.brokerName && row.brokerName.toLowerCase().includes(searchLower)) ||
         (row.classOfBusiness && row.classOfBusiness.toLowerCase().includes(searchLower))
@@ -578,7 +578,7 @@ const Dashboard: React.FC = () => {
       {/* Row 1: Title + All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
         {/* Page title as compact label */}
-        <span className="text-sm font-bold text-gray-800 mr-1">Portfolio</span>
+        <span className="text-base font-semibold text-gray-800 mr-1">Portfolio</span>
         <div className="w-px h-5 bg-gray-300" />
 
         {/* Source Filter Pills */}

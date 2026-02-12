@@ -238,7 +238,7 @@ const InwardReinsuranceList: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Page title as compact label */}
-          <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <span className="text-base font-semibold text-gray-800 flex items-center gap-2">
             {origin === 'FOREIGN' ? <Globe size={16} className="text-purple-600" /> : <Home size={16} className="text-emerald-600" />}
             Inward Reinsurance
           </span>
