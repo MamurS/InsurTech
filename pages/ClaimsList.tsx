@@ -53,7 +53,7 @@ const ClaimsList: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Page title as compact label */}
-          <span className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <span className="text-base font-semibold text-gray-800 flex items-center gap-2">
             <AlertOctagon size={16} className="text-red-600" />
             Claims
           </span>

@@ -189,7 +189,7 @@ const DirectInsuranceList: React.FC = () => {
       <div className="bg-white rounded-xl border border-slate-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Page title as compact label */}
-          <span className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          <span className="text-base font-semibold text-slate-800 flex items-center gap-2">
             <Briefcase className="text-blue-600" size={16} />
             Direct Insurance
           </span>
