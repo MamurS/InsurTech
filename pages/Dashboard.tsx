@@ -210,6 +210,57 @@ const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => ({
   originalData: s,
 });
 
+// --- CONSOLIDATION HELPERS ---
+
+const consolidateDirectPolicies = (policies: Policy[]): PortfolioRow[] => {
+  const groups: Record<string, Policy[]> = {};
+  policies.forEach(p => {
+    const key = p.policyNumber || p.id;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(p);
+  });
+
+  return Object.values(groups).map(items => {
+    const first = items[0];
+    const row = mapPolicyToPortfolioRow(first);
+
+    // Sum premium fields across installments
+    row.grossPremium = items.reduce((sum, p) => sum + Number(p.grossPremium || 0), 0);
+    row.netPremium = items.reduce((sum, p) => sum + Number(p.netPremium || 0), 0);
+    row.grossPremiumNational = items.reduce((sum, p) => sum + Number(p.grossPremiumNational || 0), 0);
+    row.netPremiumNational = items.reduce((sum, p) => sum + Number(p.netPremiumNational || 0), 0);
+    row.fullPremiumForeign = items.reduce((sum, p) => sum + Number(p.fullPremiumForeign || 0), 0);
+    row.fullPremiumNational = items.reduce((sum, p) => sum + Number(p.fullPremiumNational || 0), 0);
+
+    // Keep limit/sumInsured from first row only (same across installments)
+    row.installmentCount = items.length;
+    row.installments = items;
+    return row;
+  });
+};
+
+const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): PortfolioRow[] => {
+  const groups: Record<string, InwardReinsurance[]> = {};
+  contracts.forEach(ir => {
+    const key = ir.contractNumber || ir.id;
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(ir);
+  });
+
+  return Object.values(groups).map(items => {
+    const first = items[0];
+    const row = mapInwardReinsuranceToPortfolioRow(first);
+
+    // Sum premium fields across installments
+    row.grossPremium = items.reduce((sum, ir) => sum + Number(ir.grossPremium || 0), 0);
+    row.netPremium = items.reduce((sum, ir) => sum + Number(ir.netPremium || 0), 0);
+
+    row.installmentCount = items.length;
+    row.installments = items;
+    return row;
+  });
+};
+
 // --- DASHBOARD COMPONENT ---
 
 const Dashboard: React.FC = () => {
@@ -285,16 +336,22 @@ const Dashboard: React.FC = () => {
     setLoading(true);
     try {
       // Fetch all sources in parallel
-      const [policies, inwardReinsurance, slips] = await Promise.all([
+      const [allPolicies, inwardReinsurance, slips] = await Promise.all([
         DB.getAllPolicies(),
         DB.getAllInwardReinsurance(),
         DB.getSlips(),
       ]);
 
-      // Map to unified PortfolioRow format
-      const directRows = policies.map(mapPolicyToPortfolioRow);
-      const inwardRows = inwardReinsurance.map(mapInwardReinsuranceToPortfolioRow);
-      const slipRows = slips.map(mapSlipToPortfolioRow);
+      // Separate Direct from Outward/Reinsurance based on channel
+      const directPolicies = allPolicies.filter(p => p.channel === 'Direct' && !p.isDeleted);
+      // Outward (channel='Reinsurance') excluded from portfolio — shown in Analytics only
+
+      // Consolidate: group by policyNumber/contractNumber, sum premiums
+      const directRows = consolidateDirectPolicies(directPolicies);
+      const inwardRows = consolidateInwardReinsurance(
+        inwardReinsurance.filter(ir => !ir.isDeleted)
+      );
+      const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
 
       // Merge and sort by inception date (newest first)
       const allRows = [...directRows, ...inwardRows, ...slipRows].sort((a, b) =>
@@ -895,6 +952,11 @@ const Dashboard: React.FC = () => {
                                     </td>
                                     <td className="px-3 py-3 font-mono text-xs text-blue-600 font-medium">
                                         {row.referenceNumber}
+                                        {(row.installmentCount || 0) > 1 && (
+                                          <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded-full">
+                                            {row.installmentCount} inst.
+                                          </span>
+                                        )}
                                     </td>
                                     <td className="px-3 py-3 font-medium text-gray-900">
                                         {row.cedantName ? (
@@ -1002,7 +1064,14 @@ const Dashboard: React.FC = () => {
 
                                     {/* Identity / References */}
                                     <td className="px-3 py-2 whitespace-nowrap"><SourceBadge source={row.source} /></td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-blue-600">{row.referenceNumber}</td>
+                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-blue-600">
+                                      {row.referenceNumber}
+                                      {(row.installmentCount || 0) > 1 && (
+                                        <span className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700 rounded-full">
+                                          {row.installmentCount} inst.
+                                        </span>
+                                      )}
+                                    </td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.secondaryRef || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.slipNumber || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.agreementNumber || '-'}</td>
