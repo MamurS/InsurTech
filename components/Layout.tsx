@@ -349,13 +349,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </button>
                 </div>
                 <div className="flex-1 text-center">
-                    <h1 className="text-lg font-bold text-gray-800">{getPageTitle(location.pathname)}</h1>
+                    <h1 className="text-xl font-bold text-gray-800">{getPageTitle(location.pathname)}</h1>
                 </div>
                 <div className="w-10"></div>
           </header>
 
           {/* Scrollable Page Content */}
-          <main className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+          <main className="flex-1 overflow-y-auto pt-2 px-4 pb-4 md:pt-2 md:px-8 md:pb-8 relative">
              <div className="w-full mx-auto">
                 {children}
              </div>
