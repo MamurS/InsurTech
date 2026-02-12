@@ -237,13 +237,6 @@ const InwardReinsuranceList: React.FC = () => {
       {/* Filters - Combined with Title */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
-          {/* Page title as compact label */}
-          <span className="text-base font-semibold text-gray-800 flex items-center gap-2">
-            {origin === 'FOREIGN' ? <Globe size={16} className="text-purple-600" /> : <Home size={16} className="text-emerald-600" />}
-            Inward Reinsurance
-          </span>
-          <div className="w-px h-5 bg-gray-300" />
-
           {/* Search */}
           <div className="relative flex-1 min-w-[180px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />

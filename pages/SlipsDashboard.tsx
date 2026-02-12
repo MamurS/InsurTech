@@ -220,13 +220,6 @@ const SlipsDashboard: React.FC = () => {
       {/* Combined Title + Filters Row */}
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-wrap items-center gap-3">
-          {/* Page title as compact label */}
-          <span className="text-base font-semibold text-gray-800 flex items-center gap-2">
-            <FileSpreadsheet size={16} className="text-amber-600" />
-            Slips
-          </span>
-          <div className="w-px h-5 bg-gray-300" />
-
           {/* Status Tabs - Compact */}
           <div className="flex bg-gray-100 p-0.5 rounded-md overflow-x-auto">
             {slipStatusTabs.map(tab => (
