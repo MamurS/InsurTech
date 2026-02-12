@@ -206,7 +206,7 @@ export const DB = {
   // --- Policies ---
   getPolicies: async (): Promise<Policy[]> => {
     if (isSupabaseEnabled()) {
-      const { data, error } = await supabase!.from('policies').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase!.from('policies').select('*').order('created_at', { ascending: false }).limit(10000);
       if (error) { console.error("Supabase Error:", error); return []; }
       return (data || []).map(toAppPolicy);
     }
@@ -215,7 +215,7 @@ export const DB = {
 
   getAllPolicies: async (): Promise<Policy[]> => {
     if (isSupabaseEnabled()) {
-      const { data } = await supabase!.from('policies').select('*');
+      const { data } = await supabase!.from('policies').select('*').limit(10000);
       return (data || []).map(toAppPolicy);
     }
     return getLocal(POLICIES_KEY, []);
@@ -421,7 +421,8 @@ export const DB = {
         const { data, error } = await supabase!
           .from('inward_reinsurance')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(10000);
 
         if (error) {
           // Check if table doesn't exist (migration not run)
