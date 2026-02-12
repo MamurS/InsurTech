@@ -682,4 +682,8 @@ export interface PortfolioRow {
 
   // Original data reference for detail view
   originalData: Policy | InwardReinsurance | ReinsuranceSlip;
+
+  // Consolidation metadata
+  installmentCount?: number;
+  installments?: any[];
 }
