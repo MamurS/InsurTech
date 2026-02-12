@@ -34,10 +34,14 @@ const DirectInsuranceList: React.FC = () => {
     setLoading(true);
     try {
       const allPolicies = await DB.getPolicies();
+      console.log('Total policies fetched:', allPolicies.length);
+      console.log('Sample channels:', allPolicies.slice(0, 5).map(p => ({ channel: p.channel, policyNumber: p.policyNumber })));
+      console.log('Direct count:', allPolicies.filter(p => p.channel === 'Direct').length);
       // Filter for Direct Insurance only (channel = 'Direct')
       const directPolicies = allPolicies.filter(p =>
         p.channel === 'Direct' && !p.isDeleted
       );
+      console.log('Direct (not deleted):', directPolicies.length);
       setPolicies(directPolicies);
     } catch (error) {
       console.error('Failed to load policies:', error);
