@@ -1,3 +1,4 @@
+// Build: 2026-02-12 - force redeploy with .limit(10000) fix
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
