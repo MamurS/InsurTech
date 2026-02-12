@@ -64,5 +64,12 @@ const currentEnv = getDbEnvironment();
 const { url, key } = ENVIRONMENTS[currentEnv];
 
 export const supabase: SupabaseClient | null = (url && key)
-  ? createClient(url, key)
+  ? createClient(url, key, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storageKey: `mosaic_auth_${currentEnv}`,
+      }
+    })
   : null;
