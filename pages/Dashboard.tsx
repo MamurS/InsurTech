@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
+import { MasterDetailModal } from '../components/MasterDetailModal';
 import { EntityDetailModal } from '../components/EntityDetailModal';
 import { FormModal } from '../components/FormModal';
 import { PolicyFormContent } from '../components/PolicyFormContent';
@@ -265,6 +266,7 @@ const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): Portfolio
 
 const Dashboard: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioRow[]>([]);
+  const [outwardByPolicy, setOutwardByPolicy] = useState<Map<string, Policy[]>>(new Map());
   const [searchTerm, setSearchTerm] = useState('');
 
   // Source Filter State
@@ -344,7 +346,16 @@ const Dashboard: React.FC = () => {
 
       // Separate Direct from Outward/Reinsurance based on channel
       const directPolicies = allPolicies.filter(p => p.channel === 'Direct' && !p.isDeleted);
-      // Outward (channel='Reinsurance') excluded from portfolio — shown in Analytics only
+      const outwardPolicies = allPolicies.filter(p => p.channel === 'Reinsurance' && !p.isDeleted);
+
+      // Build outward map: policyNumber → Policy[] (for detail modal reinsurance tab)
+      const outwardMap = new Map<string, Policy[]>();
+      outwardPolicies.forEach(p => {
+        const key = p.policyNumber || p.id;
+        if (!outwardMap.has(key)) outwardMap.set(key, []);
+        outwardMap.get(key)!.push(p);
+      });
+      setOutwardByPolicy(outwardMap);
 
       // Consolidate: group by policyNumber/contractNumber, sum premiums
       const directRows = consolidateDirectPolicies(directPolicies);
@@ -411,20 +422,12 @@ const Dashboard: React.FC = () => {
   };
 
   const handleRowClick = (row: PortfolioRow) => {
-    // Open modal based on source type
+    // Open MasterDetailModal for direct and inward rows
     switch (row.source) {
       case 'direct':
-        setSelectedRow(row); // Open DetailModal
-        break;
       case 'inward-foreign':
-        setEditingInwardId(row.id);
-        setEditingInwardOrigin('FOREIGN');
-        setShowInwardModal(true);
-        break;
       case 'inward-domestic':
-        setEditingInwardId(row.id);
-        setEditingInwardOrigin('DOMESTIC');
-        setShowInwardModal(true);
+        setSelectedRow(row);
         break;
       case 'slip':
         setEditingSlipId(row.id);
@@ -1248,12 +1251,27 @@ const Dashboard: React.FC = () => {
         confirmText="Create Entity"
       />
 
-      {selectedRow && selectedRow.source === 'direct' && (
-          <DetailModal
-            item={selectedRow.originalData as Policy}
+      {selectedRow && (selectedRow.source === 'direct' || selectedRow.source === 'inward-foreign' || selectedRow.source === 'inward-domestic') && (
+          <MasterDetailModal
+            row={selectedRow}
+            outwardPolicies={selectedRow.source === 'direct' ? (outwardByPolicy.get(selectedRow.referenceNumber) || []) : []}
             onClose={() => setSelectedRow(null)}
             onRefresh={fetchData}
-            title="Policy Details"
+            onEdit={(r) => {
+              setSelectedRow(null);
+              if (r.source === 'direct') {
+                setEditingPolicyId(r.id);
+                setShowPolicyModal(true);
+              } else if (r.source === 'inward-foreign') {
+                setEditingInwardId(r.id);
+                setEditingInwardOrigin('FOREIGN');
+                setShowInwardModal(true);
+              } else if (r.source === 'inward-domestic') {
+                setEditingInwardId(r.id);
+                setEditingInwardOrigin('DOMESTIC');
+                setShowInwardModal(true);
+              }
+            }}
           />
       )}
 
