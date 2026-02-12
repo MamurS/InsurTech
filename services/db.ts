@@ -1,4 +1,3 @@
-
 import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus, ExchangeRate, Currency, InwardReinsurance } from '../types';
 import { supabase } from './supabase';
 import { AuthService } from './auth';
