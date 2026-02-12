@@ -21,11 +21,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const initAuth = async () => {
       try {
-        // ALWAYS clear session on app launch to force fresh login
-        await AuthService.logout();
-        setUser(null);
+        // Try to restore existing session (persisted in localStorage by Supabase)
+        const existingUser = await AuthService.getSession();
+        setUser(existingUser);
       } catch (error) {
         console.error("Auth init failed", error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
