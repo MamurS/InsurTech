@@ -382,7 +382,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
       </div>
 
       {/* Contracts Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="animate-spin text-blue-600" size={32} />
@@ -394,9 +394,9 @@ const InwardReinsuranceDashboard: React.FC = () => {
             <p className="text-sm">Try adjusting your filters or create new contracts</p>
           </div>
         ) : (
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+          <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+              <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contract #</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Origin</th>

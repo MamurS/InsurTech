@@ -94,7 +94,7 @@ const ClaimsList: React.FC = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
 
         {/* Expandable Filter Panel */}
         {showFilters && (
@@ -148,9 +148,9 @@ const ClaimsList: React.FC = () => {
         {/* Table */}
         {!isLoading && !isError && (
             <>
-                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
+                <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                        <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                             <tr>
                                 <th className="px-6 py-4">Claim Ref</th>
                                 <th className="px-6 py-4">Policy Ref</th>
