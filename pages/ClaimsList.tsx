@@ -48,7 +48,7 @@ const ClaimsList: React.FC = () => {
   const summaryOutstanding = claims.reduce((acc, c) => acc + (c.outstandingOurShare || 0), 0);
 
   return (
-    <div className="space-y-4">
+    <div>
       {/* Sticky filter bar */}
       <div className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">

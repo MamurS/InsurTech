@@ -216,7 +216,7 @@ const SlipsDashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div>
       {/* Sticky filter bar */}
       <div className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">

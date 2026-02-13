@@ -233,9 +233,9 @@ const InwardReinsuranceList: React.FC = () => {
   const totalPages = Math.ceil(totalCount / pageSize);
 
   return (
-    <div className="space-y-4">
-      {/* Sticky header block: filters */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-0">
+    <div>
+      {/* Sticky filter bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -322,7 +322,7 @@ const InwardReinsuranceList: React.FC = () => {
 
       {/* Migration Required Message */}
       {migrationRequired && (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mt-4">
           <div className="flex items-start gap-4">
             <div className="flex-shrink-0 w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
               <FileSpreadsheet size={20} className="text-amber-600" />
@@ -372,7 +372,6 @@ const InwardReinsuranceList: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
                 <tr>
@@ -477,7 +476,6 @@ const InwardReinsuranceList: React.FC = () => {
                 ))}
               </tbody>
             </table>
-          </div>
         )}
 
         {/* Pagination */}

@@ -151,9 +151,9 @@ const DirectInsuranceList: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4">
+    <div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <p className="text-xs text-slate-500 uppercase tracking-wide">Total Policies</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">{stats.total}</p>
