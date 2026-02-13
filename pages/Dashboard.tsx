@@ -663,7 +663,9 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <div className="space-y-2">
+    <div>
+      {/* Sticky header block: filters + pagination */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-0">
       {/* Row 1: Title + All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
         {/* Source Filter Pills */}
@@ -824,12 +826,13 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>{/* end sticky header block */}
 
       {/* Unified Table */}
       <div className="bg-white border border-gray-200 rounded-b-xl shadow-sm relative">
         <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+                <thead className="bg-gray-50 sticky top-[85px] z-20 shadow-sm">
                     {viewMode === 'compact' ? (
                         <tr>
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
