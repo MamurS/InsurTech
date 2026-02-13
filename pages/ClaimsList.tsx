@@ -49,8 +49,7 @@ const ClaimsList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Sticky header block: filters */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-0">
+      {/* Filters (scrolls away, thead sticks) */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -94,7 +93,6 @@ const ClaimsList: React.FC = () => {
           </button>
         </div>
       </div>
-      </div>{/* end sticky header block */}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
 
@@ -150,9 +148,8 @@ const ClaimsList: React.FC = () => {
         {/* Table */}
         {!isLoading && !isError && (
             <>
-                <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
+                        <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                             <tr>
                                 <th className="px-6 py-4">Claim Ref</th>
                                 <th className="px-6 py-4">Policy Ref</th>
@@ -235,7 +232,6 @@ const ClaimsList: React.FC = () => {
                             </tfoot>
                         )}
                     </table>
-                </div>
 
                 {/* Pagination Controls */}
                 <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
