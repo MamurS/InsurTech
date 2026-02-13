@@ -370,7 +370,7 @@ const InwardReinsuranceList: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
