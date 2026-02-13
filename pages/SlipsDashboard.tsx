@@ -275,8 +275,9 @@ const SlipsDashboard: React.FC = () => {
 
       {/* Slips Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
         <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 text-gray-700 font-semibold border-b border-gray-200">
+            <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
                     <th className="px-6 py-4 w-12">#</th>
                     <th className="px-6 py-4 w-24">Status</th>
@@ -325,7 +326,8 @@ const SlipsDashboard: React.FC = () => {
                 ))}
             </tbody>
         </table>
-        
+        </div>
+
         {!loading && filteredSlips.length === 0 && (
             <div className="p-12 text-center text-gray-400 flex flex-col items-center">
                 <FileSpreadsheet size={48} className="mb-4 opacity-20" />
