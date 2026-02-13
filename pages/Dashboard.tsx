@@ -772,9 +772,9 @@ const Dashboard: React.FC = () => {
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center gap-1 px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-100 text-gray-600"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
           >
-            <Download size={12} /> Export
+            <Download size={14} /> Export to Excel
           </button>
           <div className="w-px h-4 bg-gray-300" />
           <button

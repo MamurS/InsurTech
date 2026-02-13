@@ -10,7 +10,7 @@ import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFor
 import {
   Plus, Search, Filter, RefreshCw, Trash2, Edit, Eye,
   Globe, Home, FileSpreadsheet, Layers, Calendar, DollarSign,
-  ChevronLeft, ChevronRight, MoreVertical
+  ChevronLeft, ChevronRight, MoreVertical, Download
 } from 'lucide-react';
 
 const InwardReinsuranceList: React.FC = () => {
@@ -295,6 +295,14 @@ const InwardReinsuranceList: React.FC = () => {
           </button>
 
           <div className="w-px h-5 bg-gray-300" />
+
+          {/* Export Button */}
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
+          >
+            <Download size={14} />
+            Export to Excel
+          </button>
 
           {/* New Contract Button */}
           <button
