@@ -217,7 +217,8 @@ const SlipsDashboard: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Filters (scrolls away, thead sticks) */}
+      {/* Sticky filter bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Tabs - Compact */}
@@ -272,11 +273,12 @@ const SlipsDashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>{/* end sticky filter bar */}
 
       {/* Slips Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+            <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
                 <tr>
                     <th className="px-6 py-4 w-12">#</th>
                     <th className="px-6 py-4 w-24">Status</th>

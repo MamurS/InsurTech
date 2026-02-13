@@ -664,8 +664,9 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      {/* Filters + pagination (scrolls away, thead sticks) */}
-      {/* Row 1: Title + All Filters in One Row */}
+      {/* Sticky filter bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
+      {/* Row 1: All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
         {/* Source Filter Pills */}
         {([
@@ -762,8 +763,10 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>{/* end sticky filter bar */}
 
-      {/* Pagination Bar */}
+      {/* Sticky pagination bar */}
+      <div className="sticky top-[48px] z-30 bg-gray-50">
       <div className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-t-lg border border-b-0 border-gray-200 text-xs">
         <span className="text-gray-600">
           Showing {sortedRows.length === 0 ? 0 : startIndex + 1}–{endIndex} of {sortedRows.length} records
@@ -825,10 +828,11 @@ const Dashboard: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>{/* end sticky pagination bar */}
       {/* Unified Table */}
       <div className="bg-white border border-gray-200 rounded-b-xl shadow-sm relative">
             <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+                <thead className="bg-gray-50 sticky top-[84px] z-20 shadow-sm">
                     {viewMode === 'compact' ? (
                         <tr>
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
