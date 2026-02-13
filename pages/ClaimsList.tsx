@@ -150,7 +150,7 @@ const ClaimsList: React.FC = () => {
             <>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                        <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                             <tr>
                                 <th className="px-6 py-4">Claim Ref</th>
                                 <th className="px-6 py-4">Policy Ref</th>
