@@ -285,6 +285,7 @@ const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): Portfolio
 const Dashboard: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioRow[]>([]);
   const outwardByPolicyRef = useRef<Map<string, Policy[]>>(new Map());
+  const outwardLoadedRef = useRef(false);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Source Filter State
@@ -355,9 +356,9 @@ const Dashboard: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch all sources in parallel
-      const [allPolicies, inwardReinsurance, slips] = await Promise.all([
-        DB.getAllPolicies(),
+      // Fetch only what's needed — server-side filtered, no client-side channel filtering
+      const [directPolicies, inwardReinsurance, slips] = await Promise.all([
+        DB.getDirectPolicies(),
         DB.getAllInwardReinsurance(),
         DB.getSlips(),
       ]);
@@ -365,20 +366,6 @@ const Dashboard: React.FC = () => {
       // Defer heavy computation to next tick so UI can paint the loading state
       setTimeout(() => {
         try {
-          // Separate Direct from Outward/Reinsurance based on channel
-          const directPolicies = allPolicies.filter(p => p.channel === 'Direct' && !p.isDeleted);
-          const outwardPolicies = allPolicies.filter(p => p.channel === 'Reinsurance' && !p.isDeleted);
-
-          // Build outward map (ref — no re-render)
-          const outwardMap = new Map<string, Policy[]>();
-          for (const p of outwardPolicies) {
-            const key = p.policyNumber || p.id;
-            const existing = outwardMap.get(key);
-            if (existing) existing.push(p);
-            else outwardMap.set(key, [p]);
-          }
-          outwardByPolicyRef.current = outwardMap;
-
           // Consolidate: group by policyNumber/contractNumber, sum premiums
           const directRows = consolidateDirectPolicies(directPolicies);
           const inwardRows = consolidateInwardReinsurance(
@@ -398,6 +385,21 @@ const Dashboard: React.FC = () => {
           setLoading(false);
         }
       }, 0);
+
+      // Load outward data in background (only needed for modal drill-down)
+      if (!outwardLoadedRef.current) {
+        DB.getOutwardPolicies().then(outwardPolicies => {
+          const outwardMap = new Map<string, Policy[]>();
+          for (const p of outwardPolicies) {
+            const key = p.policyNumber || p.id;
+            const existing = outwardMap.get(key);
+            if (existing) existing.push(p);
+            else outwardMap.set(key, [p]);
+          }
+          outwardByPolicyRef.current = outwardMap;
+          outwardLoadedRef.current = true;
+        });
+      }
     } catch (e) {
       console.error("Failed to fetch portfolio data", e);
       setLoading(false);

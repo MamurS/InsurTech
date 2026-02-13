@@ -220,6 +220,54 @@ export const DB = {
     return getLocal(POLICIES_KEY, []);
   },
 
+  getDirectPolicies: async (): Promise<Policy[]> => {
+    if (isSupabaseEnabled()) {
+      let allData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase!
+          .from('policies')
+          .select('*')
+          .eq('recordType', 'Direct')
+          .eq('isDeleted', false)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+        if (error) { console.error("Supabase Error:", error); break; }
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return allData.map(toAppPolicy);
+    }
+    return getLocal(POLICIES_KEY, []);
+  },
+
+  getOutwardPolicies: async (): Promise<Policy[]> => {
+    if (isSupabaseEnabled()) {
+      let allData: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await supabase!
+          .from('policies')
+          .select('*')
+          .eq('recordType', 'Reinsurance')
+          .eq('isDeleted', false)
+          .order('created_at', { ascending: false })
+          .range(from, from + batchSize - 1);
+        if (error) { console.error("Supabase Error:", error); break; }
+        if (!data || data.length === 0) break;
+        allData = allData.concat(data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      return allData.map(toAppPolicy);
+    }
+    return getLocal(POLICIES_KEY, []);
+  },
+
   getPolicy: async (id: string): Promise<Policy | undefined> => {
     if (isSupabaseEnabled()) {
       const { data, error } = await supabase!.from('policies').select('*').eq('id', id).single();
