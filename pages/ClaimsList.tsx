@@ -148,7 +148,7 @@ const ClaimsList: React.FC = () => {
         {/* Table */}
         {!isLoading && !isError && (
             <>
-                <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+                <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                             <tr>

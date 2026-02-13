@@ -827,7 +827,7 @@ const Dashboard: React.FC = () => {
 
       {/* Unified Table */}
       <div className="bg-white border border-gray-200 rounded-b-xl shadow-sm overflow-hidden relative">
-        <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-280px)]">
+        <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
                 <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                     {viewMode === 'compact' ? (
