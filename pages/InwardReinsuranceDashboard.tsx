@@ -311,16 +311,16 @@ const InwardReinsuranceDashboard: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 flex-wrap p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
         {/* Search */}
-        <div className="relative">
+        <div className="relative flex-1 min-w-[120px]">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
           />
         </div>
 
@@ -328,7 +328,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value as any)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-32 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
         >
           <option value="all">All Types</option>
           <option value="foreign">Foreign</option>
@@ -339,11 +339,11 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <select
           value={classFilter}
           onChange={(e) => setClassFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-36 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
         >
           <option value="all">All Classes</option>
           {uniqueClasses.map(cls => (
-            <option key={cls} value={cls}>{cls}</option>
+            <option key={cls} value={cls}>{cls.length > 30 ? cls.substring(0, 30) + '...' : cls}</option>
           ))}
         </select>
 
@@ -351,7 +351,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-32 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
         >
           <option value="all">All Statuses</option>
           <option value="DRAFT">Draft</option>
@@ -374,7 +374,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <button
           onClick={handleExport}
           disabled={exporting || filteredContracts.length === 0}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download size={14} />
           Export to Excel
