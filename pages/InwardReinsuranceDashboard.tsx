@@ -311,76 +311,74 @@ const InwardReinsuranceDashboard: React.FC = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 shadow-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Search */}
-          <div className="relative flex-1 min-w-[180px] max-w-xs">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-            />
-          </div>
-
-          {/* Type Filter */}
-          <select
-            value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value as any)}
-            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-          >
-            <option value="all">All Types</option>
-            <option value="foreign">Foreign</option>
-            <option value="domestic">Domestic</option>
-          </select>
-
-          {/* Class Filter */}
-          <select
-            value={classFilter}
-            onChange={(e) => setClassFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-          >
-            <option value="all">All Classes</option>
-            {uniqueClasses.map(cls => (
-              <option key={cls} value={cls}>{cls}</option>
-            ))}
-          </select>
-
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-          >
-            <option value="all">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="PENDING">Pending</option>
-            <option value="ACTIVE">Active</option>
-            <option value="EXPIRED">Expired</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-
-          {/* Refresh */}
-          <button
-            onClick={loadContracts}
-            className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
-            title="Refresh"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
-          </button>
-
-          {/* Export Button */}
-          <button
-            onClick={handleExport}
-            disabled={exporting || filteredContracts.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Export to Excel
-          </button>
+      <div className="flex items-center gap-2 flex-wrap p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+        {/* Search */}
+        <div className="relative">
+          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm w-48 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          />
         </div>
+
+        {/* Type Filter */}
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as any)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-32 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="all">All Types</option>
+          <option value="foreign">Foreign</option>
+          <option value="domestic">Domestic</option>
+        </select>
+
+        {/* Class Filter */}
+        <select
+          value={classFilter}
+          onChange={(e) => setClassFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-36 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="all">All Classes</option>
+          {uniqueClasses.map(cls => (
+            <option key={cls} value={cls}>{cls}</option>
+          ))}
+        </select>
+
+        {/* Status Filter */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-32 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="all">All Statuses</option>
+          <option value="DRAFT">Draft</option>
+          <option value="PENDING">Pending</option>
+          <option value="ACTIVE">Active</option>
+          <option value="EXPIRED">Expired</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+
+        {/* Refresh */}
+        <button
+          onClick={loadContracts}
+          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
+          title="Refresh"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+
+        {/* Export Button */}
+        <button
+          onClick={handleExport}
+          disabled={exporting || filteredContracts.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={14} />
+          Export to Excel
+        </button>
       </div>
 
       {/* Contracts Table */}
