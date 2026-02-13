@@ -5,7 +5,7 @@ import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
 import RegisterClaimModal from '../components/RegisterClaimModal';
-import { AlertOctagon, Search, Plus, Filter, ArrowRight, ChevronLeft, ChevronRight, Loader2, RefreshCw } from 'lucide-react';
+import { AlertOctagon, Search, Plus, Filter, ArrowRight, ChevronLeft, ChevronRight, Loader2, RefreshCw, Download } from 'lucide-react';
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
@@ -75,6 +75,14 @@ const ClaimsList: React.FC = () => {
           </button>
 
           <div className="w-px h-5 bg-gray-300" />
+
+          {/* Export Button */}
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
+          >
+            <Download size={14} />
+            Export to Excel
+          </button>
 
           {/* Register Claim Button */}
           <button

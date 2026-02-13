@@ -9,7 +9,7 @@ import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormCon
 import { formatDate } from '../utils/dateUtils';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
-  Building2, RefreshCw, Globe, MapPin
+  Building2, RefreshCw, Globe, MapPin, Download
 } from 'lucide-react';
 
 const DirectInsuranceList: React.FC = () => {
@@ -233,6 +233,14 @@ const DirectInsuranceList: React.FC = () => {
           </button>
 
           <div className="w-px h-5 bg-slate-300" />
+
+          {/* Export Button */}
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
+          >
+            <Download size={14} />
+            Export to Excel
+          </button>
 
           {/* New Policy Button */}
           <button

@@ -257,9 +257,9 @@ const SlipsDashboard: React.FC = () => {
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center gap-1 px-3 py-2 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 rounded-lg font-medium transition-all text-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
           >
-            <Download size={14} /> Export
+            <Download size={14} /> Export to Excel
           </button>
 
           {/* New Slip Button */}

@@ -249,9 +249,9 @@ const Analytics: React.FC = () => {
     <div className="space-y-6">
       {/* Action Buttons */}
       <div className="flex justify-end gap-3">
-        <button className="flex items-center gap-2 px-4 py-2 text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-sm font-medium">
-          <Download size={16} />
-          Export
+        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm">
+          <Download size={14} />
+          Export to Excel
         </button>
         <button
           onClick={refetch}
