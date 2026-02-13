@@ -273,9 +273,9 @@ const DirectInsuranceList: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Policy #</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Insured</th>

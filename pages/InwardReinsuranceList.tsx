@@ -370,9 +370,9 @@ const InwardReinsuranceList: React.FC = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-200px)]">
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contract #</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
