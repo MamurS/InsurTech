@@ -6,9 +6,9 @@ import { formatDate } from '../utils/dateUtils';
 import { FormModal } from '../components/FormModal';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import {
-  ArrowDownRight, Search, RefreshCw, Download,
+  Search, RefreshCw, Download,
   Globe, Home, TrendingUp, DollarSign,
-  FileText, Building2, Calendar, PieChart, Eye
+  FileText, Building2, Calendar, Eye
 } from 'lucide-react';
 
 const InwardReinsuranceDashboard: React.FC = () => {
@@ -257,36 +257,6 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
-            <ArrowDownRight className="text-blue-600" size={28} />
-            Inward Reinsurance Portfolio
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Combined view of Foreign and Domestic reinsurance contracts
-          </p>
-        </div>
-        <button
-          onClick={handleExport}
-          disabled={exporting || filteredContracts.length === 0}
-          className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-colors font-medium shadow-lg shadow-emerald-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {exporting ? (
-            <>
-              <RefreshCw size={18} className="animate-spin" />
-              Exporting...
-            </>
-          ) : (
-            <>
-              <Download size={18} />
-              Export to CSV
-            </>
-          )}
-        </button>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -339,27 +309,6 @@ const InwardReinsuranceDashboard: React.FC = () => {
           <p className="text-2xl font-bold text-slate-800">{formatCurrency(stats.totalNWP, true)}</p>
         </div>
       </div>
-
-      {/* Class Breakdown */}
-      {Object.keys(stats.byClass).length > 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="font-semibold text-slate-800 mb-4 flex items-center gap-2">
-            <PieChart size={18} className="text-blue-600" />
-            Portfolio by Class of Business
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-            {Object.entries(stats.byClass)
-              .sort((a, b) => b[1].gwp - a[1].gwp)
-              .map(([cls, data]) => (
-                <div key={cls} className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-500 truncate" title={cls}>{cls}</p>
-                  <p className="text-lg font-bold text-slate-800">{data.count}</p>
-                  <p className="text-xs text-slate-400">{formatCurrency(data.gwp, true)}</p>
-                </div>
-              ))}
-          </div>
-        </div>
-      )}
 
       {/* Filters */}
       <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -420,6 +369,16 @@ const InwardReinsuranceDashboard: React.FC = () => {
             title="Refresh"
           >
             <RefreshCw size={18} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+          </button>
+
+          {/* Export Button */}
+          <button
+            onClick={handleExport}
+            disabled={exporting || filteredContracts.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download size={14} />
+            Export to Excel
           </button>
         </div>
 
