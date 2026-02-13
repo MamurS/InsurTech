@@ -277,7 +277,7 @@ const SlipsDashboard: React.FC = () => {
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+            <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                 <tr>
                     <th className="px-6 py-4 w-12">#</th>
                     <th className="px-6 py-4 w-24">Status</th>

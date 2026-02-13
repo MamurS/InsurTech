@@ -829,7 +829,7 @@ const Dashboard: React.FC = () => {
       <div className="bg-white border border-gray-200 rounded-b-xl shadow-sm overflow-hidden relative">
         <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
                     {viewMode === 'compact' ? (
                         <tr>
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
