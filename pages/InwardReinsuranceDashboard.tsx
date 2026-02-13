@@ -310,7 +310,8 @@ const InwardReinsuranceDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Sticky header block: filters */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-0">
       <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
         {/* Search */}
         <div className="relative flex-1 min-w-[120px]">
@@ -380,6 +381,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
           Export to Excel
         </button>
       </div>
+      </div>{/* end sticky header block */}
 
       {/* Contracts Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
@@ -396,7 +398,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky top-[46px] z-20 shadow-sm">
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contract #</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Origin</th>
