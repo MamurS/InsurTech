@@ -835,7 +835,6 @@ const Dashboard: React.FC = () => {
                             <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
                             <SortableHeader label="Source" sortKey="source" />
                             <SortableHeader label="Ref No" sortKey="referenceNumber" />
-                            <SortableHeader label="Inst." sortKey="installmentCount" className="text-center w-14" />
                             <SortableHeader label="Insured / Cedant" sortKey="insuredName" />
                             <SortableHeader label="Broker" sortKey="brokerName" />
                             <SortableHeader label="Class" sortKey="classOfBusiness" />
@@ -843,6 +842,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Limit" sortKey="limit" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
+                            <SortableHeader label="Inst." sortKey="installmentCount" className="text-center w-14" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
                             <th className="px-3 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
@@ -854,7 +854,6 @@ const Dashboard: React.FC = () => {
                             {/* Identity / References */}
                             <SortableHeader label="Source" sortKey="source" />
                             <SortableHeader label="Ref No" sortKey="referenceNumber" />
-                            <SortableHeader label="Inst." sortKey="installmentCount" className="text-center w-14" />
                             <SortableHeader label="Secondary Ref" sortKey="secondaryRef" />
                             <SortableHeader label="Slip No" sortKey="slipNumber" />
                             <SortableHeader label="Agreement No" sortKey="agreementNumber" />
@@ -931,6 +930,8 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Retro Sum" sortKey="retroSumReinsured" className="text-right" />
                             <SortableHeader label="Retro Prem" sortKey="retroPremium" className="text-right" />
 
+                            <SortableHeader label="Inst." sortKey="installmentCount" className="text-center w-14" />
+
                             {/* Dates */}
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
@@ -987,15 +988,6 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-3 font-mono text-xs text-blue-600 font-medium">
                                         {row.referenceNumber}
                                     </td>
-                                    <td className="px-3 py-3 text-center text-xs">
-                                        {row.installmentCount > 1 ? (
-                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
-                                            {row.installmentCount}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400">1</span>
-                                        )}
-                                    </td>
                                     <td className="px-3 py-3 font-medium text-gray-900">
                                         {row.cedantName ? (
                                             <div className="flex flex-col">
@@ -1051,6 +1043,15 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-3 text-right text-xs">
                                         {row.ourShare}%
                                     </td>
+                                    <td className="px-3 py-3 text-center text-xs">
+                                        {row.installmentCount > 1 ? (
+                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
+                                            {row.installmentCount}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400">1</span>
+                                        )}
+                                    </td>
                                     <td className="px-3 py-3 text-xs text-gray-600">
                                         {formatDate(row.inceptionDate)}
                                     </td>
@@ -1104,15 +1105,6 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap"><SourceBadge source={row.source} /></td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-blue-600">
                                       {row.referenceNumber}
-                                    </td>
-                                    <td className="px-3 py-3 text-center text-xs">
-                                        {row.installmentCount > 1 ? (
-                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
-                                            {row.installmentCount}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400">1</span>
-                                        )}
                                     </td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.secondaryRef || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.slipNumber || '-'}</td>
@@ -1208,6 +1200,16 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.risksCount || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.retroSumReinsured)}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.retroPremium)}</td>
+
+                                    <td className="px-3 py-3 text-center text-xs">
+                                        {row.installmentCount > 1 ? (
+                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
+                                            {row.installmentCount}
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400">1</span>
+                                        )}
+                                    </td>
 
                                     {/* Dates */}
                                     <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.inceptionDate)}</td>
