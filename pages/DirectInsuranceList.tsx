@@ -184,7 +184,8 @@ const DirectInsuranceList: React.FC = () => {
         </div>
       </div>
 
-      {/* Filters (scrolls away, thead sticks) */}
+      {/* Sticky filter bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl border border-slate-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -252,6 +253,7 @@ const DirectInsuranceList: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>{/* end sticky filter bar */}
 
       {/* Policies Table */}
       <div className="bg-white rounded-xl border border-slate-200">
@@ -274,7 +276,7 @@ const DirectInsuranceList: React.FC = () => {
           </div>
         ) : (
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Policy #</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Insured</th>

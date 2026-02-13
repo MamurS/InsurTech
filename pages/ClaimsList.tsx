@@ -49,7 +49,8 @@ const ClaimsList: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      {/* Filters (scrolls away, thead sticks) */}
+      {/* Sticky filter bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -93,6 +94,7 @@ const ClaimsList: React.FC = () => {
           </button>
         </div>
       </div>
+      </div>{/* end sticky filter bar */}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
 
@@ -149,7 +151,7 @@ const ClaimsList: React.FC = () => {
         {!isLoading && !isError && (
             <>
                     <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-gray-50 sticky top-0 z-20 shadow-sm">
+                        <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
                             <tr>
                                 <th className="px-6 py-4">Claim Ref</th>
                                 <th className="px-6 py-4">Policy Ref</th>
