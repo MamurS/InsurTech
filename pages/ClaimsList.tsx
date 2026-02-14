@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
@@ -11,6 +11,19 @@ const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+  // Sticky offset measurement
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [filterHeight, setFilterHeight] = useState(66);
+  useEffect(() => {
+    const el = filterRef.current;
+    if (!el) return;
+    const update = () => setFilterHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   
   // Filter State
   const [filters, setFilters] = useState<ClaimFilters>({
@@ -50,7 +63,7 @@ const ClaimsList: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -151,7 +164,7 @@ const ClaimsList: React.FC = () => {
         {!isLoading && !isError && (
             <>
                     <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
+                        <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                             <tr>
                                 <th className="px-6 py-4">Claim Ref</th>
                                 <th className="px-6 py-4">Policy Ref</th>

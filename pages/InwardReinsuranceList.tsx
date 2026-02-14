@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { InwardReinsurance, InwardReinsuranceOrigin, Currency } from '../types';
@@ -24,6 +24,19 @@ const InwardReinsuranceList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<InwardReinsurance[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sticky offset measurement
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [filterHeight, setFilterHeight] = useState(66);
+  useEffect(() => {
+    const el = filterRef.current;
+    if (!el) return;
+    const update = () => setFilterHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'FAC' | 'TREATY'>('ALL');
   const [structureFilter, setStructureFilter] = useState<'ALL' | 'PROPORTIONAL' | 'NON_PROPORTIONAL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -235,7 +248,7 @@ const InwardReinsuranceList: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -373,7 +386,7 @@ const InwardReinsuranceList: React.FC = () => {
           </div>
         ) : (
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contract #</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>

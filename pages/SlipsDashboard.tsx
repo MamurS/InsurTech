@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { ReinsuranceSlip, PolicyStatus } from '../types';
@@ -21,6 +21,19 @@ const SlipsDashboard: React.FC = () => {
 
   // Selection State
   const [selectedSlip, setSelectedSlip] = useState<ReinsuranceSlip | null>(null);
+
+  // Sticky offset measurement
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [filterHeight, setFilterHeight] = useState(66);
+  useEffect(() => {
+    const el = filterRef.current;
+    if (!el) return;
+    const update = () => setFilterHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -218,7 +231,7 @@ const SlipsDashboard: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-wrap items-center gap-3">
           {/* Status Tabs - Compact */}
@@ -278,7 +291,7 @@ const SlipsDashboard: React.FC = () => {
       {/* Slips Table */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
         <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
+            <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
                     <th className="px-6 py-4 w-12">#</th>
                     <th className="px-6 py-4 w-24">Status</th>
