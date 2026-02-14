@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, PolicyStatus } from '../types';
@@ -19,6 +19,19 @@ const DirectInsuranceList: React.FC = () => {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Sticky offset measurement
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [filterHeight, setFilterHeight] = useState(66);
+  useEffect(() => {
+    const el = filterRef.current;
+    if (!el) return;
+    const update = () => setFilterHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
 
@@ -185,7 +198,7 @@ const DirectInsuranceList: React.FC = () => {
       </div>
 
       {/* Sticky filter bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="bg-white rounded-xl border border-slate-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -276,7 +289,7 @@ const DirectInsuranceList: React.FC = () => {
           </div>
         ) : (
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-[52px] z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Policy #</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Insured</th>

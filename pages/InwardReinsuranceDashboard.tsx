@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { InwardReinsurance, Currency } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -21,6 +21,19 @@ const InwardReinsuranceDashboard: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [classFilter, setClassFilter] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
+
+  // Sticky offset measurement
+  const filterRef = useRef<HTMLDivElement>(null);
+  const [filterHeight, setFilterHeight] = useState(62);
+  useEffect(() => {
+    const el = filterRef.current;
+    if (!el) return;
+    const update = () => setFilterHeight(el.getBoundingClientRect().height);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Modal state
   const [showFormModal, setShowFormModal] = useState(false);
@@ -311,7 +324,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
       </div>
 
       {/* Sticky filter bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
       <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
         {/* Search */}
         <div className="relative flex-1 min-w-[120px]">
@@ -397,7 +410,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
           </div>
         ) : (
             <table className="w-full">
-              <thead className="bg-gray-50 sticky top-[48px] z-20 shadow-sm">
+              <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contract #</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Origin</th>
