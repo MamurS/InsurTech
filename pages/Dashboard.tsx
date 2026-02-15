@@ -865,7 +865,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <th className="px-2 py-3 border-b border-gray-200 w-16 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
+                            <th className="px-1 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
                         </tr>
                     ) : (
                         <tr>
@@ -1069,26 +1069,26 @@ const Dashboard: React.FC = () => {
                                         {formatDate(row.expiryDate)}
                                     </td>
 
-                                    <td className="px-1 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                        <div className="flex justify-center gap-0.5">
+                                    <td className="px-1 py-2 text-center w-20" onClick={e => e.stopPropagation()}>
+                                        <div className="flex items-center justify-center gap-0.5">
                                             {row.isDeleted ? (
                                                 user?.role === 'Super Admin' && row.source === 'direct' && (
-                                                    <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1 text-green-600 hover:bg-green-100 rounded">
+                                                    <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-0.5 text-green-600 hover:bg-green-100 rounded">
                                                         <RefreshCw size={14}/>
                                                     </button>
                                                 )
                                             ) : (
                                                 <>
                                                     {row.source === 'direct' && (
-                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-1 text-purple-600 hover:bg-purple-100 rounded">
+                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-0.5 text-purple-600 hover:bg-purple-100 rounded">
                                                             <FileText size={14}/>
                                                         </button>
                                                     )}
-                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-1 text-blue-600 hover:bg-blue-100 rounded">
+                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-0.5 text-blue-600 hover:bg-blue-100 rounded">
                                                         <Edit size={14}/>
                                                     </button>
                                                     {row.source === 'direct' && (
-                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-1 text-red-600 hover:bg-red-100 rounded">
+                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-0.5 text-red-600 hover:bg-red-100 rounded">
                                                             <Trash2 size={14}/>
                                                         </button>
                                                     )}
