@@ -9,7 +9,7 @@ import { DetailModal } from '../components/DetailModal';
 import { FormModal } from '../components/FormModal';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye } from 'lucide-react';
 
 const SlipsDashboard: React.FC = () => {
   const [slips, setSlips] = useState<ReinsuranceSlip[]>([]);
@@ -34,6 +34,16 @@ const SlipsDashboard: React.FC = () => {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Kebab menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   // Delete State
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -300,7 +310,7 @@ const SlipsDashboard: React.FC = () => {
                     <SortableHeader label="Insured" sortKey="insuredName" />
                     <SortableHeader label="Limit of Liab" sortKey="limitOfLiability" />
                     <SortableHeader label="Broker / Reinsurer" sortKey="brokerReinsurer" />
-                    <th className="px-6 py-4 text-center">Actions</th>
+                    <th className="px-2 py-4 text-center w-12">Actions</th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -323,18 +333,29 @@ const SlipsDashboard: React.FC = () => {
                             {formatMoney(slip.limitOfLiability, slip.currency as string)}
                         </td>
                         <td className="px-6 py-4 text-gray-600">{slip.brokerReinsurer}</td>
-                        <td className="px-6 py-4 text-center">
-                             <div className="flex justify-center items-center gap-2">
-                                <button type="button" title="Print Slip Note" onClick={(e) => handleWording(e, slip.id)} className="p-1.5 rounded hover:bg-amber-100 text-amber-600 hover:text-amber-800 transition-colors cursor-pointer">
-                                  <FileText size={16} />
-                                </button>
-                                <button type="button" title="Edit" onClick={(e) => handleEdit(e, slip.id)} className="p-1.5 rounded hover:bg-blue-100 text-blue-600 hover:text-blue-800 transition-colors cursor-pointer">
-                                  <Edit size={16} />
-                                </button>
-                                {!slip.isDeleted && <button type="button" title="Delete" onClick={(e) => initiateDelete(e, slip.id)} className="p-1.5 rounded hover:bg-red-100 text-red-600 hover:text-red-800 transition-colors cursor-pointer">
-                                  <Trash2 size={16} />
-                                </button>}
-                            </div>
+                        <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                            <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === slip.id ? null : slip.id); }}
+                                className="p-1.5 hover:bg-gray-100 rounded-lg">
+                                <MoreVertical size={16} className="text-gray-500" />
+                            </button>
+                            {openMenuId === slip.id && (
+                                <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                                    <button onClick={() => { setOpenMenuId(null); setSelectedSlip(slip); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <Eye size={14} /> View
+                                    </button>
+                                    <button onClick={(e) => { setOpenMenuId(null); handleEdit(e as any, slip.id); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <Edit size={14} /> Edit
+                                    </button>
+                                    <button onClick={(e) => { setOpenMenuId(null); handleWording(e as any, slip.id); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                        <FileText size={14} /> Wording
+                                    </button>
+                                    {!slip.isDeleted && (
+                                        <button onClick={(e) => { setOpenMenuId(null); initiateDelete(e as any, slip.id); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                            <Trash2 size={14} /> Delete
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </td>
                     </tr>
                 ))}

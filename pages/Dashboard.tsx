@@ -15,7 +15,7 @@ import { PolicyFormContent } from '../components/PolicyFormContent';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List, Globe, Home, Briefcase, FileSpreadsheet } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List, Globe, Home, Briefcase, FileSpreadsheet, MoreVertical, Eye } from 'lucide-react';
 
 // --- MAPPER FUNCTIONS ---
 
@@ -305,6 +305,16 @@ const Dashboard: React.FC = () => {
     if (paginationRef.current) ro.observe(paginationRef.current);
     return () => ro.disconnect();
   }, []);
+
+  // Kebab menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   // Source Filter State
   const [sourceFilter, setSourceFilter] = useState<'All' | PortfolioSource>('All');
@@ -865,7 +875,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <th className="px-1 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
+                            <th className="px-2 py-3 border-b border-gray-200 w-12 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
                         </tr>
                     ) : (
                         <tr>
@@ -975,7 +985,7 @@ const Dashboard: React.FC = () => {
                             <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Type</th>
                             <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Structure</th>
 
-                            <th className="px-2 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
+                            <th className="px-2 py-3 border-b border-gray-200 w-12 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
                         </tr>
                     )}
                 </thead>
@@ -1069,32 +1079,41 @@ const Dashboard: React.FC = () => {
                                         {formatDate(row.expiryDate)}
                                     </td>
 
-                                    <td className="px-1 py-2 text-center w-20" onClick={e => e.stopPropagation()}>
-                                        <div className="flex items-center justify-center gap-0.5">
-                                            {row.isDeleted ? (
-                                                user?.role === 'Super Admin' && row.source === 'direct' && (
-                                                    <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-0.5 text-green-600 hover:bg-green-100 rounded">
-                                                        <RefreshCw size={14}/>
-                                                    </button>
-                                                )
-                                            ) : (
-                                                <>
-                                                    {row.source === 'direct' && (
-                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-0.5 text-purple-600 hover:bg-purple-100 rounded">
-                                                            <FileText size={14}/>
+                                    <td className="px-2 py-2 text-center w-12 relative" onClick={e => e.stopPropagation()}>
+                                        {row.isDeleted ? (
+                                            user?.role === 'Super Admin' && row.source === 'direct' && (
+                                                <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg">
+                                                    <RefreshCw size={14}/>
+                                                </button>
+                                            )
+                                        ) : (
+                                            <>
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === `${row.source}-${row.id}` ? null : `${row.source}-${row.id}`); }}
+                                                    className="p-1.5 hover:bg-gray-100 rounded-lg">
+                                                    <MoreVertical size={16} className="text-gray-500" />
+                                                </button>
+                                                {openMenuId === `${row.source}-${row.id}` && (
+                                                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                                                        <button onClick={() => { setOpenMenuId(null); handleRowClick(row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <Eye size={14} /> View
                                                         </button>
-                                                    )}
-                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-0.5 text-blue-600 hover:bg-blue-100 rounded">
-                                                        <Edit size={14}/>
-                                                    </button>
-                                                    {row.source === 'direct' && (
-                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-0.5 text-red-600 hover:bg-red-100 rounded">
-                                                            <Trash2 size={14}/>
+                                                        <button onClick={(e) => { setOpenMenuId(null); handleEdit(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <Edit size={14} /> Edit
                                                         </button>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
+                                                        {row.source === 'direct' && (
+                                                            <>
+                                                                <button onClick={(e) => { setOpenMenuId(null); handleWording(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                                    <FileText size={14} /> Wording
+                                                                </button>
+                                                                <button onClick={(e) => { setOpenMenuId(null); initiateDelete(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                                    <Trash2 size={14} /> Delete
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
                                     </td>
                                 </>
                             ) : (
@@ -1244,22 +1263,35 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.contractType || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.structure || '-'}</td>
 
-                                    <td className={`px-3 py-2 text-center sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`} onClick={e => e.stopPropagation()}>
-                                        <div className="flex justify-center gap-1">
-                                            {!row.isDeleted && (
-                                                <>
-                                                    {row.source === 'direct' && (
-                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-1 text-purple-600 hover:bg-purple-100 rounded">
-                                                            <FileText size={14}/>
+                                    <td className={`px-2 py-2 text-center w-12 relative sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`} onClick={e => e.stopPropagation()}>
+                                        {!row.isDeleted ? (
+                                            <>
+                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === `ext-${row.source}-${row.id}` ? null : `ext-${row.source}-${row.id}`); }}
+                                                    className="p-1.5 hover:bg-gray-100 rounded-lg">
+                                                    <MoreVertical size={16} className="text-gray-500" />
+                                                </button>
+                                                {openMenuId === `ext-${row.source}-${row.id}` && (
+                                                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                                                        <button onClick={() => { setOpenMenuId(null); handleRowClick(row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <Eye size={14} /> View
                                                         </button>
-                                                    )}
-                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-1 text-blue-600 hover:bg-blue-100 rounded"><Edit size={14}/></button>
-                                                    {row.source === 'direct' && (
-                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-1 text-red-600 hover:bg-red-100 rounded"><Trash2 size={14}/></button>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
+                                                        <button onClick={(e) => { setOpenMenuId(null); handleEdit(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                            <Edit size={14} /> Edit
+                                                        </button>
+                                                        {row.source === 'direct' && (
+                                                            <>
+                                                                <button onClick={(e) => { setOpenMenuId(null); handleWording(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                                    <FileText size={14} /> Wording
+                                                                </button>
+                                                                <button onClick={(e) => { setOpenMenuId(null); initiateDelete(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                                                                    <Trash2 size={14} /> Delete
+                                                                </button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </>
+                                        ) : null}
                                     </td>
                                 </>
                             )}

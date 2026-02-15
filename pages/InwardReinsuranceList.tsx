@@ -48,6 +48,13 @@ const InwardReinsuranceList: React.FC = () => {
     isOpen: false, id: '', number: ''
   });
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  useEffect(() => {
+    const handleClickOutside = () => setActionMenuOpen(null);
+    if (actionMenuOpen) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [actionMenuOpen]);
   const [migrationRequired, setMigrationRequired] = useState(false);
 
   // Modal state
@@ -396,7 +403,7 @@ const InwardReinsuranceList: React.FC = () => {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Limit</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Share</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Actions</th>
+                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase w-12">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -441,45 +448,20 @@ const InwardReinsuranceList: React.FC = () => {
                     <td className="px-4 py-3 text-center">
                       {getStatusBadge(contract.status)}
                     </td>
-                    <td className="px-4 py-3 text-center relative" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActionMenuOpen(actionMenuOpen === contract.id ? null : contract.id);
-                        }}
-                        className="p-1 text-gray-400 hover:text-gray-600 rounded"
-                      >
-                        <MoreVertical size={16} />
+                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => { e.stopPropagation(); setActionMenuOpen(actionMenuOpen === contract.id ? null : contract.id); }}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg">
+                        <MoreVertical size={16} className="text-gray-500" />
                       </button>
                       {actionMenuOpen === contract.id && (
-                        <div className="absolute right-4 top-10 bg-white border shadow-lg rounded-lg py-1 z-10 min-w-[120px]">
-                          <button
-                            onClick={() => {
-                              setEditingContractId(contract.id);
-                              setShowFormModal(true);
-                              setActionMenuOpen(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                          >
+                        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                          <button onClick={() => { setActionMenuOpen(null); setEditingContractId(contract.id); setShowFormModal(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <Eye size={14} /> View
                           </button>
-                          <button
-                            onClick={() => {
-                              setEditingContractId(contract.id);
-                              setShowFormModal(true);
-                              setActionMenuOpen(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
-                          >
+                          <button onClick={() => { setActionMenuOpen(null); setEditingContractId(contract.id); setShowFormModal(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <Edit size={14} /> Edit
                           </button>
-                          <button
-                            onClick={() => {
-                              setDeleteConfirm({ isOpen: true, id: contract.id, number: contract.contractNumber });
-                              setActionMenuOpen(null);
-                            }}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
-                          >
+                          <button onClick={() => { setActionMenuOpen(null); setDeleteConfirm({ isOpen: true, id: contract.id, number: contract.contractNumber }); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
                             <Trash2 size={14} /> Delete
                           </button>
                         </div>
@@ -531,14 +513,6 @@ const InwardReinsuranceList: React.FC = () => {
         confirmText="Delete"
         variant="danger"
       />
-
-      {/* Click outside to close action menu */}
-      {actionMenuOpen && (
-        <div
-          className="fixed inset-0 z-0"
-          onClick={() => setActionMenuOpen(null)}
-        />
-      )}
 
       {/* Form Modal */}
       <FormModal
