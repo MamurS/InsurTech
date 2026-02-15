@@ -683,7 +683,7 @@ const Dashboard: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       {/* Row 1: All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
         {/* Source Filter Pills */}
@@ -1272,6 +1272,14 @@ const Dashboard: React.FC = () => {
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     <p>No records found matching your criteria.</p>
+                                    {portfolioData.length === 0 && (
+                                        <button
+                                            onClick={fetchData}
+                                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                        >
+                                            <RefreshCw size={14} /> Retry
+                                        </button>
+                                    )}
                                 </div>
                             </td>
                         </tr>
