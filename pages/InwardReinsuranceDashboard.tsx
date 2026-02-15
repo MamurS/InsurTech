@@ -324,7 +324,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
       </div>
 
       {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
         {/* Search */}
         <div className="relative flex-1 min-w-[120px]">
@@ -409,19 +409,19 @@ const InwardReinsuranceDashboard: React.FC = () => {
             <p className="text-sm">Try adjusting your filters or create new contracts</p>
           </div>
         ) : (
-            <table className="w-full">
+            <table className="w-full table-fixed">
               <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contract #</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Origin</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Cedant</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Class</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Our Share</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">GWP</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">View</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Contract #</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-24">Origin</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Type</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide max-w-[200px]">Cedant</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide max-w-[120px]">Class</th>
+                  <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</th>
+                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">Our Share</th>
+                  <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">GWP</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">Status</th>
+                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">View</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -435,50 +435,50 @@ const InwardReinsuranceDashboard: React.FC = () => {
                     }}
                     className="hover:bg-slate-50 transition-colors cursor-pointer"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <span className="font-medium text-slate-800">{contract.contractNumber}</span>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 w-24">
                       {getTypeBadge(contract.origin)}
                     </td>
-                    <td className="px-4 py-3 text-slate-600 text-sm">
+                    <td className="px-3 py-3 text-slate-600 text-sm">
                       {contract.type} / {contract.structure}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 max-w-[200px]">
                       <div className="flex items-center gap-2">
-                        <Building2 size={16} className="text-slate-400" />
-                        <div>
-                          <p className="text-slate-700 font-medium">{contract.cedantName}</p>
+                        <Building2 size={16} className="text-slate-400 flex-shrink-0" />
+                        <div className="min-w-0">
+                          <p className="text-slate-700 font-medium truncate">{contract.cedantName}</p>
                           {contract.brokerName && (
-                            <p className="text-xs text-slate-400">via {contract.brokerName}</p>
+                            <p className="text-xs text-slate-400 truncate">via {contract.brokerName}</p>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-600 text-sm">{contract.classOfCover}</td>
-                    <td className="px-4 py-3 text-slate-600 text-sm">
+                    <td className="px-3 py-3 text-slate-600 text-sm max-w-[120px] truncate" title={contract.classOfCover}>{contract.classOfCover}</td>
+                    <td className="px-3 py-3 text-slate-600 text-sm whitespace-nowrap">
                       <div className="flex items-center gap-1">
-                        <Calendar size={14} className="text-slate-400" />
+                        <Calendar size={14} className="text-slate-400 flex-shrink-0" />
                         {formatDate(contract.inceptionDate)} - {formatDate(contract.expiryDate)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right text-slate-700 font-medium">
+                    <td className="px-3 py-3 text-right text-slate-700 font-medium w-20">
                       {contract.ourShare || 100}%
                     </td>
-                    <td className="px-4 py-3 text-right font-semibold text-slate-800">
+                    <td className="px-3 py-3 text-right font-semibold text-slate-800 whitespace-nowrap">
                       {formatCurrency(contract.grossPremium || 0)}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center w-20">
                       {getStatusBadge(contract.status)}
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center w-12">
                       <button
                         onClick={() => {
                           setEditingContractId(contract.id);
                           setEditingOrigin(contract.origin as 'FOREIGN' | 'DOMESTIC');
                           setShowFormModal(true);
                         }}
-                        className="p-2 hover:bg-slate-100 rounded-lg transition-colors inline-block"
+                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors inline-block"
                         title="View / Edit"
                       >
                         <Eye size={16} className="text-slate-500" />

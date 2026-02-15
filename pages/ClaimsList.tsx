@@ -63,7 +63,7 @@ const ClaimsList: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 pb-1">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3">
           {/* Search */}
@@ -163,19 +163,19 @@ const ClaimsList: React.FC = () => {
         {/* Table */}
         {!isLoading && !isError && (
             <>
-                    <table className="w-full text-left text-sm whitespace-nowrap">
+                    <table className="w-full text-left text-sm whitespace-nowrap table-fixed">
                         <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                             <tr>
-                                <th className="px-6 py-4">Claim Ref</th>
-                                <th className="px-6 py-4">Policy Ref</th>
-                                <th className="px-6 py-4">Status</th>
-                                <th className="px-6 py-4">Loss Date</th>
-                                <th className="px-6 py-4">Insured / Claimant</th>
-                                <th className="px-6 py-4 text-right bg-gray-50">Incurred (100%)</th>
-                                <th className="px-6 py-4 text-right bg-blue-50/50">Incurred (Our Share)</th>
-                                <th className="px-6 py-4 text-right bg-green-50/50">Paid (Our Share)</th>
-                                <th className="px-6 py-4 text-right bg-red-50/50">Outstanding</th>
-                                <th className="px-6 py-4 w-10"></th>
+                                <th className="px-4 py-4 w-[120px]">Claim Ref</th>
+                                <th className="px-4 py-4 w-[110px]">Policy Ref</th>
+                                <th className="px-4 py-4 w-[80px]">Status</th>
+                                <th className="px-4 py-4 w-[90px]">Loss Date</th>
+                                <th className="px-4 py-4">Insured / Claimant</th>
+                                <th className="px-4 py-4 text-right bg-gray-50 w-[110px]">Incurred (100%)</th>
+                                <th className="px-4 py-4 text-right bg-blue-50/50 w-[120px]">Incurred (Ours)</th>
+                                <th className="px-4 py-4 text-right bg-green-50/50 w-[110px]">Paid (Ours)</th>
+                                <th className="px-4 py-4 text-right bg-red-50/50 w-[100px]">Outstanding</th>
+                                <th className="px-4 py-4 w-10"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -185,14 +185,14 @@ const ClaimsList: React.FC = () => {
                                     onClick={() => navigate(`/claims/${claim.id}`)}
                                     className="hover:bg-blue-50 cursor-pointer transition-colors group"
                                 >
-                                    <td className="px-6 py-4 font-bold text-gray-900">
+                                    <td className="px-4 py-4 font-bold text-gray-900 truncate">
                                         {claim.claimNumber}
                                         {claim.liabilityType === 'INFORMATIONAL' && (
                                             <span className="ml-2 px-1.5 py-0.5 rounded text-[10px] bg-gray-200 text-gray-600 border border-gray-300">INFO</span>
                                         )}
                                     </td>
-                                    <td className="px-6 py-4 font-mono text-blue-600 text-xs">{claim.policyNumber}</td>
-                                    <td className="px-6 py-4">
+                                    <td className="px-4 py-4 font-mono text-blue-600 text-xs truncate">{claim.policyNumber}</td>
+                                    <td className="px-4 py-4">
                                         <span className={`px-2 py-1 rounded-full text-xs font-bold ${
                                             claim.status === 'OPEN' ? 'bg-green-100 text-green-800' :
                                             claim.status === 'CLOSED' ? 'bg-gray-100 text-gray-600' :
@@ -201,25 +201,25 @@ const ClaimsList: React.FC = () => {
                                             {claim.status}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-gray-600 text-xs">{formatDate(claim.lossDate)}</td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-medium text-gray-900 truncate max-w-[150px]" title={claim.insuredName}>{claim.insuredName}</div>
-                                        <div className="text-xs text-gray-500 truncate max-w-[150px]">{claim.claimantName}</div>
+                                    <td className="px-4 py-4 text-gray-600 text-xs">{formatDate(claim.lossDate)}</td>
+                                    <td className="px-4 py-4 overflow-hidden">
+                                        <div className="font-medium text-gray-900 truncate" title={claim.insuredName}>{claim.insuredName}</div>
+                                        <div className="text-xs text-gray-500 truncate">{claim.claimantName}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-gray-600 bg-gray-50/30">
+                                    <td className="px-4 py-4 text-right font-mono text-gray-600 bg-gray-50/30">
                                         {formatMoney(claim.totalIncurred100)}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono font-bold text-gray-900 bg-blue-50/20">
+                                    <td className="px-4 py-4 text-right font-mono font-bold text-gray-900 bg-blue-50/20">
                                         {formatMoney(claim.totalIncurredOurShare)}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-green-700 bg-green-50/20">
+                                    <td className="px-4 py-4 text-right font-mono text-green-700 bg-green-50/20">
                                         {formatMoney(claim.totalPaidOurShare)}
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-red-700 bg-red-50/20">
+                                    <td className="px-4 py-4 text-right font-mono text-red-700 bg-red-50/20">
                                         {formatMoney(claim.outstandingOurShare)}
                                     </td>
-                                    <td className="px-6 py-4 text-right text-gray-400 group-hover:text-blue-500">
-                                        <ArrowRight size={18} />
+                                    <td className="px-4 py-4 text-right text-gray-400 group-hover:text-blue-500">
+                                        <ArrowRight size={16} />
                                     </td>
                                 </tr>
                             ))}
@@ -237,11 +237,11 @@ const ClaimsList: React.FC = () => {
                         {claims.length > 0 && (
                             <tfoot className="bg-slate-50 border-t-2 border-slate-200 font-bold text-slate-800 text-xs shadow-inner">
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-3 text-right uppercase tracking-wider">Page Summary:</td>
-                                    <td className="px-6 py-3 text-right">-</td>
-                                    <td className="px-6 py-3 text-right font-mono">{formatMoney(summaryIncurred)}</td>
-                                    <td className="px-6 py-3 text-right font-mono text-green-800">{formatMoney(summaryPaid)}</td>
-                                    <td className="px-6 py-3 text-right font-mono text-red-800">{formatMoney(summaryOutstanding)}</td>
+                                    <td colSpan={5} className="px-4 py-3 text-right uppercase tracking-wider">Page Summary:</td>
+                                    <td className="px-4 py-3 text-right">-</td>
+                                    <td className="px-4 py-3 text-right font-mono">{formatMoney(summaryIncurred)}</td>
+                                    <td className="px-4 py-3 text-right font-mono text-green-800">{formatMoney(summaryPaid)}</td>
+                                    <td className="px-4 py-3 text-right font-mono text-red-800">{formatMoney(summaryOutstanding)}</td>
                                     <td></td>
                                 </tr>
                             </tfoot>
