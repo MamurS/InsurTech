@@ -8,7 +8,7 @@ import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFor
 import {
   Search, RefreshCw, Download,
   Globe, Home, TrendingUp, DollarSign,
-  FileText, Building2, Calendar, Eye
+  FileText, Building2, Calendar, Eye, Edit, MoreVertical
 } from 'lucide-react';
 
 const InwardReinsuranceDashboard: React.FC = () => {
@@ -34,6 +34,16 @@ const InwardReinsuranceDashboard: React.FC = () => {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Kebab menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   // Modal state
   const [showFormModal, setShowFormModal] = useState(false);
@@ -421,7 +431,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
                   <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">Our Share</th>
                   <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">GWP</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">Status</th>
-                  <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">View</th>
+                  <th className="text-center px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -471,18 +481,21 @@ const InwardReinsuranceDashboard: React.FC = () => {
                     <td className="px-3 py-3 text-center w-20">
                       {getStatusBadge(contract.status)}
                     </td>
-                    <td className="px-3 py-3 text-center w-12">
-                      <button
-                        onClick={() => {
-                          setEditingContractId(contract.id);
-                          setEditingOrigin(contract.origin as 'FOREIGN' | 'DOMESTIC');
-                          setShowFormModal(true);
-                        }}
-                        className="p-1.5 hover:bg-slate-100 rounded-lg transition-colors inline-block"
-                        title="View / Edit"
-                      >
-                        <Eye size={16} className="text-slate-500" />
+                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === contract.id ? null : contract.id); }}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg">
+                        <MoreVertical size={16} className="text-gray-500" />
                       </button>
+                      {openMenuId === contract.id && (
+                        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                          <button onClick={() => { setOpenMenuId(null); setEditingContractId(contract.id); setEditingOrigin(contract.origin as 'FOREIGN' | 'DOMESTIC'); setShowFormModal(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <Eye size={14} /> View
+                          </button>
+                          <button onClick={() => { setOpenMenuId(null); setEditingContractId(contract.id); setEditingOrigin(contract.origin as 'FOREIGN' | 'DOMESTIC'); setShowFormModal(true); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <Edit size={14} /> Edit
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

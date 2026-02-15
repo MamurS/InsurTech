@@ -5,12 +5,22 @@ import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
 import RegisterClaimModal from '../components/RegisterClaimModal';
-import { AlertOctagon, Search, Plus, Filter, ArrowRight, ChevronLeft, ChevronRight, Loader2, RefreshCw, Download } from 'lucide-react';
+import { AlertOctagon, Search, Plus, Filter, ChevronLeft, ChevronRight, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+  // Kebab menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   // Sticky offset measurement
   const filterRef = useRef<HTMLDivElement>(null);
@@ -175,7 +185,7 @@ const ClaimsList: React.FC = () => {
                                 <th className="px-4 py-4 text-right bg-blue-50/50 w-[120px]">Incurred (Ours)</th>
                                 <th className="px-4 py-4 text-right bg-green-50/50 w-[110px]">Paid (Ours)</th>
                                 <th className="px-4 py-4 text-right bg-red-50/50 w-[100px]">Outstanding</th>
-                                <th className="px-4 py-4 w-10"></th>
+                                <th className="px-2 py-4 text-center w-12">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -218,8 +228,18 @@ const ClaimsList: React.FC = () => {
                                     <td className="px-4 py-4 text-right font-mono text-red-700 bg-red-50/20">
                                         {formatMoney(claim.outstandingOurShare)}
                                     </td>
-                                    <td className="px-4 py-4 text-right text-gray-400 group-hover:text-blue-500">
-                                        <ArrowRight size={16} />
+                                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                                        <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === claim.id ? null : claim.id); }}
+                                            className="p-1.5 hover:bg-gray-100 rounded-lg">
+                                            <MoreVertical size={16} className="text-gray-500" />
+                                        </button>
+                                        {openMenuId === claim.id && (
+                                            <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                                                <button onClick={() => { setOpenMenuId(null); navigate(`/claims/${claim.id}`); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                                                    <Eye size={14} /> View
+                                                </button>
+                                            </div>
+                                        )}
                                     </td>
                                 </tr>
                             ))}

@@ -9,7 +9,7 @@ import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormCon
 import { formatDate } from '../utils/dateUtils';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
-  Building2, RefreshCw, Globe, MapPin, Download
+  Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
 } from 'lucide-react';
 
 const DirectInsuranceList: React.FC = () => {
@@ -34,6 +34,16 @@ const DirectInsuranceList: React.FC = () => {
   }, []);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
+
+  // Kebab menu state
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    if (openMenuId) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [openMenuId]);
 
   // Modal states
   const [showFormModal, setShowFormModal] = useState(false);
@@ -298,7 +308,7 @@ const DirectInsuranceList: React.FC = () => {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Period</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">GWP</th>
                   <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Actions</th>
+                  <th className="text-center px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -335,30 +345,24 @@ const DirectInsuranceList: React.FC = () => {
                     <td className="px-4 py-3 text-center">
                       {getStatusBadge(policy.status)}
                     </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1">
-                        <button
-                          onClick={() => handleViewPolicy(policy.id)}
-                          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="View"
-                        >
-                          <Eye size={16} className="text-slate-500" />
-                        </button>
-                        <button
-                          onClick={() => handleEditPolicy(policy.id)}
-                          className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit size={16} className="text-slate-500" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteConfirm({ show: true, id: policy.id, number: policy.policyNumber })}
-                          className="p-2 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} className="text-red-500" />
-                        </button>
-                      </div>
+                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                      <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === policy.id ? null : policy.id); }}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg">
+                        <MoreVertical size={16} className="text-gray-500" />
+                      </button>
+                      {openMenuId === policy.id && (
+                        <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
+                          <button onClick={() => { setOpenMenuId(null); handleViewPolicy(policy.id); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <Eye size={14} /> View
+                          </button>
+                          <button onClick={() => { setOpenMenuId(null); handleEditPolicy(policy.id); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                            <Edit size={14} /> Edit
+                          </button>
+                          <button onClick={() => { setOpenMenuId(null); setDeleteConfirm({ show: true, id: policy.id, number: policy.policyNumber }); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                            <Trash2 size={14} /> Delete
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
