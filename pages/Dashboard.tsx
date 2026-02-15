@@ -853,7 +853,7 @@ const Dashboard: React.FC = () => {
                 <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${stickyOffsets.thead}px` }}>
                     {viewMode === 'compact' ? (
                         <tr>
-                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
+                            <th className="px-2 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
                             <SortableHeader label="Source" sortKey="source" />
                             <SortableHeader label="Ref No" sortKey="referenceNumber" />
                             <SortableHeader label="Insured / Cedant" sortKey="insuredName" />
@@ -865,7 +865,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <th className="px-3 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
+                            <th className="px-2 py-3 border-b border-gray-200 w-16 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
                         </tr>
                     ) : (
                         <tr>
@@ -975,7 +975,7 @@ const Dashboard: React.FC = () => {
                             <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Type</th>
                             <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Structure</th>
 
-                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
+                            <th className="px-2 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
                         </tr>
                     )}
                 </thead>
@@ -991,7 +991,7 @@ const Dashboard: React.FC = () => {
                         >
                             {viewMode === 'compact' ? (
                                 <>
-                                    <td className="px-3 py-3 text-center">
+                                    <td className="px-2 py-3 text-center">
                                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                           row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
                                           row.normalizedStatus === 'Pending' ? 'text-amber-700 bg-amber-100' :
@@ -1001,25 +1001,25 @@ const Dashboard: React.FC = () => {
                                           {row.isDeleted ? <><Trash2 size={10}/> DELETED</> : row.normalizedStatus.toUpperCase()}
                                         </span>
                                     </td>
-                                    <td className="px-3 py-3">
+                                    <td className="px-2 py-3">
                                         <SourceBadge source={row.source} />
                                     </td>
-                                    <td className="px-3 py-3 font-mono text-xs text-blue-600 font-medium">
+                                    <td className="px-2 py-3 font-mono text-xs text-blue-600 font-medium max-w-[140px] truncate">
                                         {row.referenceNumber}
                                     </td>
-                                    <td className="px-3 py-3 font-medium text-gray-900">
+                                    <td className="px-2 py-3 font-medium text-gray-900 max-w-[180px]">
                                         {row.cedantName ? (
-                                            <div className="flex flex-col">
+                                            <div className="flex flex-col min-w-0">
                                                 <span
-                                                    className="hover:text-blue-600 hover:underline cursor-pointer"
+                                                    className="hover:text-blue-600 hover:underline cursor-pointer truncate"
                                                     onClick={(e) => handleEntityClick(e, row.cedantName)}
                                                 >
                                                     {row.cedantName}
                                                 </span>
-                                                <span className="text-[10px] text-gray-500 flex gap-1">
+                                                <span className="text-[10px] text-gray-500 flex gap-1 truncate">
                                                     Orig:
                                                     <span
-                                                        className="hover:text-blue-600 hover:underline cursor-pointer"
+                                                        className="hover:text-blue-600 hover:underline cursor-pointer truncate"
                                                         onClick={(e) => handleEntityClick(e, row.insuredName)}
                                                     >
                                                         {row.insuredName}
@@ -1028,14 +1028,14 @@ const Dashboard: React.FC = () => {
                                             </div>
                                         ) : (
                                             <span
-                                                className="hover:text-blue-600 hover:underline cursor-pointer"
+                                                className="hover:text-blue-600 hover:underline cursor-pointer truncate block"
                                                 onClick={(e) => handleEntityClick(e, row.insuredName)}
                                             >
                                                 {row.insuredName}
                                             </span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-600">
+                                    <td className="px-2 py-3 text-xs text-gray-600 max-w-[120px] truncate">
                                         {row.brokerName ? (
                                             <span
                                                 className="text-blue-600 hover:underline cursor-pointer"
@@ -1047,48 +1047,48 @@ const Dashboard: React.FC = () => {
                                             <span className="text-gray-400 italic">-</span>
                                         )}
                                     </td>
-                                    <td className="px-3 py-3 text-gray-600 text-xs">
+                                    <td className="px-2 py-3 text-gray-600 text-xs max-w-[120px] truncate">
                                         {row.classOfBusiness}
                                     </td>
-                                    <td className="px-3 py-3 text-gray-600 text-xs">
+                                    <td className="px-2 py-3 text-gray-600 text-xs max-w-[100px] truncate">
                                         {row.territory || '-'}
                                     </td>
-                                    <td className="px-3 py-3 text-right font-medium text-gray-700">
+                                    <td className="px-2 py-3 text-right font-medium text-gray-700 whitespace-nowrap">
                                         {formatMoney(row.limit, row.currency)}
                                     </td>
-                                    <td className="px-3 py-3 text-right font-bold text-gray-900 bg-gray-50/50">
+                                    <td className="px-2 py-3 text-right font-bold text-gray-900 bg-gray-50/50 whitespace-nowrap">
                                         {formatMoney(row.grossPremium, row.currency)}
                                     </td>
-                                    <td className="px-3 py-3 text-right text-xs">
+                                    <td className="px-2 py-3 text-right text-xs whitespace-nowrap">
                                         {row.ourShare}%
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-600">
+                                    <td className="px-2 py-3 text-xs text-gray-600 whitespace-nowrap">
                                         {formatDate(row.inceptionDate)}
                                     </td>
-                                    <td className="px-3 py-3 text-xs text-gray-600">
+                                    <td className="px-2 py-3 text-xs text-gray-600 whitespace-nowrap">
                                         {formatDate(row.expiryDate)}
                                     </td>
 
-                                    <td className="px-3 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                        <div className="flex justify-center gap-1">
+                                    <td className="px-1 py-3 text-center" onClick={e => e.stopPropagation()}>
+                                        <div className="flex justify-center gap-0.5">
                                             {row.isDeleted ? (
                                                 user?.role === 'Super Admin' && row.source === 'direct' && (
-                                                    <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1.5 text-green-600 hover:bg-green-100 rounded">
+                                                    <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1 text-green-600 hover:bg-green-100 rounded">
                                                         <RefreshCw size={14}/>
                                                     </button>
                                                 )
                                             ) : (
                                                 <>
                                                     {row.source === 'direct' && (
-                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-1.5 text-purple-600 hover:bg-purple-100 rounded">
+                                                        <button onClick={(e) => handleWording(e, row)} title="Wording" className="p-1 text-purple-600 hover:bg-purple-100 rounded">
                                                             <FileText size={14}/>
                                                         </button>
                                                     )}
-                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-1.5 text-blue-600 hover:bg-blue-100 rounded">
+                                                    <button onClick={(e) => handleEdit(e, row)} title="Edit" className="p-1 text-blue-600 hover:bg-blue-100 rounded">
                                                         <Edit size={14}/>
                                                     </button>
                                                     {row.source === 'direct' && (
-                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-1.5 text-red-600 hover:bg-red-100 rounded">
+                                                        <button onClick={(e) => initiateDelete(e, row)} title="Delete" className="p-1 text-red-600 hover:bg-red-100 rounded">
                                                             <Trash2 size={14}/>
                                                         </button>
                                                     )}
