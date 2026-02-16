@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, PolicyStatus } from '../types';
@@ -9,7 +9,8 @@ import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormCon
 import { formatDate } from '../utils/dateUtils';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
-  Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
+  Building2, RefreshCw, Globe, MapPin, Download, MoreVertical,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
 
@@ -17,9 +18,18 @@ const DirectInsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [policies, setPolicies] = useState<Policy[]>([]);
+  // Server-side pagination state
+  const [policies, setPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage] = useState(25);
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
+
+  // Search with debounce
+  const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sticky offset measurement
   const filterRef = useRef<HTMLDivElement>(null);
@@ -33,8 +43,12 @@ const DirectInsuranceList: React.FC = () => {
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
+
+  // Stats (lightweight count queries)
+  const [stats, setStats] = useState({ total: 0, uzbekistan: 0, foreign: 0, active: 0, draft: 0 });
 
   // Kebab menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -53,60 +67,66 @@ const DirectInsuranceList: React.FC = () => {
     show: false, id: '', number: ''
   });
 
-  // Load policies
-  const loadPolicies = async () => {
+  // Load stats (separate from data fetch)
+  const loadStats = useCallback(async () => {
+    try {
+      const s = await DB.getDirectPoliciesStats();
+      setStats(s);
+    } catch (error) {
+      console.error('Failed to load stats:', error);
+    }
+  }, []);
+
+  // Fetch paginated data from view
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const allPolicies = await DB.getPolicies();
-      // Filter for Direct Insurance only (channel = 'Direct')
-      const directPolicies = allPolicies.filter(p =>
-        p.channel === 'Direct' && !p.isDeleted
-      );
-      setPolicies(directPolicies);
+      const result = await DB.getDirectPoliciesPage({
+        page: currentPage - 1, // API is 0-indexed
+        pageSize: rowsPerPage,
+        countryFilter,
+        statusFilter,
+        searchTerm,
+      });
+      setPolicies(result.rows);
+      setTotalCount(result.totalCount);
     } catch (error) {
       console.error('Failed to load policies:', error);
       toast.error('Failed to load policies');
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentPage, rowsPerPage, countryFilter, statusFilter, searchTerm]);
 
   useEffect(() => {
-    loadPolicies();
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
-  // Filtered policies
-  const filteredPolicies = useMemo(() => {
-    return policies.filter(policy => {
-      const matchesSearch =
-        policy.policyNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        policy.insuredName?.toLowerCase().includes(searchTerm.toLowerCase());
+  // Load stats on mount and after mutations
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
-      const matchesStatus = statusFilter === 'all' || policy.status === statusFilter;
+  // Debounced search
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 300);
+  };
 
-      const matchesCountry = countryFilter === 'all' ||
-        (countryFilter === 'uzbekistan' && policy.insuredCountry === 'Uzbekistan') ||
-        (countryFilter === 'foreign' && policy.insuredCountry !== 'Uzbekistan');
+  // Filter changes reset to page 1
+  const handleCountryFilterChange = (value: string) => {
+    setCountryFilter(value);
+    setCurrentPage(1);
+  };
 
-      return matchesSearch && matchesStatus && matchesCountry;
-    });
-  }, [policies, searchTerm, statusFilter, countryFilter]);
-
-  // Stats
-  const stats = useMemo(() => {
-    const uzbekPolicies = policies.filter(p => p.insuredCountry === 'Uzbekistan');
-    const foreignPolicies = policies.filter(p => p.insuredCountry && p.insuredCountry !== 'Uzbekistan');
-    const totalGWP = policies.reduce((sum, p) => sum + (p.grossPremium || 0), 0);
-
-    return {
-      total: policies.length,
-      uzbekistan: uzbekPolicies.length,
-      foreign: foreignPolicies.length,
-      totalGWP,
-      active: policies.filter(p => p.status === 'Active').length,
-      draft: policies.filter(p => p.status === 'Draft').length,
-    };
-  }, [policies]);
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+  };
 
   // Handlers
   const handleNewPolicy = () => {
@@ -120,7 +140,6 @@ const DirectInsuranceList: React.FC = () => {
   };
 
   const handleViewPolicy = (id: string) => {
-    // Open the form modal to view/edit the policy
     setEditingPolicyId(id);
     setShowFormModal(true);
   };
@@ -130,7 +149,8 @@ const DirectInsuranceList: React.FC = () => {
     try {
       await DB.deletePolicy(deleteConfirm.id);
       toast.success(`Policy ${deleteConfirm.number} deleted`);
-      loadPolicies();
+      fetchData();
+      loadStats();
     } catch (error) {
       toast.error('Failed to delete policy');
     } finally {
@@ -141,7 +161,8 @@ const DirectInsuranceList: React.FC = () => {
   const handleFormSave = () => {
     setShowFormModal(false);
     setEditingPolicyId(undefined);
-    loadPolicies();
+    fetchData();
+    loadStats();
     toast.success(editingPolicyId ? 'Policy updated' : 'Policy created');
   };
 
@@ -166,15 +187,15 @@ const DirectInsuranceList: React.FC = () => {
   };
 
   const handleExport = () => {
-    if (filteredPolicies.length === 0) return;
-    const exportData = filteredPolicies.map(p => ({
-      'Policy #': p.policyNumber,
-      'Insured': p.insuredName,
-      'Country': p.insuredCountry || '',
-      'Class': p.classOfInsurance || '',
-      'Inception': p.inceptionDate || '',
-      'Expiry': p.expiryDate || '',
-      'GWP': p.grossPremium || 0,
+    if (policies.length === 0) return;
+    const exportData = policies.map((p: any) => ({
+      'Policy #': p.policy_number,
+      'Insured': p.insured_name,
+      'Country': p.territory || '',
+      'Class': p.class_of_business || '',
+      'Inception': p.inception_date || '',
+      'Expiry': p.expiry_date || '',
+      'GWP': p.gross_premium || 0,
       'Status': p.status,
     }));
     exportToExcel(exportData, `Direct_Insurance_${new Date().toISOString().split('T')[0]}`, 'Direct Insurance');
@@ -192,7 +213,7 @@ const DirectInsuranceList: React.FC = () => {
   return (
     <div>
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4">
           <p className="text-xs text-slate-500 uppercase tracking-wide">Total Policies</p>
           <p className="text-2xl font-bold text-slate-800 mt-1">{stats.total}</p>
@@ -217,10 +238,6 @@ const DirectInsuranceList: React.FC = () => {
           <p className="text-xs text-slate-500 uppercase tracking-wide">Draft</p>
           <p className="text-2xl font-bold text-slate-400 mt-1">{stats.draft}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4">
-          <p className="text-xs text-slate-500 uppercase tracking-wide">Total GWP</p>
-          <p className="text-2xl font-bold text-slate-800 mt-1">{formatCurrency(stats.totalGWP)}</p>
-        </div>
       </div>
 
       {/* Sticky filter bar */}
@@ -233,8 +250,8 @@ const DirectInsuranceList: React.FC = () => {
             <input
               type="text"
               placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchInput}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
             />
           </div>
@@ -242,7 +259,7 @@ const DirectInsuranceList: React.FC = () => {
           {/* Country Filter */}
           <select
             value={countryFilter}
-            onChange={(e) => setCountryFilter(e.target.value)}
+            onChange={(e) => handleCountryFilterChange(e.target.value)}
             className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
           >
             <option value="all">All Countries</option>
@@ -253,7 +270,7 @@ const DirectInsuranceList: React.FC = () => {
           {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => handleStatusFilterChange(e.target.value)}
             className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
           >
             <option value="all">All Statuses</option>
@@ -265,7 +282,7 @@ const DirectInsuranceList: React.FC = () => {
 
           {/* Refresh */}
           <button
-            onClick={loadPolicies}
+            onClick={() => { fetchData(); loadStats(); }}
             className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
             title="Refresh"
           >
@@ -301,7 +318,7 @@ const DirectInsuranceList: React.FC = () => {
           <div className="flex items-center justify-center h-64">
             <RefreshCw className="animate-spin text-blue-600" size={32} />
           </div>
-        ) : filteredPolicies.length === 0 ? (
+        ) : policies.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-400">
             <FileText size={48} className="mb-4 opacity-50" />
             <p className="text-lg font-medium">No policies found</p>
@@ -315,6 +332,7 @@ const DirectInsuranceList: React.FC = () => {
             </button>
           </div>
         ) : (
+          <>
             <table className="w-full">
               <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
@@ -329,35 +347,35 @@ const DirectInsuranceList: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredPolicies.map((policy) => (
+                {policies.map((policy: any) => (
                   <tr
                     key={policy.id}
                     onClick={() => handleViewPolicy(policy.id)}
                     className="hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     <td className="px-4 py-3">
-                      <span className="font-medium text-slate-800">{policy.policyNumber}</span>
+                      <span className="font-medium text-slate-800">{policy.policy_number}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Building2 size={16} className="text-slate-400" />
-                        <span className="text-slate-700">{policy.insuredName}</span>
+                        <span className="text-slate-700">{policy.insured_name}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center gap-1 text-sm ${
-                        policy.insuredCountry === 'Uzbekistan' ? 'text-blue-600' : 'text-purple-600'
+                        policy.territory === 'Uzbekistan' ? 'text-blue-600' : 'text-purple-600'
                       }`}>
-                        {policy.insuredCountry === 'Uzbekistan' ? <MapPin size={14} /> : <Globe size={14} />}
-                        {policy.insuredCountry || 'N/A'}
+                        {policy.territory === 'Uzbekistan' ? <MapPin size={14} /> : <Globe size={14} />}
+                        {policy.territory || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-600 text-sm">{policy.classOfInsurance}</td>
+                    <td className="px-4 py-3 text-slate-600 text-sm">{policy.class_of_business}</td>
                     <td className="px-4 py-3 text-slate-600 text-sm">
-                      {formatDate(policy.inceptionDate)} - {formatDate(policy.expiryDate)}
+                      {formatDate(policy.inception_date)} - {formatDate(policy.expiry_date)}
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-800">
-                      {formatCurrency(policy.grossPremium || 0)}
+                      {formatCurrency(policy.gross_premium || 0)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       {getStatusBadge(policy.status)}
@@ -375,7 +393,7 @@ const DirectInsuranceList: React.FC = () => {
                           <button onClick={() => { setOpenMenuId(null); handleEditPolicy(policy.id); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
                             <Edit size={14} /> Edit
                           </button>
-                          <button onClick={() => { setOpenMenuId(null); setDeleteConfirm({ show: true, id: policy.id, number: policy.policyNumber }); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
+                          <button onClick={() => { setOpenMenuId(null); setDeleteConfirm({ show: true, id: policy.id, number: policy.policy_number }); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
                             <Trash2 size={14} /> Delete
                           </button>
                         </div>
@@ -385,6 +403,33 @@ const DirectInsuranceList: React.FC = () => {
                 ))}
               </tbody>
             </table>
+
+            {/* Pagination Controls */}
+            <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
+              <div className="text-sm text-gray-500">
+                Showing <span className="font-medium">{(currentPage - 1) * rowsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * rowsPerPage, totalCount)}</span> of <span className="font-medium">{totalCount}</span> policies
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm"
+                >
+                  <ChevronLeft size={16}/>
+                </button>
+                <span className="flex items-center px-4 text-sm font-medium bg-white border rounded-lg shadow-sm">
+                  Page {currentPage} of {totalPages || 1}
+                </span>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages || totalPages === 0}
+                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm"
+                >
+                  <ChevronRight size={16}/>
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
