@@ -471,9 +471,25 @@ const Dashboard: React.FC = () => {
         originalData: null as any,
       }));
 
-      // If "All" source filter, append slips
+      // If "All" source filter, append slips (filtered client-side by search term)
       if (sourceFilter === 'All') {
-        const slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
+        let slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
+        // Slips aren't in the DB view, so apply search filter client-side
+        if (searchTerm && searchTerm.trim()) {
+          const term = searchTerm.trim().toLowerCase();
+          slipRows = slipRows.filter(row =>
+            (row.referenceNumber || '').toLowerCase().includes(term) ||
+            (row.insuredName || '').toLowerCase().includes(term) ||
+            (row.brokerName || '').toLowerCase().includes(term) ||
+            (row.classOfBusiness || '').toLowerCase().includes(term)
+          );
+        }
+        // Also apply status filter client-side for slips
+        if (statusFilter && statusFilter !== 'All') {
+          slipRows = slipRows.filter(row =>
+            row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
+          );
+        }
         setPortfolioData([...rows, ...slipRows]);
         setTotalCount(result.totalCount + slipRows.length);
       } else {

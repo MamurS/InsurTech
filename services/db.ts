@@ -934,11 +934,13 @@ export const DB = {
       query = query.ilike('status', statusFilter);
     }
 
-    // Search across reference_number, insured_name, broker_name
+    // Search across reference_number, insured_name, broker_name, cedant_name
+    // NOTE: cedant_name requires the v_portfolio view to include it.
+    // Run the SQL migration in supabase_portfolio_view_add_cedant.sql first.
     if (searchTerm && searchTerm.trim()) {
       const term = searchTerm.trim();
       query = query.or(
-        `reference_number.ilike.%${term}%,insured_name.ilike.%${term}%,broker_name.ilike.%${term}%`
+        `reference_number.ilike.%${term}%,insured_name.ilike.%${term}%,broker_name.ilike.%${term}%,cedant_name.ilike.%${term}%`
       );
     }
 
