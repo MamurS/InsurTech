@@ -181,35 +181,54 @@ const mapInwardReinsuranceToPortfolioRow = (ir: InwardReinsurance): PortfolioRow
   originalData: ir,
 });
 
-const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => ({
-  id: s.id,
-  source: 'slip',
-  referenceNumber: s.slipNumber || '',
+// Detect shifted column data from legacy CSV import:
+// insuredName got a numeric ID, brokerReinsurer got the actual insured name.
+// For new slips (created via form), insuredName is correct.
+const isNumericValue = (v: string) => /^\d+(\.\d+)?$/.test(v);
 
-  // Parties
-  insuredName: s.insuredName || '',
-  brokerName: s.brokerReinsurer || '',
+const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => {
+  // If insuredName is numeric, columns are shifted — use brokerReinsurer as insured
+  const shiftedColumns = !s.insuredName || isNumericValue(s.insuredName);
+  const insured = shiftedColumns ? (s.brokerReinsurer || '') : (s.insuredName || '');
+  const broker = shiftedColumns ? '' : (s.brokerReinsurer || '');
 
-  // Classification
-  classOfBusiness: 'Reinsurance Slip',
+  // Clean up numeric slip numbers from legacy import (e.g. "900.0" → "SLIP-900")
+  let refNum = s.slipNumber || '';
+  const cleanRef = refNum.replace(/\.0$/, '');
+  if (/^\d+$/.test(cleanRef)) {
+    refNum = `SLIP-${cleanRef}`;
+  }
 
-  // Financial
-  currency: (s.currency as Currency) || Currency.USD,
-  limit: Number(s.limitOfLiability || 0),
-  grossPremium: 0,
-  ourShare: 100,
+  return {
+    id: s.id,
+    source: 'slip',
+    referenceNumber: refNum,
 
-  // Dates
-  inceptionDate: s.date || '',
-  expiryDate: s.date || '',
-  dateOfSlip: s.date || '',
+    // Parties — fixed for shifted column data
+    insuredName: insured,
+    brokerName: broker,
 
-  // Status
-  status: s.status || 'Draft',
-  normalizedStatus: normalizeStatus(s.status || 'Draft', s.isDeleted),
-  isDeleted: s.isDeleted,
-  originalData: s,
-});
+    // Classification
+    classOfBusiness: 'Reinsurance Slip',
+
+    // Financial
+    currency: (s.currency as Currency) || Currency.USD,
+    limit: Number(s.limitOfLiability || 0),
+    grossPremium: 0,
+    ourShare: 100,
+
+    // Dates
+    inceptionDate: s.date || '',
+    expiryDate: s.date || '',
+    dateOfSlip: s.date || '',
+
+    // Status
+    status: s.status || 'Draft',
+    normalizedStatus: normalizeStatus(s.status || 'Draft', s.isDeleted),
+    isDeleted: s.isDeleted,
+    originalData: s,
+  };
+};
 
 // LEGACY: Client-side consolidation (replaced by v_portfolio view)
 // Kept as fallback in case view is unavailable
@@ -454,17 +473,6 @@ const Dashboard: React.FC = () => {
 
       // If "All" source filter, append slips
       if (sourceFilter === 'All') {
-        // DEBUG: Log slip data before and after mapping
-        if (slips.length > 0) {
-          console.log('[DEBUG PORTFOLIO] First slip object:', JSON.stringify(slips[0], null, 2));
-          const testRow = mapSlipToPortfolioRow(slips[0] as ReinsuranceSlip);
-          console.log('[DEBUG PORTFOLIO] Mapped to PortfolioRow:', JSON.stringify({
-            referenceNumber: testRow.referenceNumber,
-            insuredName: testRow.insuredName,
-            brokerName: testRow.brokerName,
-            source: testRow.source,
-          }, null, 2));
-        }
         const slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
         setPortfolioData([...rows, ...slipRows]);
         setTotalCount(result.totalCount + slipRows.length);

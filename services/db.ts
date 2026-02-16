@@ -98,23 +98,23 @@ const toAppPolicy = (dbRecord: any): Policy => {
   } as Policy;
 };
 
-// Map raw DB row to ReinsuranceSlip, handling both camelCase and snake_case column names
-// Also handles lowercase (unquoted PostgreSQL) variants: slipnumber, insuredname, etc.
+// Map raw DB row to ReinsuranceSlip, handling both camelCase and snake_case column names.
+// NOTE: Legacy CSV import has shifted columns (insuredName has numeric ID,
+// brokerReinsurer has the actual insured name). The display layer handles the swap
+// via isNumericValue() heuristic — this mapper preserves raw values as strings.
 const toAppSlip = (row: any): ReinsuranceSlip => {
-  // Try all possible column name variants for each field
-  const slipNum = row.slipNumber ?? row.slip_number ?? row.slipnumber ?? row.reference_number ?? '';
-  const insured = row.insuredName ?? row.insured_name ?? row.insuredname
-    ?? row.proposed_insured ?? row.proposedInsured ?? row.cedant_name ?? row.cedantName ?? '';
-  const broker = row.brokerReinsurer ?? row.broker_reinsurer ?? row.brokerreinsurer ?? '';
-  const limit = row.limitOfLiability ?? row.limit_of_liability ?? row.limitofliability ?? 0;
-  const deleted = row.isDeleted ?? row.is_deleted ?? row.isdeleted ?? false;
+  const slipNum = row.slipNumber ?? row.slip_number ?? '';
+  const insured = row.insuredName ?? row.insured_name ?? '';
+  const broker = row.brokerReinsurer ?? row.broker_reinsurer ?? '';
+  const limit = row.limitOfLiability ?? row.limit_of_liability ?? 0;
+  const deleted = row.isDeleted ?? row.is_deleted ?? false;
 
   return {
     id: row.id,
-    slipNumber: typeof slipNum === 'number' ? String(Math.round(slipNum)) : String(slipNum || ''),
+    slipNumber: String(slipNum ?? ''),
     date: row.date || '',
-    insuredName: typeof insured === 'number' ? '' : String(insured || ''),
-    brokerReinsurer: typeof broker === 'number' ? '' : String(broker || ''),
+    insuredName: String(insured ?? ''),
+    brokerReinsurer: String(broker ?? ''),
     reinsurers: row.reinsurers || [],
     currency: row.currency,
     limitOfLiability: Number(limit || 0),
@@ -473,14 +473,6 @@ export const DB = {
   getSlips: async (): Promise<ReinsuranceSlip[]> => {
     if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('slips').select('*').order('created_at', { ascending: false });
-      // DEBUG: Log raw Supabase response to identify actual column names
-      if (data && data.length > 0) {
-        console.log('[DEBUG SLIPS] Column names:', Object.keys(data[0]));
-        console.log('[DEBUG SLIPS] Raw first row:', JSON.stringify(data[0], null, 2));
-        console.log('[DEBUG SLIPS] Raw second row:', data[1] ? JSON.stringify(data[1], null, 2) : 'N/A');
-        const mapped = toAppSlip(data[0]);
-        console.log('[DEBUG SLIPS] Mapped first row:', JSON.stringify(mapped, null, 2));
-      }
       return (data || []).map(toAppSlip);
     }
     return getLocal(SLIPS_KEY, []);
