@@ -265,7 +265,9 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     // Currency info from first row
     const currency = first.currency || 'USD';
     const exchangeRate = Number(first.exchangeRate) || Number(first.exchange_rate) || 0;
-    const commissionPct = Number(first.commissionPercent) || Number(first.commission_percent) || 0;
+    // Normalize commission: if stored as decimal (0.30 = 30%), convert to percentage
+    const rawCommission = Number(first.commissionPercent) || Number(first.commission_percent) || 0;
+    const commissionPct = rawCommission <= 1 ? rawCommission * 100 : rawCommission;
 
     // Currency conversion helper - ONLY convert based on actual currency field
     // Note: exchangeRate stores UZS/USD rate for ALL records regardless of currency
@@ -397,7 +399,9 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
 
     const currency = first.currency || 'USD';
     const exchangeRate = Number(first.exchange_rate) || 1;
-    const commissionPct = Number(first.commission_percent) || 0;
+    // commission_percent stored as decimal: 0.30 = 30%, 0.25 = 25%
+    const rawCommission = Number(first.commission_percent) || 0;
+    const commissionPct = rawCommission <= 1 ? rawCommission * 100 : rawCommission;
 
     // Currency conversion helper - ONLY convert based on actual currency field
     const toUSD = (amount: number): number => {
@@ -785,7 +789,9 @@ function calculateLossRatioByClass(policies: any[], claims: any[]): LossRatioDat
     const cls = p.classOfInsurance || p.class_of_insurance || 'Other';
     const currency = p.currency || 'USD';
     const exchangeRate = Number(p.exchangeRate) || Number(p.exchange_rate) || 1;
-    const commissionPct = Number(p.commissionPercent) || Number(p.commission_percent) || 0;
+    // Normalize commission: if stored as decimal (0.30 = 30%), convert to percentage
+    const rawCommission = Number(p.commissionPercent) || Number(p.commission_percent) || 0;
+    const commissionPct = rawCommission <= 1 ? rawCommission * 100 : rawCommission;
 
     // Get NWP or derive from GWP and commission
     const gwpOriginal = Number(p.grossPremium) || Number(p.gross_premium_original) || 0;
