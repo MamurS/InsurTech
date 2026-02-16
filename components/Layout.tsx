@@ -1,7 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSessionTimeout } from '../hooks/useSessionTimeout';
+import SessionTimeoutWarning from './SessionTimeoutWarning';
 import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
@@ -64,8 +66,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleSignOut = async () => {
     await signOut();
+    sessionStorage.clear();
     navigate('/login');
   };
+
+  const handleSessionTimeout = useCallback(async () => {
+    await signOut();
+    sessionStorage.clear();
+    navigate('/login');
+  }, [signOut, navigate]);
+
+  const { showWarning, remainingSeconds, continueSession, logoutNow } = useSessionTimeout({
+    onTimeout: handleSessionTimeout,
+    enabled: !!user,
+  });
 
   const getLinkClass = (navPath: string, exact: boolean = false) => {
     let isActive = false;
@@ -362,6 +376,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </main>
       </div>
       </div>
+
+      {/* Session Timeout Warning Modal */}
+      {showWarning && (
+        <SessionTimeoutWarning
+          remainingSeconds={remainingSeconds}
+          onContinue={continueSession}
+          onLogout={logoutNow}
+        />
+      )}
     </div>
   );
 };
