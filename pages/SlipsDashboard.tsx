@@ -11,6 +11,28 @@ import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
 import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye } from 'lucide-react';
 
+// Detect shifted column data from legacy CSV import:
+// insuredName got a numeric ID, brokerReinsurer got the actual insured name.
+const isNumericValue = (v: string) => /^\d+(\.\d+)?$/.test(v);
+const getDisplayInsured = (slip: ReinsuranceSlip): string => {
+  if (!slip.insuredName || isNumericValue(slip.insuredName)) {
+    return slip.brokerReinsurer || '';
+  }
+  return slip.insuredName;
+};
+const getDisplayBroker = (slip: ReinsuranceSlip): string => {
+  if (!slip.insuredName || isNumericValue(slip.insuredName)) {
+    return ''; // brokerReinsurer is actually the insured, not the broker
+  }
+  return slip.brokerReinsurer || '';
+};
+const getDisplaySlipNumber = (slip: ReinsuranceSlip): string => {
+  const num = slip.slipNumber || '';
+  const clean = num.replace(/\.0$/, '');
+  if (/^\d+$/.test(clean)) return `SLIP-${clean}`;
+  return num;
+};
+
 const SlipsDashboard: React.FC = () => {
   const [slips, setSlips] = useState<ReinsuranceSlip[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -154,13 +176,13 @@ const SlipsDashboard: React.FC = () => {
         }
     }
     
-    // Search filter
+    // Search filter — use display values (handles shifted column data)
     if (searchTerm) {
       const search = searchTerm.toLowerCase();
       return (
-        (slip.slipNumber || '').toLowerCase().includes(search) ||
-        (slip.insuredName || '').toLowerCase().includes(search) ||
-        (slip.brokerReinsurer || '').toLowerCase().includes(search)
+        getDisplaySlipNumber(slip).toLowerCase().includes(search) ||
+        getDisplayInsured(slip).toLowerCase().includes(search) ||
+        getDisplayBroker(slip).toLowerCase().includes(search)
       );
     }
 
@@ -180,11 +202,11 @@ const SlipsDashboard: React.FC = () => {
   const handleExport = () => {
     if (sortedSlips.length === 0) return;
     const exportData = sortedSlips.map(slip => ({
-      'Slip Number': slip.slipNumber || '',
+      'Slip Number': getDisplaySlipNumber(slip),
       'Status': (slip.status as string) || 'DRAFT',
       'Date': slip.date ? formatDate(slip.date) : '',
-      'Insured': slip.insuredName || '',
-      'Broker / Reinsurer': slip.brokerReinsurer || '',
+      'Insured': getDisplayInsured(slip),
+      'Broker / Reinsurer': getDisplayBroker(slip),
       'Currency': (slip.currency as string) || '',
       'Limit of Liability': slip.limitOfLiability || 0,
     }));
@@ -335,14 +357,14 @@ const SlipsDashboard: React.FC = () => {
                             {getStatusBadge((slip.status as any) || 'DRAFT', slip.isDeleted)}
                         </td>
                         <td className="px-4 py-4 font-mono font-medium text-amber-700">
-                            {slip.slipNumber}
+                            {getDisplaySlipNumber(slip)}
                         </td>
                         <td className="px-4 py-4 text-gray-600">{formatDate(slip.date)}</td>
-                        <td className="px-4 py-4 font-medium text-gray-800">{slip.insuredName}</td>
+                        <td className="px-4 py-4 font-medium text-gray-800">{getDisplayInsured(slip)}</td>
                         <td className="px-4 py-4 text-gray-700 font-mono">
                             {formatMoney(slip.limitOfLiability, slip.currency as string)}
                         </td>
-                        <td className="px-4 py-4 text-gray-600">{slip.brokerReinsurer}</td>
+                        <td className="px-4 py-4 text-gray-600">{getDisplayBroker(slip)}</td>
                         <td className="px-1 py-2 text-center w-10 relative" onClick={(e) => e.stopPropagation()}>
                             <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === slip.id ? null : slip.id); }}
                                 className="p-1.5 hover:bg-gray-100 rounded-lg">
