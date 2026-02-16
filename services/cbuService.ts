@@ -168,7 +168,6 @@ export const CBUService = {
       const nominal = parseInt(cbuRate.Nominal, 10) || 1;
 
       const exchangeRate: ExchangeRate = {
-        id: `cbu_${cbuRate.Ccy}_${date}`,
         currency,
         rate: effectiveRate,
         date: date,
