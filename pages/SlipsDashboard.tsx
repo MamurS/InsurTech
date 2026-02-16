@@ -225,7 +225,7 @@ const SlipsDashboard: React.FC = () => {
     const isActive = sortConfig.key === sortKey;
     return (
       <th 
-        className="px-6 py-4 cursor-pointer hover:bg-gray-100 transition-colors group select-none"
+        className="px-4 py-4 cursor-pointer hover:bg-gray-100 transition-colors group select-none"
         onClick={() => handleSort(sortKey)}
       >
         <div className="flex items-center gap-2">
@@ -303,14 +303,14 @@ const SlipsDashboard: React.FC = () => {
         <table className="w-full text-sm text-left">
             <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
-                    <th className="px-6 py-4 w-12">#</th>
-                    <th className="px-6 py-4 w-24">Status</th>
+                    <th className="px-4 py-4 w-12">#</th>
+                    <th className="px-4 py-4 w-24">Status</th>
                     <SortableHeader label="Slip Number" sortKey="slipNumber" />
                     <SortableHeader label="Date" sortKey="date" />
                     <SortableHeader label="Insured" sortKey="insuredName" />
                     <SortableHeader label="Limit of Liab" sortKey="limitOfLiability" />
                     <SortableHeader label="Broker / Reinsurer" sortKey="brokerReinsurer" />
-                    <th className="px-2 py-4 text-center w-12">Actions</th>
+                    <th className="px-1 py-3 w-10 bg-gray-50"></th>
                 </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -320,20 +320,20 @@ const SlipsDashboard: React.FC = () => {
                       onClick={() => setSelectedSlip(slip)}
                       className={`transition-colors cursor-pointer ${slip.isDeleted ? 'bg-gray-100 opacity-60 grayscale cursor-not-allowed' : 'hover:bg-amber-50/30'}`}
                     >
-                        <td className="px-6 py-4 text-gray-400">{index + 1}</td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4 text-gray-400">{index + 1}</td>
+                        <td className="px-4 py-4">
                             {getStatusBadge((slip.status as any) || 'DRAFT', slip.isDeleted)}
                         </td>
-                        <td className="px-6 py-4 font-mono font-medium text-amber-700">
+                        <td className="px-4 py-4 font-mono font-medium text-amber-700">
                             {slip.slipNumber}
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{formatDate(slip.date)}</td>
-                        <td className="px-6 py-4 font-medium text-gray-800">{slip.insuredName}</td>
-                        <td className="px-6 py-4 text-gray-700 font-mono">
+                        <td className="px-4 py-4 text-gray-600">{formatDate(slip.date)}</td>
+                        <td className="px-4 py-4 font-medium text-gray-800">{slip.insuredName}</td>
+                        <td className="px-4 py-4 text-gray-700 font-mono">
                             {formatMoney(slip.limitOfLiability, slip.currency as string)}
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{slip.brokerReinsurer}</td>
-                        <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-4 py-4 text-gray-600">{slip.brokerReinsurer}</td>
+                        <td className="px-1 py-2 text-center w-10 relative" onClick={(e) => e.stopPropagation()}>
                             <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === slip.id ? null : slip.id); }}
                                 className="p-1.5 hover:bg-gray-100 rounded-lg">
                                 <MoreVertical size={16} className="text-gray-500" />

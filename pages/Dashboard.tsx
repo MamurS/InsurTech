@@ -875,7 +875,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <th className="px-2 py-3 border-b border-gray-200 w-12 text-center font-semibold text-gray-600 text-xs bg-gray-50">Actions</th>
+                            <th className="px-1 py-3 border-b border-gray-200 w-10 bg-gray-50"></th>
                         </tr>
                     ) : (
                         <tr>
@@ -985,7 +985,7 @@ const Dashboard: React.FC = () => {
                             <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Type</th>
                             <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Structure</th>
 
-                            <th className="px-2 py-3 border-b border-gray-200 w-12 text-center font-semibold text-gray-600 text-xs bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]">Actions</th>
+                            <th className="px-1 py-3 border-b border-gray-200 w-10 bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]"></th>
                         </tr>
                     )}
                 </thead>
@@ -1079,7 +1079,7 @@ const Dashboard: React.FC = () => {
                                         {formatDate(row.expiryDate)}
                                     </td>
 
-                                    <td className="px-2 py-2 text-center w-12 relative" onClick={e => e.stopPropagation()}>
+                                    <td className="px-1 py-2 text-center w-10 relative" onClick={e => e.stopPropagation()}>
                                         {row.isDeleted ? (
                                             user?.role === 'Super Admin' && row.source === 'direct' && (
                                                 <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg">
@@ -1263,7 +1263,7 @@ const Dashboard: React.FC = () => {
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.contractType || '-'}</td>
                                     <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.structure || '-'}</td>
 
-                                    <td className={`px-2 py-2 text-center w-12 relative sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`} onClick={e => e.stopPropagation()}>
+                                    <td className={`px-1 py-2 text-center w-10 relative sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`} onClick={e => e.stopPropagation()}>
                                         {!row.isDeleted ? (
                                             <>
                                                 <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === `ext-${row.source}-${row.id}` ? null : `ext-${row.source}-${row.id}`); }}
