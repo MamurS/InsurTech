@@ -185,7 +185,7 @@ const ClaimsList: React.FC = () => {
                                 <th className="px-4 py-4 text-right bg-blue-50/50 w-[120px]">Incurred (Ours)</th>
                                 <th className="px-4 py-4 text-right bg-green-50/50 w-[110px]">Paid (Ours)</th>
                                 <th className="px-4 py-4 text-right bg-red-50/50 w-[100px]">Outstanding</th>
-                                <th className="px-2 py-4 text-center w-12">Actions</th>
+                                <th className="px-1 py-3 w-10 bg-gray-50"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -228,7 +228,7 @@ const ClaimsList: React.FC = () => {
                                     <td className="px-4 py-4 text-right font-mono text-red-700 bg-red-50/20">
                                         {formatMoney(claim.outstandingOurShare)}
                                     </td>
-                                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                                    <td className="px-1 py-2 text-center w-10 relative" onClick={(e) => e.stopPropagation()}>
                                         <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === claim.id ? null : claim.id); }}
                                             className="p-1.5 hover:bg-gray-100 rounded-lg">
                                             <MoreVertical size={16} className="text-gray-500" />

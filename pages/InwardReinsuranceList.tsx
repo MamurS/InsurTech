@@ -395,15 +395,15 @@ const InwardReinsuranceList: React.FC = () => {
             <table className="w-full">
               <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contract #</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cedant</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Coverage</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Period</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Limit</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Share</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
-                  <th className="px-2 py-3 text-center text-xs font-semibold text-gray-600 uppercase w-12">Actions</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Contract #</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Type</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Cedant</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Coverage</th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-gray-600 uppercase">Period</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Limit</th>
+                  <th className="px-3 py-3 text-right text-xs font-semibold text-gray-600 uppercase">Share</th>
+                  <th className="px-3 py-3 text-center text-xs font-semibold text-gray-600 uppercase">Status</th>
+                  <th className="px-1 py-3 w-10 bg-gray-50"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -416,39 +416,39 @@ const InwardReinsuranceList: React.FC = () => {
                     }}
                     className="hover:bg-gray-50 transition-colors cursor-pointer"
                   >
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="font-medium text-gray-900">{contract.contractNumber}</div>
                       <div className="text-xs text-gray-500">UW {contract.uwYear}</div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       {getTypeBadge(contract.type, contract.structure)}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="font-medium text-gray-900">{contract.cedantName}</div>
                       {contract.brokerName && (
                         <div className="text-xs text-gray-500">via {contract.brokerName}</div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="text-sm text-gray-900">{contract.typeOfCover}</div>
                       <div className="text-xs text-gray-500">{contract.classOfCover}</div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3">
                       <div className="text-sm text-gray-900">{formatDate(contract.inceptionDate)}</div>
                       <div className="text-xs text-gray-500">to {formatDate(contract.expiryDate)}</div>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-3 text-right">
                       <div className="font-medium text-gray-900">
                         {formatAmount(contract.limitOfLiability, contract.currency)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-3 py-3 text-right">
                       <span className="font-medium text-gray-900">{contract.ourShare}%</span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-3 py-3 text-center">
                       {getStatusBadge(contract.status)}
                     </td>
-                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-1 py-2 text-center w-10 relative" onClick={(e) => e.stopPropagation()}>
                       <button onClick={(e) => { e.stopPropagation(); setActionMenuOpen(actionMenuOpen === contract.id ? null : contract.id); }}
                         className="p-1.5 hover:bg-gray-100 rounded-lg">
                         <MoreVertical size={16} className="text-gray-500" />

@@ -431,7 +431,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
                   <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">Our Share</th>
                   <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">GWP</th>
                   <th className="text-center px-3 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-20">Status</th>
-                  <th className="text-center px-2 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide w-12">Actions</th>
+                  <th className="px-1 py-3 w-10 bg-gray-50"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -481,7 +481,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
                     <td className="px-3 py-3 text-center w-20">
                       {getStatusBadge(contract.status)}
                     </td>
-                    <td className="px-2 py-2 text-center w-12 relative" onClick={(e) => e.stopPropagation()}>
+                    <td className="px-1 py-2 text-center w-10 relative" onClick={(e) => e.stopPropagation()}>
                       <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === contract.id ? null : contract.id); }}
                         className="p-1.5 hover:bg-gray-100 rounded-lg">
                         <MoreVertical size={16} className="text-gray-500" />
