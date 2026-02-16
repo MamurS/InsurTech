@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSessionTimeout } from '../hooks/useSessionTimeout';
+import { DB } from '../services/db';
 import SessionTimeoutWarning from './SessionTimeoutWarning';
 import {
   LayoutDashboard, FileText, Settings,
@@ -58,6 +59,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     location.pathname.includes('/inward-reinsurance')
   );
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [sessionTimeoutMs, setSessionTimeoutMs] = useState(30 * 60 * 1000);
+
+  // Load session timeout setting from DB
+  useEffect(() => {
+    DB.getSetting('session_timeout_minutes').then(val => {
+      if (val) {
+        const minutes = Number(val);
+        if (minutes > 0) setSessionTimeoutMs(minutes * 60 * 1000);
+      }
+    });
+  }, []);
 
   // Close user menu on route change
   useEffect(() => {
@@ -77,6 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [signOut, navigate]);
 
   const { showWarning, remainingSeconds, continueSession, logoutNow } = useSessionTimeout({
+    timeoutMs: sessionTimeoutMs,
     onTimeout: handleSessionTimeout,
     enabled: !!user,
   });
