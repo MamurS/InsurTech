@@ -49,15 +49,32 @@ interface CBURateResponse {
 
 export const CBUService = {
   /**
-   * Fetch rates from CBU API via CORS proxy with fallback
+   * Fetch rates from CBU API — tries our own Cloudflare proxy first, then CORS proxy fallback
    * @param date - Optional date in YYYY-MM-DD format. If not provided, fetches current rates.
    */
   fetchRates: async (date?: string): Promise<CBURateResponse[]> => {
+    // Try our own proxy first (works in production on Cloudflare Pages)
+    try {
+      const proxyUrl = date
+        ? `/api/cbu-rates?date=${date}`
+        : `/api/cbu-rates`;
+      const response = await fetch(proxyUrl);
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0 && data[0].Ccy && data[0].Rate) {
+          console.log(`✓ CBU fetch successful via own proxy, got ${data.length} rates`);
+          return data;
+        }
+      }
+    } catch (e: any) {
+      console.warn('Own proxy unavailable, trying CORS proxies:', e.message);
+    }
+
+    // Fallback: try third-party CORS proxies (for dev/localhost)
     const cbuUrl = date
       ? `https://cbu.uz/uz/arkhiv-kursov-valyut/json/all/${date}/`
       : `https://cbu.uz/uz/arkhiv-kursov-valyut/json/`;
 
-    // Try each proxy until one works
     let lastError: Error | null = null;
 
     for (let i = 0; i < CORS_PROXIES.length; i++) {
