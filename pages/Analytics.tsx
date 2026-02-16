@@ -217,6 +217,16 @@ const Analytics: React.FC = () => {
         .slice(0, 8)
     : [];
 
+  // Prepare premium waterfall data
+  const outwardChannel = data?.channels.find(c => c.channel === 'outward');
+  const waterfallData = data ? [
+    { name: 'GWP', value: data.total.grossWrittenPremium, fill: '#3b82f6' },
+    { name: 'Ceded', value: -(outwardChannel?.grossWrittenPremium || 0), fill: '#ef4444' },
+    { name: 'NWP', value: data.total.netWrittenPremium, fill: '#10b981' },
+    { name: 'UPR', value: -data.total.unearnedPremiumReserve, fill: '#f59e0b' },
+    { name: 'NPE', value: data.total.netPremiumEarned, fill: '#06b6d4' },
+  ] : [];
+
   // Prepare currency breakdown
   const currencyBreakdownData = currentMetrics
     ? Object.entries(currentMetrics.currencyBreakdown)
@@ -362,6 +372,40 @@ const Analytics: React.FC = () => {
         />
       </div>
 
+      {/* Earned Premium KPIs */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPICard
+          title="Gross Premium Earned"
+          value={currentMetrics ? formatCurrency(currentMetrics.grossPremiumEarned) : '-'}
+          subtitle="Pro-rata earned"
+          icon={<TrendingUp className="w-5 h-5 text-white" />}
+          color="bg-teal-500"
+        />
+        <KPICard
+          title="Net Premium Earned"
+          value={currentMetrics ? formatCurrency(currentMetrics.netPremiumEarned) : '-'}
+          subtitle="Earned after cessions"
+          icon={<Activity className="w-5 h-5 text-white" />}
+          color="bg-cyan-500"
+        />
+        <KPICard
+          title="Unearned Premium Reserve"
+          value={currentMetrics ? formatCurrency(currentMetrics.unearnedPremiumReserve) : '-'}
+          subtitle="UPR (liability)"
+          icon={<Shield className="w-5 h-5 text-white" />}
+          color="bg-orange-500"
+        />
+        <KPICard
+          title="Combined Ratio"
+          value={data ? formatPercent(data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) : '-'}
+          subtitle={data && (data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) < 100
+            ? 'Underwriting profit' : 'Underwriting loss'}
+          icon={<Percent className="w-5 h-5 text-white" />}
+          color={data && (data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) < 100
+            ? 'bg-green-500' : 'bg-red-500'}
+        />
+      </div>
+
       {/* Secondary KPIs */}
       <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
         <StatCard
@@ -390,8 +434,8 @@ const Analytics: React.FC = () => {
           color="text-green-600"
         />
         <StatCard
-          label="Pending"
-          value={currentMetrics ? currentMetrics.pendingCount.toLocaleString() : '-'}
+          label="Comm. Ratio"
+          value={currentMetrics ? formatPercent(currentMetrics.commissionRatio) : '-'}
           color="text-orange-600"
         />
       </div>
@@ -483,6 +527,34 @@ const Analytics: React.FC = () => {
           </ResponsiveContainer>
         </ChartCard>
       </div>
+
+      {/* Premium Waterfall */}
+      <ChartCard
+        title="Premium Waterfall"
+        subtitle="Written → Ceded → Net → Earned"
+        loading={loading}
+      >
+        <ResponsiveContainer width="100%" height={300}>
+          <BarChart data={waterfallData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+            <XAxis dataKey="name" tick={{ fontSize: 12, fontWeight: 600 }} stroke="#94a3b8" />
+            <YAxis
+              tick={{ fontSize: 12 }}
+              stroke="#94a3b8"
+              tickFormatter={(v) => `$${(Math.abs(v) / 1000000).toFixed(1)}M`}
+            />
+            <Tooltip
+              formatter={(value: number) => [formatCurrency(Math.abs(value)), value < 0 ? 'Deduction' : 'Amount']}
+              contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+            />
+            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              {waterfallData.map((entry, index) => (
+                <Cell key={`wf-${index}`} fill={entry.fill} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      </ChartCard>
 
       {/* Charts Row 2: Class Breakdown and Loss Ratio */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
