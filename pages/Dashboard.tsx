@@ -454,6 +454,17 @@ const Dashboard: React.FC = () => {
 
       // If "All" source filter, append slips
       if (sourceFilter === 'All') {
+        // DEBUG: Log slip data before and after mapping
+        if (slips.length > 0) {
+          console.log('[DEBUG PORTFOLIO] First slip object:', JSON.stringify(slips[0], null, 2));
+          const testRow = mapSlipToPortfolioRow(slips[0] as ReinsuranceSlip);
+          console.log('[DEBUG PORTFOLIO] Mapped to PortfolioRow:', JSON.stringify({
+            referenceNumber: testRow.referenceNumber,
+            insuredName: testRow.insuredName,
+            brokerName: testRow.brokerName,
+            source: testRow.source,
+          }, null, 2));
+        }
         const slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
         setPortfolioData([...rows, ...slipRows]);
         setTotalCount(result.totalCount + slipRows.length);

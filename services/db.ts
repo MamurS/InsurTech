@@ -99,18 +99,27 @@ const toAppPolicy = (dbRecord: any): Policy => {
 };
 
 // Map raw DB row to ReinsuranceSlip, handling both camelCase and snake_case column names
+// Also handles lowercase (unquoted PostgreSQL) variants: slipnumber, insuredname, etc.
 const toAppSlip = (row: any): ReinsuranceSlip => {
+  // Try all possible column name variants for each field
+  const slipNum = row.slipNumber ?? row.slip_number ?? row.slipnumber ?? row.reference_number ?? '';
+  const insured = row.insuredName ?? row.insured_name ?? row.insuredname
+    ?? row.proposed_insured ?? row.proposedInsured ?? row.cedant_name ?? row.cedantName ?? '';
+  const broker = row.brokerReinsurer ?? row.broker_reinsurer ?? row.brokerreinsurer ?? '';
+  const limit = row.limitOfLiability ?? row.limit_of_liability ?? row.limitofliability ?? 0;
+  const deleted = row.isDeleted ?? row.is_deleted ?? row.isdeleted ?? false;
+
   return {
     id: row.id,
-    slipNumber: String(row.slipNumber ?? row.slip_number ?? ''),
+    slipNumber: typeof slipNum === 'number' ? String(Math.round(slipNum)) : String(slipNum || ''),
     date: row.date || '',
-    insuredName: String(row.insuredName ?? row.insured_name ?? ''),
-    brokerReinsurer: String(row.brokerReinsurer ?? row.broker_reinsurer ?? ''),
+    insuredName: typeof insured === 'number' ? '' : String(insured || ''),
+    brokerReinsurer: typeof broker === 'number' ? '' : String(broker || ''),
     reinsurers: row.reinsurers || [],
     currency: row.currency,
-    limitOfLiability: Number(row.limitOfLiability ?? row.limit_of_liability ?? 0),
+    limitOfLiability: Number(limit || 0),
     status: row.status,
-    isDeleted: row.isDeleted ?? row.is_deleted ?? false,
+    isDeleted: Boolean(deleted),
   };
 };
 
@@ -464,6 +473,14 @@ export const DB = {
   getSlips: async (): Promise<ReinsuranceSlip[]> => {
     if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('slips').select('*').order('created_at', { ascending: false });
+      // DEBUG: Log raw Supabase response to identify actual column names
+      if (data && data.length > 0) {
+        console.log('[DEBUG SLIPS] Column names:', Object.keys(data[0]));
+        console.log('[DEBUG SLIPS] Raw first row:', JSON.stringify(data[0], null, 2));
+        console.log('[DEBUG SLIPS] Raw second row:', data[1] ? JSON.stringify(data[1], null, 2) : 'N/A');
+        const mapped = toAppSlip(data[0]);
+        console.log('[DEBUG SLIPS] Mapped first row:', JSON.stringify(mapped, null, 2));
+      }
       return (data || []).map(toAppSlip);
     }
     return getLocal(SLIPS_KEY, []);
