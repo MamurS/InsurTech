@@ -419,7 +419,23 @@ const Dashboard: React.FC = () => {
       // If filtering by Slips only, use old method (slips aren't in the view)
       if (sourceFilter === 'slip') {
         const slips = await DB.getSlips();
-        const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+        let slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+        // Apply search filter client-side (slips aren't in the DB view)
+        if (searchTerm && searchTerm.trim()) {
+          const term = searchTerm.trim().toLowerCase();
+          slipRows = slipRows.filter(row =>
+            (row.referenceNumber || '').toLowerCase().includes(term) ||
+            (row.insuredName || '').toLowerCase().includes(term) ||
+            (row.brokerName || '').toLowerCase().includes(term) ||
+            (row.classOfBusiness || '').toLowerCase().includes(term)
+          );
+        }
+        // Apply status filter client-side
+        if (statusFilter && statusFilter !== 'All') {
+          slipRows = slipRows.filter(row =>
+            row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
+          );
+        }
         setPortfolioData(slipRows);
         setTotalCount(slipRows.length);
         setLoading(false);
@@ -467,6 +483,7 @@ const Dashboard: React.FC = () => {
         normalizedStatus: normalizeStatus(row.status),
         status: row.status || '',
         installmentCount: Number(row.installment_count || 1),
+        cedantName: row.cedant_name || '',
         // originalData is loaded on-demand when the detail modal opens
         originalData: null as any,
       }));
