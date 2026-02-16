@@ -12,6 +12,7 @@ import {
   Globe, Home, FileSpreadsheet, Layers, Calendar, DollarSign,
   ChevronLeft, ChevronRight, MoreVertical, Download
 } from 'lucide-react';
+import { exportToExcel } from '../services/excelExport';
 
 const InwardReinsuranceList: React.FC = () => {
   const navigate = useNavigate();
@@ -196,6 +197,28 @@ const InwardReinsuranceList: React.FC = () => {
     }
   };
 
+  const handleExport = () => {
+    if (contracts.length === 0) return;
+    const exportData = contracts.map(c => ({
+      'Contract #': c.contractNumber,
+      'Type': c.type,
+      'Structure': c.structure,
+      'Cedant': c.cedantName,
+      'Broker': c.brokerName || '',
+      'Coverage': c.typeOfCover || '',
+      'Class': c.classOfCover || '',
+      'Inception': c.inceptionDate || '',
+      'Expiry': c.expiryDate || '',
+      'Currency': c.currency,
+      'Limit': c.limitOfLiability || 0,
+      'Our Share %': c.ourShare || 0,
+      'Gross Premium': c.grossPremium || 0,
+      'Net Premium': c.netPremium || 0,
+      'Status': c.status,
+    }));
+    exportToExcel(exportData, `Inward_${origin}_${new Date().toISOString().split('T')[0]}`, `${origin} Contracts`);
+  };
+
   // Format currency
   const formatAmount = (amount: number, currency: Currency) => {
     return new Intl.NumberFormat('en-US', {
@@ -319,6 +342,7 @@ const InwardReinsuranceList: React.FC = () => {
 
           {/* Export Button */}
           <button
+            onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
           >
             <Download size={14} />

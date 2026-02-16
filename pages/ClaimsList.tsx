@@ -6,6 +6,7 @@ import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
 import RegisterClaimModal from '../components/RegisterClaimModal';
 import { AlertOctagon, Search, Plus, Filter, ChevronLeft, ChevronRight, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
+import { exportToExcel } from '../services/excelExport';
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
@@ -59,6 +60,23 @@ const ClaimsList: React.FC = () => {
       }
   };
 
+  const handleExport = () => {
+    if (claims.length === 0) return;
+    const exportData = claims.map(c => ({
+      'Claim Ref': c.claimNumber,
+      'Policy Ref': c.policyNumber,
+      'Status': c.status,
+      'Loss Date': c.lossDate || '',
+      'Insured': c.insuredName || '',
+      'Claimant': c.claimantName || '',
+      'Incurred (100%)': c.totalIncurred100 || 0,
+      'Incurred (Ours)': c.totalIncurredOurShare || 0,
+      'Paid (Ours)': c.totalPaidOurShare || 0,
+      'Outstanding': c.outstandingOurShare || 0,
+    }));
+    exportToExcel(exportData, `Claims_${new Date().toISOString().split('T')[0]}`, 'Claims');
+  };
+
   // Format Currency Helper
   const formatMoney = (val: number | undefined) => {
       if (val === undefined || val === null) return '-';
@@ -102,6 +120,7 @@ const ClaimsList: React.FC = () => {
 
           {/* Export Button */}
           <button
+            onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
           >
             <Download size={14} />

@@ -9,6 +9,7 @@ import {
   Building2, Globe, Home, FileCheck, Users, Percent, Shield, AlertCircle
 } from 'lucide-react';
 import { useAnalyticsSummary, ChannelType, ChannelMetrics } from '../hooks/useAnalytics';
+import { exportToExcel } from '../services/excelExport';
 
 // =============================================
 // HELPER FUNCTIONS
@@ -227,6 +228,40 @@ const Analytics: React.FC = () => {
         .sort((a, b) => b.value - a.value)
     : [];
 
+  const handleExport = () => {
+    if (!data) return;
+    const rows: any[] = [];
+    // Channel summary rows
+    data.channels.forEach(ch => {
+      rows.push({
+        'Channel': ch.label,
+        'Records': ch.recordCount,
+        'Active': ch.activeCount,
+        'Pending': ch.pendingCount,
+        'GWP': ch.grossWrittenPremium,
+        'NWP': ch.netWrittenPremium,
+        'Commission': ch.commission,
+        'Avg Premium': ch.avgPremium,
+        'Avg Share %': ch.avgOurShare,
+        'Total Limit': ch.totalLimit,
+      });
+    });
+    // Total row
+    rows.push({
+      'Channel': 'TOTAL',
+      'Records': data.total.recordCount,
+      'Active': data.total.activeCount,
+      'Pending': data.total.pendingCount,
+      'GWP': data.total.grossWrittenPremium,
+      'NWP': data.total.netWrittenPremium,
+      'Commission': data.total.commission,
+      'Avg Premium': data.total.avgPremium,
+      'Avg Share %': data.total.avgOurShare,
+      'Total Limit': data.total.totalLimit,
+    });
+    exportToExcel(rows, `Analytics_Summary_${new Date().toISOString().split('T')[0]}`, 'Analytics');
+  };
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -249,7 +284,11 @@ const Analytics: React.FC = () => {
     <div className="space-y-6">
       {/* Action Buttons */}
       <div className="flex justify-end gap-3">
-        <button className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm">
+        <button
+          onClick={handleExport}
+          disabled={!data}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           <Download size={14} />
           Export to Excel
         </button>
