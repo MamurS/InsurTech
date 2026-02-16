@@ -11,6 +11,7 @@ const USERS_KEY = 'insurtech_users_v2';
 const ENTITIES_KEY = 'insurtech_legal_entities_v1';
 const ENTITY_LOGS_KEY = 'insurtech_entity_logs_v1';
 const FX_RATES_KEY = 'insurtech_fx_rates_v1';
+const APP_SETTINGS_KEY = 'insurtech_app_settings_db_v1';
 
 // Helper to check connection status
 const isSupabaseEnabled = () => {
@@ -1253,5 +1254,55 @@ export const DB = {
           } as any;
       }
       return null;
-  }
+  },
+
+  // ==================== App Settings ====================
+
+  async getSetting(key: string): Promise<string | null> {
+    if (isSupabaseEnabled()) {
+      try {
+        const { data, error } = await supabase!
+          .from('app_settings')
+          .select('value')
+          .eq('key', key)
+          .single();
+        if (!error && data) {
+          return data.value;
+        }
+      } catch {
+        // Supabase table may not exist, fall back to localStorage
+      }
+    }
+    // localStorage fallback
+    try {
+      const settings = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}');
+      return settings[key] ?? null;
+    } catch {
+      return null;
+    }
+  },
+
+  async setSetting(key: string, value: string): Promise<void> {
+    if (isSupabaseEnabled()) {
+      try {
+        const { error } = await supabase!
+          .from('app_settings')
+          .upsert(
+            { key, value, updated_at: new Date().toISOString() },
+            { onConflict: 'key' }
+          );
+        if (!error) return;
+      } catch {
+        // Supabase table may not exist, fall back to localStorage
+      }
+    }
+    // localStorage fallback
+    try {
+      const settings = JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || '{}');
+      settings[key] = value;
+      localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // ignore storage errors
+    }
+  },
 };

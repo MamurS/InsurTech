@@ -20,7 +20,7 @@ import {
   Lock, Table, Code,
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
   Coins, LogOut, Key, Building2, Briefcase, DollarSign, TrendingDown, TrendingUp,
-  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List, Globe, Minus
+  PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List, Globe, Minus, Timer
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
@@ -134,6 +134,10 @@ const AdminConsole: React.FC = () => {
   const [newPresetDescription, setNewPresetDescription] = useState('');
   const [editingPreset, setEditingPreset] = useState<InwardReinsurancePreset | null>(null);
   const [deletePresetConfirm, setDeletePresetConfirm] = useState<{ show: boolean; id: string; value: string }>({ show: false, id: '', value: '' });
+
+  // Session Timeout Settings State
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState<number>(30);
+  const [sessionTimeoutSaving, setSessionTimeoutSaving] = useState(false);
 
   // Stats for Dashboard
   const stats = {
@@ -249,6 +253,15 @@ const AdminConsole: React.FC = () => {
       fetchActivityLogs();
     }
   }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
+
+  // Load session timeout setting when settings section is active
+  useEffect(() => {
+    if (activeSection === 'settings') {
+      DB.getSetting('session_timeout_minutes').then(val => {
+        if (val) setSessionTimeoutMinutes(Number(val));
+      });
+    }
+  }, [activeSection]);
 
   // Load CBU rates when FX section is active or date changes
   useEffect(() => {
@@ -1457,6 +1470,76 @@ const AdminConsole: React.FC = () => {
     </div>
   );
 
+  const TIMEOUT_OPTIONS = [
+    { value: 15, label: '15 minutes' },
+    { value: 30, label: '30 minutes' },
+    { value: 60, label: '1 hour' },
+    { value: 120, label: '2 hours' },
+    { value: 240, label: '4 hours' },
+  ];
+
+  const handleSaveSessionTimeout = async () => {
+    setSessionTimeoutSaving(true);
+    try {
+      await DB.setSetting('session_timeout_minutes', String(sessionTimeoutMinutes));
+      toast.success('Session timeout updated');
+    } catch {
+      toast.error('Failed to save session timeout');
+    } finally {
+      setSessionTimeoutSaving(false);
+    }
+  };
+
+  const renderSettings = () => (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-800">Settings</h2>
+      </div>
+
+      {/* Session Timeout Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Timer size={22} className="text-blue-600" />
+          <h3 className="text-lg font-semibold text-gray-800">Session Timeout</h3>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Auto-logout after inactivity. This setting applies globally to all users. Users will see a warning 2 minutes before being logged out.
+        </p>
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700">Timeout duration:</label>
+          <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+            {TIMEOUT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSessionTimeoutMinutes(opt.value)}
+                className={`px-4 py-2 text-sm font-medium transition-colors border-r last:border-r-0 border-gray-300 ${
+                  sessionTimeoutMinutes === opt.value
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={handleSaveSessionTimeout}
+            disabled={sessionTimeoutSaving}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors text-sm font-medium"
+          >
+            {sessionTimeoutSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save
+          </button>
+          <span className="text-xs text-gray-400">
+            Current: {TIMEOUT_OPTIONS.find(o => o.value === sessionTimeoutMinutes)?.label || `${sessionTimeoutMinutes} min`}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-100 flex">
       <aside className={`bg-slate-900 text-white w-64 flex-shrink-0 flex flex-col transition-all duration-300 ${isSidebarOpen?'':'-ml-64'}`}>
@@ -1475,6 +1558,7 @@ const AdminConsole: React.FC = () => {
           <button onClick={()=>setActiveSection('templates')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='templates'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><FileText size={20}/>Policy Templates</button>
           <button onClick={()=>setActiveSection('fx')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='fx'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Coins size={20}/>Exchange Rates</button>
           <button onClick={()=>setActiveSection('presets')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='presets'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><List size={20}/>Reinsurance Presets</button>
+          <button onClick={()=>setActiveSection('settings')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeSection==='settings'?'bg-blue-600 text-white':'text-slate-400 hover:bg-slate-800'}`}><Timer size={20}/>Settings</button>
           <div className="pt-8 mt-auto"><button onClick={()=>navigate('/')} className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"><LogOut size={20}/>Exit Console</button></div>
         </nav>
       </aside>
@@ -1490,6 +1574,7 @@ const AdminConsole: React.FC = () => {
           {activeSection==='templates' && renderTemplates()}
           {activeSection==='fx' && renderFxRates()}
           {activeSection==='presets' && renderPresets()}
+          {activeSection==='settings' && renderSettings()}
         </>}
       </main>
 
