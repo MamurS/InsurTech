@@ -17,7 +17,11 @@ export interface ChannelMetrics {
   cancelledCount: number;
   grossWrittenPremium: number;
   netWrittenPremium: number;
+  grossPremiumEarned: number;
+  netPremiumEarned: number;
+  unearnedPremiumReserve: number;
   commission: number;
+  commissionRatio: number;
   avgPremium: number;
   avgOurShare: number;
   totalLimit: number;
@@ -125,6 +129,30 @@ const normalizeOurShare = (ourShare: number): number => {
   return ourShare;
 };
 
+/**
+ * Calculate the fraction of premium that has been "earned" based on policy duration.
+ * Uses straight-line pro-rata: elapsed days / total days.
+ */
+function calculateEarnedFraction(inceptionDate: string, expiryDate: string): number {
+  if (!inceptionDate || !expiryDate) return 1; // No dates = assume fully earned
+
+  const inception = new Date(inceptionDate);
+  const expiry = new Date(expiryDate);
+  const today = new Date();
+
+  // Validate dates
+  if (isNaN(inception.getTime()) || isNaN(expiry.getTime())) return 1;
+
+  const totalDays = (expiry.getTime() - inception.getTime()) / (1000 * 60 * 60 * 24);
+  if (totalDays <= 0) return 1; // Same day or invalid = fully earned
+
+  if (today >= expiry) return 1.0;       // Policy expired = fully earned
+  if (today <= inception) return 0.0;    // Not yet started = nothing earned
+
+  const elapsedDays = (today.getTime() - inception.getTime()) / (1000 * 60 * 60 * 24);
+  return Math.min(1, Math.max(0, elapsedDays / totalDays));
+}
+
 const createEmptyChannelMetrics = (channel: ChannelType): ChannelMetrics => ({
   channel,
   label: CHANNEL_CONFIG[channel].label,
@@ -135,7 +163,11 @@ const createEmptyChannelMetrics = (channel: ChannelType): ChannelMetrics => ({
   cancelledCount: 0,
   grossWrittenPremium: 0,
   netWrittenPremium: 0,
+  grossPremiumEarned: 0,
+  netPremiumEarned: 0,
+  unearnedPremiumReserve: 0,
   commission: 0,
+  commissionRatio: 0,
   avgPremium: 0,
   avgOurShare: 0,
   totalLimit: 0,
@@ -202,7 +234,7 @@ export const useAnalyticsSummary = () => {
       const totalMetrics = calculateTotalMetrics(channels, outwardMetrics);
 
       // Process claims using RPC data (already has Mosaic's share calculated)
-      const claimsMetrics = processClaimsMetrics(claims, totalMetrics.netWrittenPremium);
+      const claimsMetrics = processClaimsMetrics(claims, totalMetrics.netWrittenPremium, totalMetrics.grossPremiumEarned);
 
       // Loss ratio by class (from all policies + claims)
       const lossRatioByClass = calculateLossRatioByClass(allPolicies, claims);
@@ -306,10 +338,17 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     const classOfIns = first.classOfInsurance || first.class_of_insurance || 'Other';
     const insuredName = first.insuredName || first.insured_name || 'Unknown';
     const inceptionDate = first.inceptionDate || first.inception_date;
+    const expiryDate = first.expiryDate || first.expiry_date;
+
+    // Earned premium calculation
+    const earnedFraction = calculateEarnedFraction(inceptionDate, expiryDate);
 
     // Use USD-converted amounts for aggregate totals
     metrics.grossWrittenPremium += gwpUSD;
     metrics.netWrittenPremium += nwpUSD;
+    metrics.grossPremiumEarned += gwpUSD * earnedFraction;
+    metrics.netPremiumEarned += nwpUSD * earnedFraction;
+    metrics.unearnedPremiumReserve += gwpUSD * (1 - earnedFraction);
     metrics.commission += (gwpUSD * commissionPct / 100);
     metrics.totalLimit += limitUSD;
     metrics.avgOurShare += ourShare;
@@ -352,6 +391,8 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     metrics.avgPremium = metrics.grossWrittenPremium / metrics.recordCount;
     metrics.avgOurShare = metrics.avgOurShare / metrics.recordCount;
   }
+  metrics.commissionRatio = metrics.grossWrittenPremium > 0
+    ? (metrics.commission / metrics.grossWrittenPremium) * 100 : 0;
 
   // Convert monthly data to array
   metrics.monthlyTrend = Object.entries(monthlyData)
@@ -439,10 +480,17 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
     const classOfCover = first.class_of_cover || 'Other';
     const cedantName = first.cedant_name || 'Unknown';
     const inceptionDate = first.inception_date;
+    const expiryDate = first.expiry_date;
+
+    // Earned premium calculation
+    const earnedFraction = calculateEarnedFraction(inceptionDate, expiryDate);
 
     // Use USD-converted amounts for aggregate totals
     metrics.grossWrittenPremium += gwpUSD;
     metrics.netWrittenPremium += nwpUSD;
+    metrics.grossPremiumEarned += gwpUSD * earnedFraction;
+    metrics.netPremiumEarned += nwpUSD * earnedFraction;
+    metrics.unearnedPremiumReserve += gwpUSD * (1 - earnedFraction);
     metrics.commission += (gwpUSD * commissionPct / 100);
     metrics.totalLimit += limitUSD;
     metrics.avgOurShare += ourSharePct;
@@ -485,6 +533,8 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
     metrics.avgPremium = metrics.grossWrittenPremium / metrics.recordCount;
     metrics.avgOurShare = metrics.avgOurShare / metrics.recordCount;
   }
+  metrics.commissionRatio = metrics.grossWrittenPremium > 0
+    ? (metrics.commission / metrics.grossWrittenPremium) * 100 : 0;
 
   // Convert monthly data to array
   metrics.monthlyTrend = Object.entries(monthlyData)
@@ -568,10 +618,17 @@ function processOutwardPolicies(policies: any[]): ChannelMetrics {
     const classOfIns = first.classOfInsurance || first.class_of_insurance || 'Other';
     const insuredName = first.insuredName || first.insured_name || 'Unknown';
     const inceptionDate = first.inceptionDate || first.inception_date;
+    const expiryDate = first.expiryDate || first.expiry_date;
+
+    // Earned premium calculation
+    const earnedFraction = calculateEarnedFraction(inceptionDate, expiryDate);
 
     // For outward, GWP = what's ceded (this is the cost)
     metrics.grossWrittenPremium += cededUSD;
     metrics.netWrittenPremium += cededUSD; // Same for outward since it's all ceded
+    metrics.grossPremiumEarned += cededUSD * earnedFraction;
+    metrics.netPremiumEarned += cededUSD * earnedFraction;
+    metrics.unearnedPremiumReserve += cededUSD * (1 - earnedFraction);
     metrics.totalLimit += sumInsured;
     metrics.avgOurShare += mosaicRetention;
 
@@ -626,6 +683,8 @@ function processOutwardPolicies(policies: any[]): ChannelMetrics {
     metrics.avgPremium = metrics.grossWrittenPremium / metrics.recordCount;
     metrics.avgOurShare = metrics.avgOurShare / metrics.recordCount;
   }
+  metrics.commissionRatio = metrics.grossWrittenPremium > 0
+    ? (metrics.commission / metrics.grossWrittenPremium) * 100 : 0;
 
   // Convert monthly data to array
   metrics.monthlyTrend = Object.entries(monthlyData)
@@ -663,6 +722,9 @@ function calculateTotalMetrics(channels: ChannelMetrics[], outwardMetrics?: Chan
     total.pendingCount += ch.pendingCount;
     total.cancelledCount += ch.cancelledCount;
     total.grossWrittenPremium += ch.grossWrittenPremium;
+    total.grossPremiumEarned += ch.grossPremiumEarned;
+    total.netPremiumEarned += ch.netPremiumEarned;
+    total.unearnedPremiumReserve += ch.unearnedPremiumReserve;
     total.commission += ch.commission;
     total.totalLimit += ch.totalLimit;
 
@@ -713,6 +775,8 @@ function calculateTotalMetrics(channels: ChannelMetrics[], outwardMetrics?: Chan
     const totalOurShare = revenueChannels.reduce((sum, ch) => sum + (ch.avgOurShare * ch.recordCount), 0);
     total.avgOurShare = totalOurShare / total.recordCount;
   }
+  total.commissionRatio = total.grossWrittenPremium > 0
+    ? (total.commission / total.grossWrittenPremium) * 100 : 0;
 
   // Convert monthly data
   total.monthlyTrend = Object.entries(allMonthlyData)
@@ -733,7 +797,7 @@ function calculateTotalMetrics(channels: ChannelMetrics[], outwardMetrics?: Chan
  * RPC returns total_incurred_our_share and total_paid_our_share which are
  * already calculated as Mosaic's share. Still need currency conversion.
  */
-function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
+function processClaimsMetrics(claims: any[], totalNWP: number, totalGPE: number = 0): ClaimsMetrics {
   const metrics: ClaimsMetrics = {
     totalClaims: claims.length,
     openClaims: 0,
@@ -776,7 +840,9 @@ function processClaimsMetrics(claims: any[], totalNWP: number): ClaimsMetrics {
 
   metrics.totalReserve = metrics.totalIncurred - metrics.totalPaid;
   metrics.avgClaimSize = metrics.totalClaims > 0 ? metrics.totalIncurred / metrics.totalClaims : 0;
-  metrics.lossRatio = totalNWP > 0 ? (metrics.totalIncurred / totalNWP) * 100 : 0;
+  // Use Gross Premium Earned for loss ratio; fall back to NWP if GPE not available
+  const lossRatioDenominator = totalGPE > 0 ? totalGPE : totalNWP;
+  metrics.lossRatio = lossRatioDenominator > 0 ? (metrics.totalIncurred / lossRatioDenominator) * 100 : 0;
 
   return metrics;
 }
