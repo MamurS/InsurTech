@@ -243,7 +243,7 @@ export interface PolicyReinsurer {
 }
 
 export interface ExchangeRate {
-  id: string;
+  id?: string;
   currency: Currency;
   rate: number;
   date: string;

@@ -725,8 +725,8 @@ export const DB = {
   saveExchangeRate: async (rate: ExchangeRate): Promise<void> => {
       if (isSupabaseEnabled()) {
           // Map camelCase to snake_case for Supabase
+          // id is auto-generated UUID by the DB; upsert on (currency, date) unique constraint
           await supabase!.from('fx_rates').upsert({
-              id: rate.id,
               currency: rate.currency,
               rate: rate.rate,
               date: rate.date,
@@ -735,12 +735,12 @@ export const DB = {
               ccy_name_en: rate.ccyNameEn || null,
               raw_rate: rate.rawRate || rate.rate,
           }, {
-              onConflict: 'id'
+              onConflict: 'currency,date'
           });
           return;
       }
       const rates = getLocal<ExchangeRate[]>(FX_RATES_KEY, []);
-      const index = rates.findIndex(r => r.id === rate.id);
+      const index = rates.findIndex(r => r.currency === rate.currency && r.date === rate.date);
       if (index >= 0) rates[index] = rate;
       else rates.push(rate);
       localStorage.setItem(FX_RATES_KEY, JSON.stringify(rates));
