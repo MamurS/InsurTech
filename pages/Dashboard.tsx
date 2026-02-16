@@ -184,25 +184,25 @@ const mapInwardReinsuranceToPortfolioRow = (ir: InwardReinsurance): PortfolioRow
 const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => ({
   id: s.id,
   source: 'slip',
-  referenceNumber: s.slipNumber,
+  referenceNumber: s.slipNumber || '',
 
   // Parties
-  insuredName: s.insuredName,
-  brokerName: s.brokerReinsurer,
+  insuredName: s.insuredName || '',
+  brokerName: s.brokerReinsurer || '',
 
   // Classification
   classOfBusiness: 'Reinsurance Slip',
 
   // Financial
   currency: (s.currency as Currency) || Currency.USD,
-  limit: s.limitOfLiability,
+  limit: Number(s.limitOfLiability || 0),
   grossPremium: 0,
   ourShare: 100,
 
   // Dates
-  inceptionDate: s.date,
-  expiryDate: s.date,
-  dateOfSlip: s.date,
+  inceptionDate: s.date || '',
+  expiryDate: s.date || '',
+  dateOfSlip: s.date || '',
 
   // Status
   status: s.status || 'Draft',

@@ -98,6 +98,22 @@ const toAppPolicy = (dbRecord: any): Policy => {
   } as Policy;
 };
 
+// Map raw DB row to ReinsuranceSlip, handling both camelCase and snake_case column names
+const toAppSlip = (row: any): ReinsuranceSlip => {
+  return {
+    id: row.id,
+    slipNumber: String(row.slipNumber ?? row.slip_number ?? ''),
+    date: row.date || '',
+    insuredName: String(row.insuredName ?? row.insured_name ?? ''),
+    brokerReinsurer: String(row.brokerReinsurer ?? row.broker_reinsurer ?? ''),
+    reinsurers: row.reinsurers || [],
+    currency: row.currency,
+    limitOfLiability: Number(row.limitOfLiability ?? row.limit_of_liability ?? 0),
+    status: row.status,
+    isDeleted: row.isDeleted ?? row.is_deleted ?? false,
+  };
+};
+
 const toDbPolicy = (policy: Policy): any => {
   // 1. Create a clone to avoid mutating the app state
   const payload: any = { ...policy };
@@ -448,7 +464,7 @@ export const DB = {
   getSlips: async (): Promise<ReinsuranceSlip[]> => {
     if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('slips').select('*').order('created_at', { ascending: false });
-      return (data as ReinsuranceSlip[] || []);
+      return (data || []).map(toAppSlip);
     }
     return getLocal(SLIPS_KEY, []);
   },
@@ -456,7 +472,7 @@ export const DB = {
   getAllSlips: async (): Promise<ReinsuranceSlip[]> => {
     if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('slips').select('*');
-      return data as ReinsuranceSlip[] || [];
+      return (data || []).map(toAppSlip);
     }
     return getLocal(SLIPS_KEY, []);
   },
@@ -539,7 +555,7 @@ export const DB = {
   getSlip: async (id: string): Promise<ReinsuranceSlip | undefined> => {
      if (isSupabaseEnabled()) {
       const { data } = await supabase!.from('slips').select('*').eq('id', id).single();
-      return data as ReinsuranceSlip;
+      return data ? toAppSlip(data) : undefined;
     }
     const slips = getLocal(SLIPS_KEY, [] as ReinsuranceSlip[]);
     return slips.find((s: ReinsuranceSlip) => s.id === id);
