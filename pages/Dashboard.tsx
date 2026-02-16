@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { Policy, Currency, PolicyStatus, LegalEntity, Installment, PortfolioRow, PortfolioSource, PortfolioStatus, InwardReinsurance, ReinsuranceSlip } from '../types';
@@ -211,8 +211,9 @@ const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => ({
   originalData: s,
 });
 
-// --- CONSOLIDATION HELPERS ---
-
+// LEGACY: Client-side consolidation (replaced by v_portfolio view)
+// Kept as fallback in case view is unavailable
+/*
 const consolidateDirectPolicies = (policies: Policy[]): PortfolioRow[] => {
   const groups = new Map<string, Policy[]>();
   for (const p of policies) {
@@ -226,7 +227,6 @@ const consolidateDirectPolicies = (policies: Policy[]): PortfolioRow[] => {
   for (const items of groups.values()) {
     const row = mapPolicyToPortfolioRow(items[0]);
 
-    // Sum premium fields across installments
     let gross = 0, net = 0, grossNat = 0, netNat = 0, fullFor = 0, fullNat = 0;
     for (const p of items) {
       gross += Number(p.grossPremium || 0);
@@ -243,7 +243,6 @@ const consolidateDirectPolicies = (policies: Policy[]): PortfolioRow[] => {
     row.fullPremiumForeign = fullFor;
     row.fullPremiumNational = fullNat;
 
-    // Keep limit/sumInsured from first row only (same across installments)
     row.installmentCount = items.length;
     row.installments = items;
     result.push(row);
@@ -264,7 +263,6 @@ const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): Portfolio
   for (const items of groups.values()) {
     const row = mapInwardReinsuranceToPortfolioRow(items[0]);
 
-    // Sum premium fields across installments
     let gross = 0, net = 0;
     for (const ir of items) {
       gross += Number(ir.grossPremium || 0);
@@ -279,14 +277,18 @@ const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): Portfolio
   }
   return result;
 };
+*/
 
 // --- DASHBOARD COMPONENT ---
 
 const Dashboard: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioRow[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const outwardByPolicyRef = useRef<Map<string, Policy[]>>(new Map());
   const outwardLoadedRef = useRef(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   // Sticky offset measurement
   const filterRef = useRef<HTMLDivElement>(null);
@@ -381,62 +383,106 @@ const Dashboard: React.FC = () => {
   const [showSlipModal, setShowSlipModal] = useState(false);
   const [editingSlipId, setEditingSlipId] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch only what's needed — server-side filtered, no client-side channel filtering
-      const [directPolicies, inwardReinsurance, slips] = await Promise.all([
-        DB.getDirectPolicies(),
-        DB.getAllInwardReinsurance(),
-        DB.getSlips(),
-      ]);
+      // Map UI source filter to view's source values
+      const sourceMap: Record<string, string> = {
+        'All': 'all',
+        'direct': 'direct',
+        'inward-foreign': 'inward-foreign',
+        'inward-domestic': 'inward-domestic',
+        'slip': 'slip', // slips not in view yet, handle separately
+      };
 
-      // Defer heavy computation to next tick so UI can paint the loading state
-      setTimeout(() => {
-        try {
-          // Consolidate: group by policyNumber/contractNumber, sum premiums
-          const directRows = consolidateDirectPolicies(directPolicies);
-          const inwardRows = consolidateInwardReinsurance(
-            inwardReinsurance.filter(ir => !ir.isDeleted)
-          );
-          const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+      const viewSource = sourceMap[sourceFilter] || 'all';
 
-          // Merge and sort by inception date (newest first) — single setState
-          const allRows = [...directRows, ...inwardRows, ...slipRows].sort((a, b) =>
-            new Date(b.inceptionDate).getTime() - new Date(a.inceptionDate).getTime()
-          );
+      // If filtering by Slips only, use old method (slips aren't in the view)
+      if (sourceFilter === 'slip') {
+        const slips = await DB.getSlips();
+        const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+        setPortfolioData(slipRows);
+        setTotalCount(slipRows.length);
+        setLoading(false);
+        return;
+      }
 
-          setPortfolioData(allRows);
-        } catch (e) {
-          console.error("Failed to process portfolio data", e);
-        } finally {
-          setLoading(false);
-        }
-      }, 0);
+      // Handle "Deleted" status: v_portfolio excludes deleted records
+      if (statusFilter === 'Deleted') {
+        setPortfolioData([]);
+        setTotalCount(0);
+        setLoading(false);
+        return;
+      }
 
-      // Load outward data in background (only needed for modal drill-down)
-      if (!outwardLoadedRef.current) {
-        DB.getOutwardPolicies().then(outwardPolicies => {
-          const outwardMap = new Map<string, Policy[]>();
-          for (const p of outwardPolicies) {
-            const key = p.policyNumber || p.id;
-            const existing = outwardMap.get(key);
-            if (existing) existing.push(p);
-            else outwardMap.set(key, [p]);
-          }
-          outwardByPolicyRef.current = outwardMap;
-          outwardLoadedRef.current = true;
-        });
+      const result = await DB.getPortfolioPage({
+        page: currentPage - 1, // API is 0-indexed, UI is 1-indexed
+        pageSize: rowsPerPage,
+        sourceFilter: viewSource,
+        statusFilter: statusFilter,
+        searchTerm: searchTerm,
+        sortField: sortConfig.key,
+        sortDirection: sortConfig.direction,
+      });
+
+      // Map view columns to PortfolioRow format
+      const rows: PortfolioRow[] = result.rows.map((row: any) => ({
+        id: row.id,
+        source: row.source as PortfolioSource,
+        referenceNumber: row.reference_number || '',
+        insuredName: row.insured_name || '',
+        brokerName: row.broker_name || '',
+        classOfBusiness: row.class_of_business || '',
+        territory: row.territory || '',
+        currency: row.currency || 'USD',
+        limit: Number(row.limit || 0),
+        grossPremium: Number(row.gross_premium || 0),
+        netPremium: Number(row.net_premium || 0),
+        ourShare: Number(row.our_share || 0),
+        inceptionDate: row.inception_date || '',
+        expiryDate: row.expiry_date || '',
+        normalizedStatus: normalizeStatus(row.status),
+        status: row.status || '',
+        installmentCount: Number(row.installment_count || 1),
+        // originalData is loaded on-demand when the detail modal opens
+        originalData: null as any,
+      }));
+
+      // If "All" source filter, also fetch slips and append
+      if (sourceFilter === 'All') {
+        const slips = await DB.getSlips();
+        const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+        setPortfolioData([...rows, ...slipRows]);
+        setTotalCount(result.totalCount + slipRows.length);
+      } else {
+        setPortfolioData(rows);
+        setTotalCount(result.totalCount);
       }
     } catch (e) {
       console.error("Failed to fetch portfolio data", e);
+    } finally {
       setLoading(false);
     }
-  };
+
+    // Load outward data in background (only needed for modal drill-down)
+    if (!outwardLoadedRef.current) {
+      DB.getOutwardPolicies().then(outwardPolicies => {
+        const outwardMap = new Map<string, Policy[]>();
+        for (const p of outwardPolicies) {
+          const key = p.policyNumber || p.id;
+          const existing = outwardMap.get(key);
+          if (existing) existing.push(p);
+          else outwardMap.set(key, [p]);
+        }
+        outwardByPolicyRef.current = outwardMap;
+        outwardLoadedRef.current = true;
+      });
+    }
+  }, [currentPage, rowsPerPage, sourceFilter, statusFilter, searchTerm, sortConfig]);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const initiateDelete = (e: React.MouseEvent, row: PortfolioRow) => {
     e.preventDefault();
@@ -478,12 +524,18 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const handleRowClick = (row: PortfolioRow) => {
+  const handleRowClick = async (row: PortfolioRow) => {
     // Open MasterDetailModal for direct and inward rows
     switch (row.source) {
       case 'direct':
       case 'inward-foreign':
       case 'inward-domestic':
+        // Lazy-load installment data if not already present
+        if (!row.installments) {
+          const installments = await DB.getInstallmentsByRef(row.referenceNumber, row.source);
+          row.installments = installments;
+          row.installmentCount = installments.length || row.installmentCount;
+        }
         setSelectedRow(row);
         break;
       case 'slip':
@@ -550,62 +602,39 @@ const Dashboard: React.FC = () => {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
-  };
-
-  const filteredRows = portfolioData.filter(row => {
-    // 1. Source Filter
-    if (sourceFilter !== 'All' && row.source !== sourceFilter) return false;
-
-    // 2. Status/Deleted Filter
-    if (statusFilter === 'Deleted') {
-        if (!row.isDeleted) return false;
-    } else {
-        if (row.isDeleted) return false;
-        if (statusFilter !== 'All' && row.normalizedStatus !== statusFilter) return false;
-    }
-
-    // 3. Search Filter
-    const searchLower = searchTerm.toLowerCase();
-    return (
-        (row.referenceNumber || '').toLowerCase().includes(searchLower) ||
-        (row.insuredName || '').toLowerCase().includes(searchLower) ||
-        (row.cedantName && row.cedantName.toLowerCase().includes(searchLower)) ||
-        (row.brokerName && row.brokerName.toLowerCase().includes(searchLower)) ||
-        (row.classOfBusiness && row.classOfBusiness.toLowerCase().includes(searchLower))
-    );
-  });
-
-  const getSortedRows = (filtered: PortfolioRow[]) => {
-    return [...filtered].sort((a, b) => {
-      const aValue = (a as any)[sortConfig.key];
-      const bValue = (b as any)[sortConfig.key];
-
-      if (aValue === bValue) return 0;
-      if (aValue === undefined || aValue === null) return 1;
-      if (bValue === undefined || bValue === null) return -1;
-
-      if (aValue < bValue) {
-        return sortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return sortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-  };
-
-  const sortedRows = getSortedRows(filteredRows);
-
-  // Reset page when filters change
-  useEffect(() => {
     setCurrentPage(1);
-  }, [sourceFilter, statusFilter, searchTerm]);
+  };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(sortedRows.length / rowsPerPage);
+  // Server-side pagination: portfolioData already contains the current page's rows
+  // sortedRows is used throughout the template — alias to portfolioData
+  const sortedRows = portfolioData;
+  const paginatedRows = portfolioData;
+
+  // Pagination calculations (server-side driven)
+  const totalPages = Math.ceil(totalCount / rowsPerPage);
   const startIndex = (currentPage - 1) * rowsPerPage;
-  const endIndex = Math.min(startIndex + rowsPerPage, sortedRows.length);
-  const paginatedRows = sortedRows.slice(startIndex, endIndex);
+  const endIndex = Math.min(startIndex + rowsPerPage, totalCount);
+
+  // Debounced search handler
+  const handleSearchChange = (value: string) => {
+    setSearchInput(value);
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearchTerm(value);
+      setCurrentPage(1);
+    }, 300);
+  };
+
+  // Reset page when source or status filters change
+  const handleSourceFilterChange = (filter: 'All' | PortfolioSource) => {
+    setSourceFilter(filter);
+    setCurrentPage(1);
+  };
+
+  const handleStatusFilterChange = (filter: 'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted') => {
+    setStatusFilter(filter);
+    setCurrentPage(1);
+  };
 
   // Generate page numbers for pagination
   const getPageNumbers = () => {
@@ -706,7 +735,7 @@ const Dashboard: React.FC = () => {
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
-            onClick={() => setSourceFilter(key as 'All' | PortfolioSource)}
+            onClick={() => handleSourceFilterChange(key as 'All' | PortfolioSource)}
             className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${
               sourceFilter === key
                 ? 'bg-blue-600 text-white'
@@ -725,7 +754,7 @@ const Dashboard: React.FC = () => {
           {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
             <button
               key={status}
-              onClick={() => setStatusFilter(status)}
+              onClick={() => handleStatusFilterChange(status)}
               className={`px-2 py-1 text-xs font-medium rounded transition-all ${
                 statusFilter === status
                   ? 'bg-white text-blue-600 shadow-sm'
@@ -746,8 +775,8 @@ const Dashboard: React.FC = () => {
             type="text"
             placeholder="Search..."
             className="w-full pl-7 pr-3 py-1 bg-gray-50 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
 
@@ -797,7 +826,7 @@ const Dashboard: React.FC = () => {
       <div ref={paginationRef} className="sticky z-30 bg-gray-50" style={{ top: `${stickyOffsets.pagination}px` }}>
       <div className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-t-lg border border-b-0 border-gray-200 text-xs">
         <span className="text-gray-600">
-          Showing {sortedRows.length === 0 ? 0 : startIndex + 1}–{endIndex} of {sortedRows.length} records
+          Showing {totalCount === 0 ? 0 : startIndex + 1}–{endIndex} of {totalCount} records
         </span>
         <div className="flex items-center gap-1">
           {/* Export button - moved here */}
@@ -1303,14 +1332,20 @@ const Dashboard: React.FC = () => {
                             <td colSpan={viewMode === 'compact' ? 13 : 80} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
-                                    <p>No records found matching your criteria.</p>
-                                    {portfolioData.length === 0 && (
-                                        <button
-                                            onClick={fetchData}
-                                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-                                        >
-                                            <RefreshCw size={14} /> Retry
-                                        </button>
+                                    {statusFilter === 'Deleted' ? (
+                                        <p>Deleted records are excluded from the consolidated view.</p>
+                                    ) : (
+                                        <>
+                                            <p>No records found matching your criteria.</p>
+                                            {totalCount === 0 && (
+                                                <button
+                                                    onClick={fetchData}
+                                                    className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                                                >
+                                                    <RefreshCw size={14} /> Retry
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </div>
                             </td>

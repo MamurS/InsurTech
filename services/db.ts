@@ -877,6 +877,129 @@ export const DB = {
       return logs.filter(l => l.entityId === entityId).sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   },
 
+  // --- Portfolio View (Server-Side Pagination) ---
+  getPortfolioPage: async (params: {
+    page: number;           // 0-indexed
+    pageSize: number;
+    sourceFilter?: string;  // 'all' | 'direct' | 'inward-foreign' | 'inward-domestic' | 'inward'
+    statusFilter?: string;  // 'All' | 'Active' | 'Pending' | 'Cancelled'
+    searchTerm?: string;
+    sortField?: string;
+    sortDirection?: 'asc' | 'desc';
+  }): Promise<{ rows: any[]; totalCount: number }> => {
+    if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
+
+    const { page, pageSize, sourceFilter, statusFilter, searchTerm, sortField, sortDirection } = params;
+
+    let query = supabase!
+      .from('v_portfolio')
+      .select('*', { count: 'exact' });
+
+    // Source filter
+    if (sourceFilter && sourceFilter !== 'all') {
+      if (sourceFilter === 'inward') {
+        query = query.in('source', ['inward-foreign', 'inward-domestic']);
+      } else {
+        query = query.eq('source', sourceFilter);
+      }
+    }
+
+    // Status filter
+    if (statusFilter && statusFilter !== 'All') {
+      query = query.ilike('status', statusFilter);
+    }
+
+    // Search across reference_number, insured_name, broker_name
+    if (searchTerm && searchTerm.trim()) {
+      const term = searchTerm.trim();
+      query = query.or(
+        `reference_number.ilike.%${term}%,insured_name.ilike.%${term}%,broker_name.ilike.%${term}%`
+      );
+    }
+
+    // Sort - map camelCase field names to snake_case DB columns
+    const sortMap: Record<string, string> = {
+      'referenceNumber': 'reference_number',
+      'insuredName': 'insured_name',
+      'brokerName': 'broker_name',
+      'classOfBusiness': 'class_of_business',
+      'territory': 'territory',
+      'grossPremium': 'gross_premium',
+      'netPremium': 'net_premium',
+      'ourShare': 'our_share',
+      'inceptionDate': 'inception_date',
+      'expiryDate': 'expiry_date',
+      'source': 'source',
+      'status': 'status',
+      'limit': 'limit',
+      'installmentCount': 'installment_count',
+      'currency': 'currency',
+    };
+    const dbSortField = sortMap[sortField || 'inceptionDate'] || 'inception_date';
+    query = query.order(dbSortField, { ascending: sortDirection === 'asc' });
+
+    // Paginate
+    const from = page * pageSize;
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Portfolio query error:', error);
+      return { rows: [], totalCount: 0 };
+    }
+
+    return { rows: data || [], totalCount: count || 0 };
+  },
+
+  // --- Installments (lazy-load for detail modal) ---
+  getInstallmentsByRef: async (referenceNumber: string, source: string): Promise<Policy[]> => {
+    if (!isSupabaseEnabled()) return [];
+
+    if (source === 'direct') {
+      const { data, error } = await supabase!
+        .from('policies')
+        .select('*')
+        .eq('policyNumber', referenceNumber)
+        .eq('recordType', 'Direct');
+      if (error) { console.error('Installments query error:', error); return []; }
+      return (data || []).map(toAppPolicy);
+    }
+
+    // For inward, query inward_reinsurance by contract_number
+    if (source === 'inward-foreign' || source === 'inward-domestic') {
+      const { data, error } = await supabase!
+        .from('inward_reinsurance')
+        .select('*')
+        .eq('contract_number', referenceNumber);
+      if (error) { console.error('Installments query error:', error); return []; }
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        contractNumber: row.contract_number,
+        origin: row.origin,
+        type: row.type,
+        structure: row.structure,
+        status: row.status,
+        cedantName: row.cedant_name,
+        brokerName: row.broker_name,
+        inceptionDate: row.inception_date,
+        expiryDate: row.expiry_date,
+        currency: row.currency,
+        limitOfLiability: row.limit_of_liability,
+        ourShare: row.our_share,
+        grossPremium: row.gross_premium,
+        netPremium: row.net_premium,
+        commissionPercent: row.commission_percent,
+        classOfCover: row.class_of_cover,
+        typeOfCover: row.type_of_cover,
+        territory: row.territory,
+        isDeleted: row.is_deleted,
+      })) as any[];
+    }
+
+    return [];
+  },
+
   // --- External API Search Simulation ---
   searchExternalRegistry: async (query: string, type: 'INN' | 'NAME'): Promise<Partial<LegalEntity> | null> => {
       await new Promise(resolve => setTimeout(resolve, 1500));
