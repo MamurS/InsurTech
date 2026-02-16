@@ -61,8 +61,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [sessionTimeoutMs, setSessionTimeoutMs] = useState(30 * 60 * 1000);
 
-  // Load session timeout setting from DB
+  // Load session timeout: user localStorage override > global admin DB setting > 30 min default
   useEffect(() => {
+    const userPref = localStorage.getItem('user_session_timeout_minutes');
+    if (userPref && userPref !== 'default') {
+      const minutes = Number(userPref);
+      if (minutes > 0) {
+        setSessionTimeoutMs(minutes * 60 * 1000);
+        return;
+      }
+    }
+    // Fall back to global admin setting from DB
     DB.getSetting('session_timeout_minutes').then(val => {
       if (val) {
         const minutes = Number(val);

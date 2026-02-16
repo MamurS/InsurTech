@@ -10,7 +10,7 @@ import { getDbEnvironment } from '../services/supabase';
 import {
   Save, Download, Upload, Database,
   Building, Globe, Moon, Bell, Shield,
-  HardDrive, Check, RefreshCw, Server
+  HardDrive, Check, RefreshCw, Server, Timer
 } from 'lucide-react';
 
 const SETTINGS_KEY = 'insurtech_app_settings';
@@ -45,11 +45,19 @@ const Settings: React.FC = () => {
   const isAdmin = user?.role === 'Super Admin' || user?.role === 'Admin';
   const currentEnv = getDbEnvironment();
 
+  const USER_TIMEOUT_KEY = 'user_session_timeout_minutes';
+  const [userTimeout, setUserTimeout] = useState<string>('default');
+
   useEffect(() => {
     // Load Settings
     const stored = localStorage.getItem(SETTINGS_KEY);
     if (stored) {
       setSettings(JSON.parse(stored));
+    }
+    // Load user session timeout preference
+    const savedTimeout = localStorage.getItem(USER_TIMEOUT_KEY);
+    if (savedTimeout) {
+      setUserTimeout(savedTimeout);
     }
     calculateStorage();
   }, []);
@@ -272,6 +280,46 @@ const Settings: React.FC = () => {
                         Enable Expiry Notifications <Bell size={14} className="text-gray-400"/>
                      </label>
                 </div>
+            </div>
+        </div>
+
+        {/* Session Timeout */}
+        <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="p-4 border-b bg-gray-50 font-bold text-gray-700 flex items-center gap-2">
+                <Timer size={18} /> Session Timeout
+            </div>
+            <div className="p-6 space-y-4">
+                <p className="text-sm text-gray-500">Auto-logout after inactivity. Choose a personal override or use the default set by your administrator.</p>
+                <div className="flex items-center gap-4">
+                    <label className="block text-sm font-medium text-gray-700">Timeout duration:</label>
+                    <select
+                        value={userTimeout}
+                        onChange={(e) => setUserTimeout(e.target.value)}
+                        className="p-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-gray-900"
+                    >
+                        <option value="default">Use default (from Admin)</option>
+                        <option value="15">15 minutes</option>
+                        <option value="30">30 minutes</option>
+                        <option value="60">1 hour</option>
+                        <option value="120">2 hours</option>
+                        <option value="240">4 hours</option>
+                    </select>
+                    <button
+                        onClick={() => {
+                            localStorage.setItem(USER_TIMEOUT_KEY, userTimeout);
+                            toast.success('Session timeout preference saved');
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                        <Save size={16} />
+                        Save
+                    </button>
+                </div>
+                <p className="text-xs text-gray-400">
+                    {userTimeout === 'default'
+                        ? 'Using the global timeout configured by your administrator.'
+                        : `Your session will expire after ${userTimeout === '60' ? '1 hour' : userTimeout === '120' ? '2 hours' : userTimeout === '240' ? '4 hours' : `${userTimeout} minutes`} of inactivity.`}
+                </p>
             </div>
         </div>
 
