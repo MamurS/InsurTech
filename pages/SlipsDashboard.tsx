@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { ReinsuranceSlip, PolicyStatus } from '../types';
-import { ExcelService } from '../services/excel';
+import { exportToExcel } from '../services/excelExport';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { DetailModal } from '../components/DetailModal';
 import { FormModal } from '../components/FormModal';
@@ -177,8 +177,18 @@ const SlipsDashboard: React.FC = () => {
     return 0;
   });
 
-  const handleExport = async () => {
-    await ExcelService.exportSlips(sortedSlips);
+  const handleExport = () => {
+    if (sortedSlips.length === 0) return;
+    const exportData = sortedSlips.map(slip => ({
+      'Slip Number': slip.slipNumber || '',
+      'Status': (slip.status as string) || 'DRAFT',
+      'Date': slip.date ? formatDate(slip.date) : '',
+      'Insured': slip.insuredName || '',
+      'Broker / Reinsurer': slip.brokerReinsurer || '',
+      'Currency': (slip.currency as string) || '',
+      'Limit of Liability': slip.limitOfLiability || 0,
+    }));
+    exportToExcel(exportData, `Reinsurance_Slips_${new Date().toISOString().split('T')[0]}`, 'Slips');
   };
 
   const formatMoney = (amount: number | undefined, currency: string | undefined) => {

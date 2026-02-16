@@ -10,6 +10,7 @@ import {
   Globe, Home, TrendingUp, DollarSign,
   FileText, Building2, Calendar, Eye, Edit, MoreVertical
 } from 'lucide-react';
+import { exportToExcel } from '../services/excelExport';
 
 const InwardReinsuranceDashboard: React.FC = () => {
   const toast = useToast();
@@ -192,8 +193,8 @@ const InwardReinsuranceDashboard: React.FC = () => {
     };
   }, [contracts]);
 
-  // Export to Excel (simple CSV for now)
-  const handleExport = async () => {
+  // Export to Excel
+  const handleExport = () => {
     if (filteredContracts.length === 0) {
       toast.error('No contracts to export');
       return;
@@ -201,31 +202,24 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
     setExporting(true);
     try {
-      const headers = ['Contract No.', 'Origin', 'Type', 'Cedant', 'Class', 'Inception', 'Expiry', 'Currency', 'Limit', 'Gross Premium', 'Net Premium', 'Our Share %', 'Status', 'Broker'];
-      const rows = filteredContracts.map(c => [
-        c.contractNumber,
-        c.origin,
-        c.type,
-        c.cedantName,
-        c.classOfCover,
-        c.inceptionDate,
-        c.expiryDate,
-        c.currency,
-        c.limitOfLiability,
-        c.grossPremium,
-        c.netPremium,
-        c.ourShare,
-        c.status,
-        c.brokerName || 'Direct',
-      ]);
-
-      const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell ?? ''}"`).join(',')).join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `Inward_Reinsurance_Portfolio_${new Date().toISOString().split('T')[0]}.csv`;
-      link.click();
-
+      const exportData = filteredContracts.map(c => ({
+        'Contract No.': c.contractNumber,
+        'Origin': c.origin,
+        'Type': c.type,
+        'Structure': c.structure,
+        'Cedant': c.cedantName,
+        'Broker': c.brokerName || 'Direct',
+        'Class': c.classOfCover,
+        'Inception': c.inceptionDate,
+        'Expiry': c.expiryDate,
+        'Currency': c.currency,
+        'Limit': c.limitOfLiability || 0,
+        'Gross Premium': c.grossPremium || 0,
+        'Net Premium': c.netPremium || 0,
+        'Our Share %': c.ourShare || 0,
+        'Status': c.status,
+      }));
+      exportToExcel(exportData, `Inward_Reinsurance_${new Date().toISOString().split('T')[0]}`, 'Inward Reinsurance');
       toast.success('Exported successfully');
     } catch (error) {
       console.error('Export error:', error);

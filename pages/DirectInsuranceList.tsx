@@ -11,6 +11,7 @@ import {
   Plus, Search, FileText, Trash2, Edit, Eye,
   Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
 } from 'lucide-react';
+import { exportToExcel } from '../services/excelExport';
 
 const DirectInsuranceList: React.FC = () => {
   const navigate = useNavigate();
@@ -164,6 +165,21 @@ const DirectInsuranceList: React.FC = () => {
     );
   };
 
+  const handleExport = () => {
+    if (filteredPolicies.length === 0) return;
+    const exportData = filteredPolicies.map(p => ({
+      'Policy #': p.policyNumber,
+      'Insured': p.insuredName,
+      'Country': p.insuredCountry || '',
+      'Class': p.classOfInsurance || '',
+      'Inception': p.inceptionDate || '',
+      'Expiry': p.expiryDate || '',
+      'GWP': p.grossPremium || 0,
+      'Status': p.status,
+    }));
+    exportToExcel(exportData, `Direct_Insurance_${new Date().toISOString().split('T')[0]}`, 'Direct Insurance');
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -260,6 +276,7 @@ const DirectInsuranceList: React.FC = () => {
 
           {/* Export Button */}
           <button
+            onClick={handleExport}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
           >
             <Download size={14} />
