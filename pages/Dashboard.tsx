@@ -415,7 +415,8 @@ const Dashboard: React.FC = () => {
         return;
       }
 
-      const result = await DB.getPortfolioPage({
+      // Fetch view data and slips in parallel when source is 'All'
+      const portfolioPromise = DB.getPortfolioPage({
         page: currentPage - 1, // API is 0-indexed, UI is 1-indexed
         pageSize: rowsPerPage,
         sourceFilter: viewSource,
@@ -424,6 +425,9 @@ const Dashboard: React.FC = () => {
         sortField: sortConfig.key,
         sortDirection: sortConfig.direction,
       });
+      const slipsPromise = sourceFilter === 'All' ? DB.getSlips() : Promise.resolve([]);
+
+      const [result, slips] = await Promise.all([portfolioPromise, slipsPromise]);
 
       // Map view columns to PortfolioRow format
       const rows: PortfolioRow[] = result.rows.map((row: any) => ({
@@ -448,10 +452,9 @@ const Dashboard: React.FC = () => {
         originalData: null as any,
       }));
 
-      // If "All" source filter, also fetch slips and append
+      // If "All" source filter, append slips
       if (sourceFilter === 'All') {
-        const slips = await DB.getSlips();
-        const slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
+        const slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
         setPortfolioData([...rows, ...slipRows]);
         setTotalCount(result.totalCount + slipRows.length);
       } else {

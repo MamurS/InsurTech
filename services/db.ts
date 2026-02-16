@@ -1000,6 +1000,212 @@ export const DB = {
     return [];
   },
 
+  // --- Direct Policies View (Server-Side Pagination) ---
+  getDirectPoliciesPage: async (params: {
+    page: number;           // 0-indexed
+    pageSize: number;
+    countryFilter?: string; // 'all' | 'uzbekistan' | 'foreign'
+    statusFilter?: string;  // 'all' | 'Draft' | 'Active' | 'Expired' | 'Cancelled'
+    searchTerm?: string;
+    sortField?: string;
+    sortDirection?: 'asc' | 'desc';
+  }): Promise<{ rows: any[]; totalCount: number }> => {
+    if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
+
+    const { page, pageSize, countryFilter, statusFilter, searchTerm, sortField, sortDirection } = params;
+
+    let query = supabase!
+      .from('v_direct_policies_consolidated')
+      .select('*', { count: 'exact' });
+
+    // Country filter
+    if (countryFilter && countryFilter !== 'all') {
+      if (countryFilter === 'uzbekistan') {
+        query = query.eq('territory', 'Uzbekistan');
+      } else if (countryFilter === 'foreign') {
+        query = query.neq('territory', 'Uzbekistan');
+      }
+    }
+
+    // Status filter
+    if (statusFilter && statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+
+    // Search across policy_number, insured_name
+    if (searchTerm && searchTerm.trim()) {
+      const term = searchTerm.trim();
+      query = query.or(
+        `policy_number.ilike.%${term}%,insured_name.ilike.%${term}%`
+      );
+    }
+
+    // Sort
+    const sortMap: Record<string, string> = {
+      'policyNumber': 'policy_number',
+      'insuredName': 'insured_name',
+      'territory': 'territory',
+      'classOfInsurance': 'class_of_business',
+      'grossPremium': 'gross_premium',
+      'inceptionDate': 'inception_date',
+      'expiryDate': 'expiry_date',
+      'status': 'status',
+    };
+    const dbSortField = sortMap[sortField || 'inception_date'] || 'inception_date';
+    query = query.order(dbSortField, { ascending: sortDirection === 'asc' });
+
+    // Paginate
+    const from = page * pageSize;
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Direct policies query error:', error);
+      return { rows: [], totalCount: 0 };
+    }
+
+    return { rows: data || [], totalCount: count || 0 };
+  },
+
+  // Stats for Direct Policies (lightweight head:true count queries)
+  getDirectPoliciesStats: async (): Promise<{
+    total: number; uzbekistan: number; foreign: number;
+    active: number; draft: number;
+  }> => {
+    if (!isSupabaseEnabled()) return { total: 0, uzbekistan: 0, foreign: 0, active: 0, draft: 0 };
+
+    const [totalRes, uzbekRes, foreignRes, activeRes, draftRes] = await Promise.all([
+      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }),
+      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).eq('territory', 'Uzbekistan'),
+      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).neq('territory', 'Uzbekistan'),
+      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).eq('status', 'Active'),
+      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).eq('status', 'Draft'),
+    ]);
+
+    return {
+      total: totalRes.count || 0,
+      uzbekistan: uzbekRes.count || 0,
+      foreign: foreignRes.count || 0,
+      active: activeRes.count || 0,
+      draft: draftRes.count || 0,
+    };
+  },
+
+  // --- Inward Reinsurance View (Server-Side Pagination) ---
+  getInwardReinsurancePage: async (params: {
+    page: number;           // 0-indexed
+    pageSize: number;
+    typeFilter?: string;    // 'all' | 'foreign' | 'domestic'
+    statusFilter?: string;  // 'all' | 'DRAFT' | 'PENDING' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED'
+    classFilter?: string;   // 'all' | specific class
+    searchTerm?: string;
+    sortField?: string;
+    sortDirection?: 'asc' | 'desc';
+  }): Promise<{ rows: any[]; totalCount: number }> => {
+    if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
+
+    const { page, pageSize, typeFilter, statusFilter, classFilter, searchTerm, sortField, sortDirection } = params;
+
+    let query = supabase!
+      .from('v_inward_consolidated')
+      .select('*', { count: 'exact' });
+
+    // Type filter (origin)
+    if (typeFilter && typeFilter !== 'all') {
+      query = query.eq('source', typeFilter === 'foreign' ? 'inward-foreign' : 'inward-domestic');
+    }
+
+    // Status filter
+    if (statusFilter && statusFilter !== 'all') {
+      query = query.eq('status', statusFilter);
+    }
+
+    // Class filter
+    if (classFilter && classFilter !== 'all') {
+      query = query.eq('class_of_cover', classFilter);
+    }
+
+    // Search across contract_number, cedant_name, broker_name, original_insured_name
+    if (searchTerm && searchTerm.trim()) {
+      const term = searchTerm.trim();
+      query = query.or(
+        `contract_number.ilike.%${term}%,cedant_name.ilike.%${term}%,broker_name.ilike.%${term}%,original_insured_name.ilike.%${term}%`
+      );
+    }
+
+    // Sort
+    const sortMap: Record<string, string> = {
+      'contractNumber': 'contract_number',
+      'cedantName': 'cedant_name',
+      'brokerName': 'broker_name',
+      'classOfCover': 'class_of_cover',
+      'grossPremium': 'gross_premium',
+      'netPremium': 'net_premium',
+      'ourShare': 'our_share',
+      'inceptionDate': 'inception_date',
+      'expiryDate': 'expiry_date',
+      'status': 'status',
+      'source': 'source',
+    };
+    const dbSortField = sortMap[sortField || 'inception_date'] || 'inception_date';
+    query = query.order(dbSortField, { ascending: sortDirection === 'asc' });
+
+    // Paginate
+    const from = page * pageSize;
+    query = query.range(from, from + pageSize - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Inward reinsurance query error:', error);
+      return { rows: [], totalCount: 0 };
+    }
+
+    return { rows: data || [], totalCount: count || 0 };
+  },
+
+  // Stats for Inward Reinsurance (lightweight head:true count queries)
+  getInwardReinsuranceStats: async (): Promise<{
+    total: number; foreign: number; domestic: number; active: number;
+  }> => {
+    if (!isSupabaseEnabled()) return { total: 0, foreign: 0, domestic: 0, active: 0 };
+
+    const [totalRes, foreignRes, domesticRes, activeRes] = await Promise.all([
+      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }),
+      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }).eq('source', 'inward-foreign'),
+      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }).eq('source', 'inward-domestic'),
+      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+    ]);
+
+    return {
+      total: totalRes.count || 0,
+      foreign: foreignRes.count || 0,
+      domestic: domesticRes.count || 0,
+      active: activeRes.count || 0,
+    };
+  },
+
+  // Unique classes for inward reinsurance filter dropdown
+  getInwardReinsuranceClasses: async (): Promise<string[]> => {
+    if (!isSupabaseEnabled()) return [];
+
+    const { data, error } = await supabase!
+      .from('v_inward_consolidated')
+      .select('class_of_cover');
+
+    if (error) {
+      console.error('Inward classes query error:', error);
+      return [];
+    }
+
+    const classes = new Set<string>();
+    (data || []).forEach((row: any) => {
+      if (row.class_of_cover) classes.add(row.class_of_cover);
+    });
+    return Array.from(classes).sort();
+  },
+
   // --- External API Search Simulation ---
   searchExternalRegistry: async (query: string, type: 'INN' | 'NAME'): Promise<Partial<LegalEntity> | null> => {
       await new Promise(resolve => setTimeout(resolve, 1500));
