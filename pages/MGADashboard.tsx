@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { DB } from '../services/db';
 import { BindingAgreement, BordereauxEntry } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -7,13 +7,18 @@ import { FormModal } from '../components/FormModal';
 import { MGAFormContent } from '../components/MGAFormContent';
 import {
   Search, RefreshCw, Download, Plus,
-  FileSignature, TrendingUp, DollarSign, BarChart3,
+  FileSignature, TrendingUp, TrendingDown, DollarSign, BarChart3,
   Building2, Calendar, MoreVertical, Eye, Edit, Trash2,
   ChevronLeft, ChevronRight, FileText, ClipboardList,
-  CheckCircle, Clock, AlertCircle, Save, X, Upload, Info
+  CheckCircle, Clock, AlertCircle, Save, X, Upload, Info,
+  Star, Minus
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
 import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
+import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine
+} from 'recharts';
 
 // ─── Bordereaux Entry Form (inline modal) ───────────────────────
 
@@ -434,16 +439,350 @@ const DetailModal: React.FC<DetailModalProps> = ({ agreement, actualGwp, onClose
   );
 };
 
+// ─── Performance Tab Component ──────────────────────────────────
+
+interface PerformanceTabProps {
+  agreements: BindingAgreement[];
+  bdxGwpMap: Record<string, number>;
+  bdxMap: Record<string, BordereauxEntry[]>;
+  loading: boolean;
+}
+
+const CHART_COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
+
+const fmtCurShort = (amount: number): string => {
+  if (amount >= 1_000_000) return `$${(amount / 1_000_000).toFixed(1)}M`;
+  if (amount >= 1_000) return `$${(amount / 1_000).toFixed(0)}K`;
+  return `$${amount.toLocaleString()}`;
+};
+
+const fmtCur = (amount: number): string =>
+  new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+
+const getScoreStars = (utilization: number): number => {
+  if (utilization >= 90) return 5;
+  if (utilization >= 75) return 4;
+  if (utilization >= 50) return 3;
+  if (utilization >= 25) return 2;
+  return 1;
+};
+
+const StarRating: React.FC<{ score: number }> = ({ score }) => (
+  <div className="flex gap-0.5">
+    {[1, 2, 3, 4, 5].map(i => (
+      <Star key={i} size={14} className={i <= score ? 'text-amber-400 fill-amber-400' : 'text-slate-200'} />
+    ))}
+  </div>
+);
+
+const TrendIndicator: React.FC<{ bdxEntries: BordereauxEntry[] }> = ({ bdxEntries }) => {
+  const accepted = bdxEntries
+    .filter(b => b.status === 'ACCEPTED' && b.totalGwp > 0)
+    .sort((a, b) => (a.periodFrom || '').localeCompare(b.periodFrom || ''));
+  if (accepted.length < 2) return <Minus size={14} className="text-slate-300" />;
+  const recent = accepted[accepted.length - 1].totalGwp;
+  const prev = accepted[accepted.length - 2].totalGwp;
+  if (recent > prev) return <TrendingUp size={14} className="text-emerald-500" />;
+  if (recent < prev) return <TrendingDown size={14} className="text-red-500" />;
+  return <Minus size={14} className="text-slate-300" />;
+};
+
+const PerformanceTab: React.FC<PerformanceTabProps> = ({ agreements, bdxGwpMap, bdxMap, loading }) => {
+  // Build performance rows
+  const perfRows = useMemo(() => {
+    return agreements.map(ag => {
+      const gwp = bdxGwpMap[ag.id] || 0;
+      const utilization = ag.epi > 0 ? (gwp / ag.epi) * 100 : 0;
+      const bdxEntries = bdxMap[ag.id] || [];
+      const bdxCount = bdxEntries.length;
+      const lastBdxDate = bdxEntries.length > 0
+        ? bdxEntries.reduce((latest, b) => {
+            const d = b.submissionDate || b.periodTo || '';
+            return d > latest ? d : latest;
+          }, '')
+        : null;
+
+      // Avg quarterly GWP: accepted GWP / quarters elapsed since inception
+      let avgQuarterlyGwp = 0;
+      if (ag.inceptionDate && gwp > 0) {
+        const incDate = new Date(ag.inceptionDate);
+        const now = new Date();
+        const monthsElapsed = Math.max(1, (now.getFullYear() - incDate.getFullYear()) * 12 + now.getMonth() - incDate.getMonth());
+        const quartersElapsed = Math.max(1, monthsElapsed / 3);
+        avgQuarterlyGwp = gwp / quartersElapsed;
+      }
+
+      return {
+        agreement: ag,
+        gwp,
+        utilization,
+        score: getScoreStars(utilization),
+        bdxEntries,
+        bdxCount,
+        lastBdxDate,
+        avgQuarterlyGwp,
+      };
+    }).sort((a, b) => b.utilization - a.utilization);
+  }, [agreements, bdxGwpMap, bdxMap]);
+
+  const activeRows = perfRows.filter(r => r.agreement.status === 'ACTIVE');
+  const avgUtilization = activeRows.length > 0
+    ? activeRows.reduce((s, r) => s + r.utilization, 0) / activeRows.length : 0;
+  const bestPerformer = activeRows.length > 0 ? activeRows[0] : null;
+  const underperformerCount = activeRows.filter(r => r.utilization < 50).length;
+  const totalBdxCount = perfRows.reduce((s, r) => s + r.bdxCount, 0);
+
+  // Chart data: utilization bars
+  const utilizationChartData = perfRows
+    .filter(r => r.agreement.epi > 0)
+    .slice(0, 15)
+    .map(r => ({
+      name: r.agreement.agreementNumber.length > 18
+        ? r.agreement.agreementNumber.substring(0, 15) + '...'
+        : r.agreement.agreementNumber,
+      utilization: Number(r.utilization.toFixed(1)),
+      fill: r.utilization >= 75 ? '#10b981' : r.utilization >= 50 ? '#f59e0b' : '#ef4444',
+    }));
+
+  // Quarterly trend data: top 5 agreements by GWP with multiple bdx
+  const trendAgreements = perfRows
+    .filter(r => r.bdxEntries.filter(b => b.status === 'ACCEPTED').length >= 2)
+    .slice(0, 5);
+
+  const trendData = useMemo(() => {
+    if (trendAgreements.length === 0) return [];
+    // Collect all unique periods across all agreements
+    const periodSet = new Set<string>();
+    trendAgreements.forEach(r => {
+      r.bdxEntries
+        .filter(b => b.status === 'ACCEPTED')
+        .forEach(b => { if (b.periodTo) periodSet.add(b.periodTo); });
+    });
+    const periods = Array.from(periodSet).sort();
+
+    return periods.map(period => {
+      const point: Record<string, any> = { period: period.substring(0, 7) };
+      trendAgreements.forEach((r, i) => {
+        const accepted = r.bdxEntries
+          .filter(b => b.status === 'ACCEPTED' && (b.periodTo || '') <= period)
+          .reduce((s, b) => s + b.totalGwp, 0);
+        point[`ag${i}`] = accepted;
+        point[`name${i}`] = r.agreement.agreementNumber;
+      });
+      return point;
+    });
+  }, [trendAgreements]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="animate-spin text-blue-600" size={32} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide mb-1">
+            <BarChart3 size={14} />
+            Avg Utilization
+          </div>
+          <p className={`text-2xl font-bold ${avgUtilization >= 75 ? 'text-emerald-600' : avgUtilization >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+            {avgUtilization.toFixed(1)}%
+          </p>
+          <p className="text-xs text-slate-400 mt-0.5">{activeRows.length} active agreements</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-emerald-500 text-xs uppercase tracking-wide mb-1">
+            <Star size={14} />
+            Best Performer
+          </div>
+          <p className="text-sm font-bold text-slate-800 truncate">{bestPerformer?.agreement.mgaName || '-'}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{bestPerformer ? `${bestPerformer.utilization.toFixed(0)}% utilization` : 'No active agreements'}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-red-500 text-xs uppercase tracking-wide mb-1">
+            <AlertCircle size={14} />
+            Underperformers
+          </div>
+          <p className="text-2xl font-bold text-red-600">{underperformerCount}</p>
+          <p className="text-xs text-slate-400 mt-0.5">Below 50% utilization</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-blue-500 text-xs uppercase tracking-wide mb-1">
+            <ClipboardList size={14} />
+            Total Bordereaux
+          </div>
+          <p className="text-2xl font-bold text-blue-600">{totalBdxCount}</p>
+          <p className="text-xs text-slate-400 mt-0.5">All submissions</p>
+        </div>
+      </div>
+
+      {/* Performance Table */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-800">Agreement Performance</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Utilization, bordereaux activity, and scoring</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase">Agreement #</th>
+                <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase">MGA / Partner</th>
+                <th className="text-center px-2 py-3 text-xs font-semibold text-slate-500 uppercase">Status</th>
+                <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase">EPI</th>
+                <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase">Actual GWP</th>
+                <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase w-36">Utilization</th>
+                <th className="text-right px-2 py-3 text-xs font-semibold text-slate-500 uppercase">Bdx</th>
+                <th className="text-left px-3 py-3 text-xs font-semibold text-slate-500 uppercase">Last Bdx</th>
+                <th className="text-right px-3 py-3 text-xs font-semibold text-slate-500 uppercase">Avg Qtr GWP</th>
+                <th className="text-center px-2 py-3 text-xs font-semibold text-slate-500 uppercase">Score</th>
+                <th className="text-center px-2 py-3 text-xs font-semibold text-slate-500 uppercase">Trend</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {perfRows.map(row => {
+                const statusColors: Record<string, string> = {
+                  'ACTIVE': 'bg-emerald-100 text-emerald-700',
+                  'DRAFT': 'bg-slate-100 text-slate-600',
+                  'EXPIRED': 'bg-amber-100 text-amber-700',
+                  'TERMINATED': 'bg-red-100 text-red-700',
+                  'CANCELLED': 'bg-slate-200 text-slate-500',
+                };
+                const barColor = row.utilization >= 75 ? 'bg-emerald-500' : row.utilization >= 50 ? 'bg-amber-500' : 'bg-red-500';
+                return (
+                  <tr key={row.agreement.id} className="hover:bg-slate-50">
+                    <td className="px-3 py-2.5 font-medium text-slate-800">{row.agreement.agreementNumber}</td>
+                    <td className="px-3 py-2.5 text-slate-700 max-w-[160px] truncate">{row.agreement.mgaName}</td>
+                    <td className="px-2 py-2.5 text-center">
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[row.agreement.status] || 'bg-slate-100 text-slate-600'}`}>
+                        {row.agreement.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-slate-600 font-mono">{fmtCur(row.agreement.epi)}</td>
+                    <td className="px-3 py-2.5 text-right font-mono font-medium text-slate-800">{row.gwp > 0 ? fmtCur(row.gwp) : '-'}</td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(row.utilization, 100)}%` }} />
+                        </div>
+                        <span className={`text-xs font-semibold w-10 text-right ${
+                          row.utilization >= 75 ? 'text-emerald-600' : row.utilization >= 50 ? 'text-amber-600' : 'text-red-600'
+                        }`}>
+                          {row.agreement.epi > 0 ? `${row.utilization.toFixed(0)}%` : 'N/A'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-2.5 text-right text-slate-600 font-mono">{row.bdxCount}</td>
+                    <td className="px-3 py-2.5 text-slate-600 text-xs">{row.lastBdxDate ? formatDate(row.lastBdxDate) : '-'}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-700 font-mono">{row.avgQuarterlyGwp > 0 ? fmtCurShort(row.avgQuarterlyGwp) : '-'}</td>
+                    <td className="px-2 py-2.5 text-center"><StarRating score={row.score} /></td>
+                    <td className="px-2 py-2.5 text-center"><TrendIndicator bdxEntries={row.bdxEntries} /></td>
+                  </tr>
+                );
+              })}
+              {perfRows.length === 0 && (
+                <tr><td colSpan={11} className="py-12 text-center text-slate-400">No agreements found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Utilization Chart */}
+        {utilizationChartData.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Utilization by Agreement</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Actual GWP as % of EPI</p>
+            </div>
+            <div className="p-5">
+              <ResponsiveContainer width="100%" height={Math.max(280, utilizationChartData.length * 32)}>
+                <BarChart data={utilizationChartData} layout="vertical" margin={{ left: 10, right: 30 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12 }} stroke="#94a3b8" tickFormatter={(v) => `${v}%`} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} stroke="#94a3b8" width={120} />
+                  <Tooltip
+                    formatter={((value: number) => [`${value}%`, 'Utilization']) as any}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <ReferenceLine x={100} stroke="#94a3b8" strokeDasharray="3 3" label={{ value: 'EPI', position: 'top', fontSize: 10 }} />
+                  <Bar dataKey="utilization" name="Utilization %" radius={[0, 4, 4, 0]}>
+                    {utilizationChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+
+        {/* Quarterly Trend Chart */}
+        {trendData.length > 0 && trendAgreements.length > 0 && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h3 className="font-semibold text-slate-800">Cumulative GWP Trend</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Top agreements by accepted bordereaux over time</p>
+            </div>
+            <div className="p-5">
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={trendData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="period" tick={{ fontSize: 11 }} stroke="#94a3b8" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" tickFormatter={(v) => fmtCurShort(v)} />
+                  <Tooltip
+                    formatter={((value: number, name: string, props: any) => {
+                      const idx = Number(name.replace('ag', ''));
+                      const label = props?.payload?.[`name${idx}`] || name;
+                      return [fmtCur(value), label];
+                    }) as any}
+                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                  />
+                  <Legend formatter={(value: string) => {
+                    const idx = Number(value.replace('ag', ''));
+                    return trendAgreements[idx]?.agreement.agreementNumber || value;
+                  }} />
+                  {trendAgreements.map((_, i) => (
+                    <Line
+                      key={`ag${i}`}
+                      type="monotone"
+                      dataKey={`ag${i}`}
+                      stroke={CHART_COLORS[i % CHART_COLORS.length]}
+                      strokeWidth={2}
+                      dot={{ r: 3 }}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // ─── Main Dashboard ─────────────────────────────────────────────
 
 const MGADashboard: React.FC = () => {
   const toast = useToast();
+
+  // Page-level tab
+  const [activePageTab, setActivePageTab] = useState<'agreements' | 'performance'>('agreements');
 
   // Data
   const [agreements, setAgreements] = useState<BindingAgreement[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, active: 0, totalEpi: 0, actualGwp: 0 });
   const [bdxGwpMap, setBdxGwpMap] = useState<Record<string, number>>({});
+  const [bdxMap, setBdxMap] = useState<Record<string, BordereauxEntry[]>>({});
   const [exporting, setExporting] = useState(false);
 
   // Pagination (client-side)
@@ -496,18 +835,22 @@ const MGADashboard: React.FC = () => {
       setAgreements(allAgreements);
       setStats(statsResult);
 
-      // Build per-agreement GWP map from bordereaux
+      // Build per-agreement GWP map and full bordereaux map
       const gwpMap: Record<string, number> = {};
+      const fullBdxMap: Record<string, BordereauxEntry[]> = {};
       for (const ag of allAgreements) {
         try {
           const bdxList = await DB.getBordereauxByAgreement(ag.id);
+          fullBdxMap[ag.id] = bdxList;
           const accepted = bdxList.filter(b => b.status === 'ACCEPTED');
           gwpMap[ag.id] = accepted.reduce((sum, b) => sum + b.totalGwp, 0);
         } catch {
+          fullBdxMap[ag.id] = [];
           gwpMap[ag.id] = 0;
         }
       }
       setBdxGwpMap(gwpMap);
+      setBdxMap(fullBdxMap);
     } catch (err) {
       console.error('Failed to load MGA data:', err);
       toast.error('Failed to load agreements');
@@ -631,6 +974,40 @@ const MGADashboard: React.FC = () => {
   // ─── Render ───────────────────────────────────────────
   return (
     <div>
+      {/* Page-level Tab Selector */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          <button
+            onClick={() => setActivePageTab('agreements')}
+            className={`px-5 py-2 text-sm font-medium transition-colors border-r border-slate-300 ${
+              activePageTab === 'agreements' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            Agreements
+          </button>
+          <button
+            onClick={() => setActivePageTab('performance')}
+            className={`px-5 py-2 text-sm font-medium transition-colors ${
+              activePageTab === 'performance' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            Performance
+          </button>
+        </div>
+      </div>
+
+      {/* Performance Tab */}
+      {activePageTab === 'performance' && (
+        <PerformanceTab
+          agreements={agreements}
+          bdxGwpMap={bdxGwpMap}
+          bdxMap={bdxMap}
+          loading={loading}
+        />
+      )}
+
+      {/* Agreements Tab (existing content) */}
+      {activePageTab === 'agreements' && (<>
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -832,6 +1209,7 @@ const MGADashboard: React.FC = () => {
           </>
         )}
       </div>
+      </>)}
 
       {/* Form Modal */}
       <FormModal
