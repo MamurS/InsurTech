@@ -27,7 +27,7 @@ export interface ChannelMetrics {
   totalLimit: number;
   currencyBreakdown: Record<string, { count: number; premium: number }>;
   classBreakdown: Record<string, { count: number; premium: number }>;
-  monthlyTrend: { month: string; gwp: number; nwp: number; count: number }[];
+  monthlyTrend: { month: string; gwp: number; nwp: number; gpe: number; npe: number; count: number }[];
   topCedants: { name: string; premium: number; count: number }[];
 }
 
@@ -282,7 +282,7 @@ export const useAnalyticsSummary = () => {
  */
 function processDirectPolicies(policies: any[]): ChannelMetrics {
   const metrics = createEmptyChannelMetrics('direct');
-  const monthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
+  const monthlyData: Record<string, { gwp: number; nwp: number; gpe: number; npe: number; count: number }> = {};
   const cedantData: Record<string, { premium: number; count: number }> = {};
 
   // Group by policyNumber first (multiple rows = installments)
@@ -381,10 +381,12 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
     const monthKey = getMonthKey(inceptionDate);
     if (monthKey) {
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { gwp: 0, nwp: 0, count: 0 };
+        monthlyData[monthKey] = { gwp: 0, nwp: 0, gpe: 0, npe: 0, count: 0 };
       }
       monthlyData[monthKey].gwp += gwpUSD;
       monthlyData[monthKey].nwp += nwpUSD;
+      monthlyData[monthKey].gpe += gwpUSD * earnedFraction;
+      monthlyData[monthKey].npe += nwpUSD * earnedFraction;
       monthlyData[monthKey].count++;
     }
 
@@ -427,7 +429,7 @@ function processDirectPolicies(policies: any[]): ChannelMetrics {
  */
 function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 'inward-domestic'): ChannelMetrics {
   const metrics = createEmptyChannelMetrics(channel);
-  const monthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
+  const monthlyData: Record<string, { gwp: number; nwp: number; gpe: number; npe: number; count: number }> = {};
   const cedantData: Record<string, { premium: number; count: number }> = {};
 
   // Group by contract_number first (multiple rows = installments)
@@ -523,10 +525,12 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
     const monthKey = getMonthKey(inceptionDate);
     if (monthKey) {
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { gwp: 0, nwp: 0, count: 0 };
+        monthlyData[monthKey] = { gwp: 0, nwp: 0, gpe: 0, npe: 0, count: 0 };
       }
       monthlyData[monthKey].gwp += gwpUSD;
       monthlyData[monthKey].nwp += nwpUSD;
+      monthlyData[monthKey].gpe += gwpUSD * earnedFraction;
+      monthlyData[monthKey].npe += nwpUSD * earnedFraction;
       monthlyData[monthKey].count++;
     }
 
@@ -571,7 +575,7 @@ function processInwardReinsurance(contracts: any[], channel: 'inward-foreign' | 
  */
 function processOutwardPolicies(policies: any[]): ChannelMetrics {
   const metrics = createEmptyChannelMetrics('outward');
-  const monthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
+  const monthlyData: Record<string, { gwp: number; nwp: number; gpe: number; npe: number; count: number }> = {};
   const reinsurerData: Record<string, { premium: number; count: number }> = {};
 
   // Group by policyNumber (each row is a different reinsurer, not installment)
@@ -660,10 +664,12 @@ function processOutwardPolicies(policies: any[]): ChannelMetrics {
     const monthKey = getMonthKey(inceptionDate);
     if (monthKey) {
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { gwp: 0, nwp: 0, count: 0 };
+        monthlyData[monthKey] = { gwp: 0, nwp: 0, gpe: 0, npe: 0, count: 0 };
       }
       monthlyData[monthKey].gwp += cededUSD;
       monthlyData[monthKey].nwp += cededUSD;
+      monthlyData[monthKey].gpe += cededUSD * earnedFraction;
+      monthlyData[monthKey].npe += cededUSD * earnedFraction;
       monthlyData[monthKey].count++;
     }
 
@@ -718,7 +724,7 @@ function processOutwardPolicies(policies: any[]): ChannelMetrics {
  */
 function calculateTotalMetrics(channels: ChannelMetrics[], outwardMetrics?: ChannelMetrics): ChannelMetrics {
   const total = createEmptyChannelMetrics('total');
-  const allMonthlyData: Record<string, { gwp: number; nwp: number; count: number }> = {};
+  const allMonthlyData: Record<string, { gwp: number; nwp: number; gpe: number; npe: number; count: number }> = {};
   const allCedantData: Record<string, { premium: number; count: number }> = {};
 
   // Separate revenue channels from cost channel
@@ -759,10 +765,12 @@ function calculateTotalMetrics(channels: ChannelMetrics[], outwardMetrics?: Chan
     // Merge monthly trend
     ch.monthlyTrend.forEach(m => {
       if (!allMonthlyData[m.month]) {
-        allMonthlyData[m.month] = { gwp: 0, nwp: 0, count: 0 };
+        allMonthlyData[m.month] = { gwp: 0, nwp: 0, gpe: 0, npe: 0, count: 0 };
       }
       allMonthlyData[m.month].gwp += m.gwp;
       allMonthlyData[m.month].nwp += m.nwp;
+      allMonthlyData[m.month].gpe += m.gpe;
+      allMonthlyData[m.month].npe += m.npe;
       allMonthlyData[m.month].count += m.count;
     });
 

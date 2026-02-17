@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
+  ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import {
@@ -523,6 +524,73 @@ const Analytics: React.FC = () => {
           </ResponsiveContainer>
         </ChartCard>
 
+        {/* Written vs Earned Premium */}
+        <ChartCard
+          title="Written vs Earned Premium"
+          subtitle="Monthly GWP vs GPE comparison"
+          loading={loading}
+        >
+          <ResponsiveContainer width="100%" height={280}>
+            <ComposedChart data={currentMetrics?.monthlyTrend || []}>
+              <defs>
+                <linearGradient id="gwpAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="gpeAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#14b8a6" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="#14b8a6" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+              <YAxis
+                tick={{ fontSize: 12 }}
+                stroke="#94a3b8"
+                tickFormatter={(v) => `$${(v / 1000000).toFixed(1)}M`}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload?.length) return null;
+                  const gwp = Number(payload.find(p => p.dataKey === 'gwp')?.value) || 0;
+                  const gpe = Number(payload.find(p => p.dataKey === 'gpe')?.value) || 0;
+                  const upr = gwp - gpe;
+                  const earningPct = gwp > 0 ? (gpe / gwp) * 100 : 0;
+                  return (
+                    <div className="bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-sm">
+                      <p className="font-semibold text-slate-800 mb-1.5">{label}</p>
+                      <p className="text-blue-600">GWP: {formatCurrency(gwp)}</p>
+                      <p className="text-teal-600">GPE: {formatCurrency(gpe)}</p>
+                      <p className="text-amber-600">UPR: {formatCurrency(upr)}</p>
+                      <p className="text-slate-500 mt-1">Earning: {formatPercent(earningPct)}</p>
+                    </div>
+                  );
+                }}
+              />
+              <Legend />
+              <Area
+                type="monotone"
+                dataKey="gwp"
+                stroke="#3b82f6"
+                fill="url(#gwpAreaGradient)"
+                strokeWidth={2}
+                name="GWP"
+              />
+              <Area
+                type="monotone"
+                dataKey="gpe"
+                stroke="#14b8a6"
+                fill="url(#gpeAreaGradient)"
+                strokeWidth={2}
+                name="GPE"
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
+      {/* Channel Comparison */}
+      <div className="grid grid-cols-1 gap-6">
         {/* Channel Comparison */}
         <ChartCard
           title="Channel Comparison"
