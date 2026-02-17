@@ -5,13 +5,20 @@ import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
 import RegisterClaimModal from '../components/RegisterClaimModal';
-import { AlertOctagon, Search, Plus, Filter, ChevronLeft, ChevronRight, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
+import { AlertOctagon, Search, Plus, Filter, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+
+const PAGE_SIZE = 20;
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+
+  // Infinite scroll state
+  const [allClaims, setAllClaims] = useState<any[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Kebab menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -42,22 +49,46 @@ const ClaimsList: React.FC = () => {
       status: 'ALL',
       searchTerm: '',
       page: 1,
-      pageSize: 25
+      pageSize: PAGE_SIZE
   });
 
   const { data, isLoading, isError, refetch } = useClaimsList(filters);
-  const claims = data?.data || [];
   const totalCount = data?.count || 0;
-  const totalPages = Math.ceil(totalCount / filters.pageSize);
+
+  // Accumulate claims across pages
+  useEffect(() => {
+    const newClaims = data?.data || [];
+    if (newClaims.length === 0) return;
+    setHasMore(newClaims.length >= PAGE_SIZE);
+    if (filters.page === 1) {
+      setAllClaims(newClaims);
+    } else {
+      setAllClaims(prev => [...prev, ...newClaims]);
+    }
+  }, [data, filters.page]);
+
+  const claims = allClaims;
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading) {
+          setFilters(prev => ({ ...prev, page: prev.page + 1 }));
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading]);
 
   const handleFilterChange = (key: keyof ClaimFilters, value: any) => {
-      setFilters(prev => ({ ...prev, [key]: value, page: 1 })); // Reset to page 1 on filter change
-  };
-
-  const handlePageChange = (newPage: number) => {
-      if (newPage >= 1 && newPage <= totalPages) {
-          setFilters(prev => ({ ...prev, page: newPage }));
-      }
+      setAllClaims([]);
+      setHasMore(true);
+      setFilters(prev => ({ ...prev, [key]: value, page: 1 }));
   };
 
   const handleExport = () => {
@@ -121,10 +152,10 @@ const ClaimsList: React.FC = () => {
           {/* Export Button */}
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap"
           >
             <Download size={14} />
-            Export to Excel
+            Export
           </button>
 
           {/* Register Claim Button */}
@@ -287,31 +318,13 @@ const ClaimsList: React.FC = () => {
                         )}
                     </table>
 
-                {/* Pagination Controls */}
-                <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
-                    <div className="text-sm text-gray-500">
-                        Showing <span className="font-medium">{(filters.page - 1) * filters.pageSize + 1}</span> to <span className="font-medium">{Math.min(filters.page * filters.pageSize, totalCount)}</span> of <span className="font-medium">{totalCount}</span> claims
-                    </div>
-                    <div className="flex gap-2">
-                        <button 
-                            onClick={() => handlePageChange(filters.page - 1)}
-                            disabled={filters.page === 1}
-                            className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm"
-                        >
-                            <ChevronLeft size={16}/>
-                        </button>
-                        <span className="flex items-center px-4 text-sm font-medium bg-white border rounded-lg shadow-sm">
-                            Page {filters.page} of {totalPages || 1}
-                        </span>
-                        <button 
-                            onClick={() => handlePageChange(filters.page + 1)}
-                            disabled={filters.page === totalPages || totalPages === 0}
-                            className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm"
-                        >
-                            <ChevronRight size={16}/>
-                        </button>
-                    </div>
-                </div>
+                {/* Infinite scroll sentinel */}
+                <div ref={sentinelRef} className="h-1" />
+                {isLoading && filters.page > 1 && (
+                  <div className="flex justify-center py-4">
+                    <RefreshCw size={20} className="animate-spin text-blue-600" />
+                  </div>
+                )}
             </>
         )}
       </div>

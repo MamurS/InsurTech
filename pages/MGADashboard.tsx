@@ -9,7 +9,7 @@ import {
   Search, RefreshCw, Download, Plus,
   FileSignature, TrendingUp, TrendingDown, DollarSign, BarChart3,
   Building2, Calendar, MoreVertical, Eye, Edit, Trash2,
-  ChevronLeft, ChevronRight, FileText, ClipboardList,
+  FileText, ClipboardList,
   CheckCircle, Clock, AlertCircle, Save, X, Upload, Info,
   Star, Minus
 } from 'lucide-react';
@@ -785,9 +785,10 @@ const MGADashboard: React.FC = () => {
   const [bdxMap, setBdxMap] = useState<Record<string, BordereauxEntry[]>>({});
   const [exporting, setExporting] = useState(false);
 
-  // Pagination (client-side)
-  const [currentPage, setCurrentPage] = useState(1);
-  const rowsPerPage = 25;
+  // Infinite scroll (client-side)
+  const VISIBLE_INCREMENT = 20;
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_INCREMENT);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Search & filters
   const [searchInput, setSearchInput] = useState('');
@@ -867,7 +868,7 @@ const MGADashboard: React.FC = () => {
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setSearchTerm(value);
-      setCurrentPage(1);
+      setVisibleCount(VISIBLE_INCREMENT);
     }, 300);
   };
 
@@ -887,8 +888,29 @@ const MGADashboard: React.FC = () => {
   });
 
   const totalCount = filteredAgreements.length;
-  const totalPages = Math.ceil(totalCount / rowsPerPage);
-  const pageAgreements = filteredAgreements.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const pageAgreements = filteredAgreements.slice(0, visibleCount);
+  const hasMoreAgreements = visibleCount < totalCount;
+
+  // Reset visibleCount on filter changes
+  useEffect(() => {
+    setVisibleCount(VISIBLE_INCREMENT);
+  }, [searchTerm, statusFilter, typeFilter]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMoreAgreements) {
+          setVisibleCount(prev => prev + VISIBLE_INCREMENT);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreAgreements]);
 
   // ─── Formatters ───────────────────────────────────────
   const formatCurrency = (amount: number, short = false) => {
@@ -1052,7 +1074,7 @@ const MGADashboard: React.FC = () => {
           </div>
 
           {/* Status */}
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-36 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
             <option value="all">All Statuses</option>
             <option value="DRAFT">Draft</option>
@@ -1063,7 +1085,7 @@ const MGADashboard: React.FC = () => {
           </select>
 
           {/* Type */}
-          <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+          <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
             <option value="all">All Types</option>
             <option value="BINDING_AUTHORITY">Binding Authority</option>
@@ -1078,9 +1100,9 @@ const MGADashboard: React.FC = () => {
 
           {/* Export */}
           <button onClick={handleExport} disabled={exporting || filteredAgreements.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
             <Download size={14} />
-            Export to Excel
+            Export
           </button>
 
           {/* New Agreement */}
@@ -1185,27 +1207,13 @@ const MGADashboard: React.FC = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                Showing <span className="font-medium">{(currentPage - 1) * rowsPerPage + 1}</span> to{' '}
-                <span className="font-medium">{Math.min(currentPage * rowsPerPage, totalCount)}</span> of{' '}
-                <span className="font-medium">{totalCount}</span> agreements
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+            {hasMoreAgreements && (
+              <div className="flex justify-center py-4">
+                <RefreshCw size={20} className="animate-spin text-blue-600" />
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}
-                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm">
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="flex items-center px-4 text-sm font-medium bg-white border rounded-lg shadow-sm">
-                  Page {currentPage} of {totalPages || 1}
-                </span>
-                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages || totalPages === 0}
-                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm">
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
+            )}
           </>
         )}
       </div>

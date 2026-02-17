@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
 import { ReinsuranceSlip, PolicyStatus } from '../types';
@@ -9,7 +9,7 @@ import { DetailModal } from '../components/DetailModal';
 import { FormModal } from '../components/FormModal';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye, RefreshCw } from 'lucide-react';
 
 // Detect shifted column data from legacy CSV import:
 // insuredName got a numeric ID, brokerReinsurer got the actual insured name.
@@ -37,7 +37,12 @@ const SlipsDashboard: React.FC = () => {
   const [slips, setSlips] = useState<ReinsuranceSlip[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  
+
+  // Infinite scroll
+  const VISIBLE_INCREMENT = 20;
+  const [visibleCount, setVisibleCount] = useState(VISIBLE_INCREMENT);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
@@ -199,6 +204,30 @@ const SlipsDashboard: React.FC = () => {
     return 0;
   });
 
+  const visibleSlips = sortedSlips.slice(0, visibleCount);
+  const hasMore = visibleCount < sortedSlips.length;
+
+  // Reset visibleCount when filters change
+  useEffect(() => {
+    setVisibleCount(VISIBLE_INCREMENT);
+  }, [searchTerm, statusFilter]);
+
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          setVisibleCount(prev => prev + VISIBLE_INCREMENT);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading]);
+
   const handleExport = () => {
     if (sortedSlips.length === 0) return;
     const exportData = sortedSlips.map(slip => ({
@@ -313,9 +342,9 @@ const SlipsDashboard: React.FC = () => {
           <button
             type="button"
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap"
           >
-            <Download size={14} /> Export to Excel
+            <Download size={14} /> Export
           </button>
 
           {/* New Slip Button */}
@@ -346,7 +375,7 @@ const SlipsDashboard: React.FC = () => {
                 </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-                {sortedSlips.map((slip, index) => (
+                {visibleSlips.map((slip, index) => (
                     <tr 
                       key={slip.id} 
                       onClick={() => setSelectedSlip(slip)}
@@ -393,6 +422,14 @@ const SlipsDashboard: React.FC = () => {
                 ))}
             </tbody>
         </table>
+
+        {/* Infinite scroll sentinel */}
+        <div ref={sentinelRef} className="h-1" />
+        {hasMore && (
+          <div className="flex justify-center py-4">
+            <RefreshCw size={20} className="animate-spin text-blue-600" />
+          </div>
+        )}
 
         {!loading && filteredSlips.length === 0 && (
             <div className="p-12 text-center text-gray-400 flex flex-col items-center">
