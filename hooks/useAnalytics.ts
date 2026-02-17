@@ -31,10 +31,18 @@ export interface ChannelMetrics {
   topCedants: { name: string; premium: number; count: number }[];
 }
 
+export interface MGAMetrics {
+  agreementCount: number;
+  totalEpi: number;
+  actualGwp: number;
+  utilizationPercent: number;
+}
+
 export interface AnalyticsSummary {
   channels: ChannelMetrics[];
   total: ChannelMetrics;
   claims: ClaimsMetrics;
+  mga: MGAMetrics;
   lossRatioByClass: LossRatioData[];
   recentActivity: ActivityItem[];
 }
@@ -197,10 +205,11 @@ export const useAnalyticsSummary = () => {
 
       // Fetch all data sources in parallel
       // Use RPC for claims to get properly calculated totals
-      const [policiesRes, inwardRes, claimsRes] = await Promise.all([
+      const [policiesRes, inwardRes, claimsRes, mgaMetrics] = await Promise.all([
         supabase.from('policies').select('*').eq('isDeleted', false),
         supabase.from('inward_reinsurance').select('*').eq('is_deleted', false),
         supabase.rpc('get_claims_with_totals'),
+        processMGAData(),
       ]);
 
       // Handle potential errors gracefully
@@ -243,6 +252,7 @@ export const useAnalyticsSummary = () => {
         channels,
         total: totalMetrics,
         claims: claimsMetrics,
+        mga: mgaMetrics,
         lossRatioByClass,
         recentActivity: [],
       });
@@ -909,6 +919,41 @@ function calculateLossRatioByClass(policies: any[], claims: any[]): LossRatioDat
     .filter(d => d.earnedPremium > 0)
     .sort((a, b) => b.earnedPremium - a.earnedPremium)
     .slice(0, 10);
+}
+
+// =============================================
+// MGA / BINDING AUTHORITY PROCESSOR
+// =============================================
+
+async function processMGAData(): Promise<MGAMetrics> {
+  const empty: MGAMetrics = { agreementCount: 0, totalEpi: 0, actualGwp: 0, utilizationPercent: 0 };
+
+  if (!supabase) return empty;
+
+  try {
+    const [agreementsRes, bordereauxRes] = await Promise.all([
+      supabase.from('binding_agreements').select('*').eq('is_deleted', false),
+      supabase.from('bordereaux_entries').select('agreement_id, total_gwp').eq('is_deleted', false).eq('status', 'ACCEPTED'),
+    ]);
+
+    const agreements = agreementsRes.data || [];
+    const bordereaux = bordereauxRes.data || [];
+
+    // Only count active agreements for EPI and agreement count
+    const activeAgreements = agreements.filter((a: any) => a.status === 'ACTIVE');
+    const agreementCount = activeAgreements.length;
+    const totalEpi = activeAgreements.reduce((sum: number, a: any) => sum + (Number(a.epi) || 0), 0);
+
+    // Sum GWP from all accepted bordereaux (across all agreements)
+    const actualGwp = bordereaux.reduce((sum: number, b: any) => sum + (Number(b.total_gwp) || 0), 0);
+
+    const utilizationPercent = totalEpi > 0 ? (actualGwp / totalEpi) * 100 : 0;
+
+    return { agreementCount, totalEpi, actualGwp, utilizationPercent };
+  } catch (err) {
+    console.error('Failed to process MGA data:', err);
+    return empty;
+  }
 }
 
 // =============================================

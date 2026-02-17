@@ -6,9 +6,10 @@ import {
 import {
   TrendingUp, TrendingDown, DollarSign, FileText, AlertTriangle,
   PieChart as PieChartIcon, BarChart3, Activity, RefreshCw, Download,
-  Building2, Globe, Home, FileCheck, Users, Percent, Shield, AlertCircle
+  Building2, Globe, Home, FileCheck, Users, Percent, Shield, AlertCircle,
+  FileSignature
 } from 'lucide-react';
-import { useAnalyticsSummary, ChannelType, ChannelMetrics } from '../hooks/useAnalytics';
+import { useAnalyticsSummary, ChannelType, ChannelMetrics, MGAMetrics } from '../hooks/useAnalytics';
 import { exportToExcel } from '../services/excelExport';
 
 // =============================================
@@ -197,13 +198,22 @@ const Analytics: React.FC = () => {
     }
   };
 
-  const channelComparisonData = data?.channels.map(ch => ({
+  const channelComparisonBase = data?.channels.map(ch => ({
     name: getChartLabel(ch.channel),
     gwp: ch.grossWrittenPremium,
     nwp: ch.netWrittenPremium,
     records: ch.recordCount,
     fill: ch.color,
   })) || [];
+
+  // Append MGA bars if there are active agreements
+  const channelComparisonData = data?.mga && data.mga.agreementCount > 0
+    ? [
+        ...channelComparisonBase,
+        { name: 'MGA (Actual)', gwp: data.mga.actualGwp, nwp: data.mga.actualGwp, records: data.mga.agreementCount, fill: '#4f46e5' },
+        { name: 'MGA (EPI)', gwp: data.mga.totalEpi, nwp: data.mga.totalEpi, records: data.mga.agreementCount, fill: '#a5b4fc' },
+      ]
+    : channelComparisonBase;
 
   // Prepare class breakdown data for pie chart
   const classBreakdownData = currentMetrics
@@ -439,6 +449,27 @@ const Analytics: React.FC = () => {
           color="text-orange-600"
         />
       </div>
+
+      {/* MGA / Binding Authority Section */}
+      {data?.mga && data.mga.agreementCount > 0 && (
+        <div className="bg-white rounded-xl border-2 border-indigo-200 p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <FileSignature size={18} className="text-indigo-600" />
+            <h3 className="font-semibold text-indigo-900">MGA / Binding Authority</h3>
+            <span className="text-xs text-indigo-500 ml-auto">{data.mga.agreementCount} active agreements</span>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            <StatCard label="EPI (Forecast)" value={formatCurrency(data.mga.totalEpi)} color="text-indigo-400" />
+            <StatCard label="Actual GWP" value={formatCurrency(data.mga.actualGwp)} color="text-indigo-700" />
+            <StatCard
+              label="Utilization"
+              value={formatPercent(data.mga.utilizationPercent)}
+              color={data.mga.utilizationPercent > 80 ? 'text-green-600' : data.mga.utilizationPercent > 50 ? 'text-amber-600' : 'text-red-600'}
+            />
+            <StatCard label="Remaining EPI" value={formatCurrency(data.mga.totalEpi - data.mga.actualGwp)} color="text-slate-500" />
+          </div>
+        </div>
+      )}
 
       {/* Charts Row 1: Trend and Channel Comparison */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
