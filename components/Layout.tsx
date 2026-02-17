@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt, Shield
+  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt, Shield, Calculator
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 import EnvironmentBadge from './EnvironmentBadge';
@@ -27,6 +27,7 @@ const routeGroups: Record<string, string[]> = {
   '/analytics': ['/analytics'],
   '/financial-statements': ['/financial-statements'],
   '/risk-accumulation': ['/risk-accumulation'],
+  '/ibnr': ['/ibnr'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
   '/agenda': ['/agenda'],
@@ -267,6 +268,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <Shield size={20} className="flex-shrink-0" />
             <span>Risk Accumulation</span>
+          </Link>
+
+          <Link
+            to="/ibnr"
+            className={getLinkClass('/ibnr')}
+            title="IBNR Estimation"
+          >
+            <Calculator size={20} className="flex-shrink-0" />
+            <span>IBNR Estimation</span>
           </Link>
 
           <Link
