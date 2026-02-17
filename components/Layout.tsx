@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt, Shield, Calculator
+  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt, Shield, Calculator, FileCheck
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 import EnvironmentBadge from './EnvironmentBadge';
@@ -28,6 +28,7 @@ const routeGroups: Record<string, string[]> = {
   '/financial-statements': ['/financial-statements'],
   '/risk-accumulation': ['/risk-accumulation'],
   '/ibnr': ['/ibnr'],
+  '/regulatory': ['/regulatory'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
   '/agenda': ['/agenda'],
@@ -44,6 +45,7 @@ const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith('/inward-reinsurance')) return 'Inward Reinsurance';
   if (pathname.startsWith('/mga')) return 'MGA / Binders';
   if (pathname.startsWith('/analytics')) return 'Analytics';
+  if (pathname.startsWith('/regulatory')) return 'Regulatory Reports';
   if (pathname.startsWith('/slips') || pathname.startsWith('/slip')) return 'Slips';
   if (pathname.startsWith('/claims') || pathname.startsWith('/claim')) return 'Claims';
   if (pathname.startsWith('/entities')) return 'Legal Entities';
@@ -277,6 +279,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <Calculator size={20} className="flex-shrink-0" />
             <span>IBNR Estimation</span>
+          </Link>
+
+          <Link
+            to="/regulatory"
+            className={getLinkClass('/regulatory')}
+            title="Regulatory Reports"
+          >
+            <FileCheck size={20} className="flex-shrink-0" />
+            <span>Regulatory Reports</span>
           </Link>
 
           <Link
