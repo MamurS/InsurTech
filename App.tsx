@@ -26,6 +26,7 @@ import Analytics from './pages/Analytics';
 import DirectInsuranceList from './pages/DirectInsuranceList';
 import MGADashboard from './pages/MGADashboard';
 import FinancialStatements from './pages/FinancialStatements';
+import RiskAccumulation from './pages/RiskAccumulation';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -85,6 +86,7 @@ const AppRoutes = () => {
               <Route path="/mga" element={<MGADashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/financial-statements" element={<FinancialStatements />} />
+              <Route path="/risk-accumulation" element={<RiskAccumulation />} />
               <Route path="/new" element={<PolicyForm />} />
               <Route path="/edit/:id" element={<PolicyForm />} />
               <Route path="/wording/:id" element={<PolicyWording />} />
