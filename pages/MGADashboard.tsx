@@ -10,9 +10,10 @@ import {
   FileSignature, TrendingUp, DollarSign, BarChart3,
   Building2, Calendar, MoreVertical, Eye, Edit, Trash2,
   ChevronLeft, ChevronRight, FileText, ClipboardList,
-  CheckCircle, Clock, AlertCircle, Save, X
+  CheckCircle, Clock, AlertCircle, Save, X, Upload, Info
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
 
 // ─── Bordereaux Entry Form (inline modal) ───────────────────────
 
@@ -26,6 +27,8 @@ interface BdxFormProps {
 const BordereauxEntryForm: React.FC<BdxFormProps> = ({ agreementId, entry, onSave, onCancel }) => {
   const toast = useToast();
   const [saving, setSaving] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [parseResult, setParseResult] = useState<ParsedBordereaux | null>(null);
   const isEdit = Boolean(entry);
 
   const [form, setForm] = useState<Partial<BordereauxEntry>>({
@@ -40,6 +43,7 @@ const BordereauxEntryForm: React.FC<BdxFormProps> = ({ agreementId, entry, onSav
     totalPolicies: entry?.totalPolicies || 0,
     totalClaimsPaid: entry?.totalClaimsPaid || 0,
     totalClaimsReserved: entry?.totalClaimsReserved || 0,
+    fileName: entry?.fileName || '',
     notes: entry?.notes || '',
   });
 
@@ -49,6 +53,37 @@ const BordereauxEntryForm: React.FC<BdxFormProps> = ({ agreementId, entry, onSav
       ...prev,
       [name]: type === 'number' ? (value === '' ? 0 : Number(value)) : value,
     }));
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setParsing(true);
+    setParseResult(null);
+    try {
+      const parsed = await parseBordereaux(file);
+      setParseResult(parsed);
+      // Pre-fill form fields with extracted values
+      setForm(prev => ({
+        ...prev,
+        totalGwp: parsed.totalGwp || prev.totalGwp,
+        totalPolicies: parsed.totalPolicies || prev.totalPolicies,
+        totalClaimsPaid: parsed.totalClaimsPaid || prev.totalClaimsPaid,
+        totalClaimsReserved: parsed.totalClaimsReserved || prev.totalClaimsReserved,
+        fileName: parsed.fileName,
+      }));
+      if (Object.keys(parsed.detectedColumns).length > 0) {
+        toast.success(`Parsed ${parsed.rowCount} rows from ${parsed.fileName}`);
+      } else {
+        toast.error('No matching columns detected — please fill in values manually');
+      }
+    } catch (err: any) {
+      console.error('Parse error:', err);
+      toast.error('Failed to parse file: ' + (err.message || 'Unknown error'));
+    } finally {
+      setParsing(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -67,6 +102,7 @@ const BordereauxEntryForm: React.FC<BdxFormProps> = ({ agreementId, entry, onSav
         totalPolicies: Number(form.totalPolicies || 0),
         totalClaimsPaid: Number(form.totalClaimsPaid || 0),
         totalClaimsReserved: Number(form.totalClaimsReserved || 0),
+        fileName: form.fileName || undefined,
         notes: form.notes,
       });
       toast.success(isEdit ? 'Bordereaux updated' : 'Bordereaux entry added');
@@ -78,12 +114,49 @@ const BordereauxEntryForm: React.FC<BdxFormProps> = ({ agreementId, entry, onSav
     }
   };
 
+  const formatDetected = (result: ParsedBordereaux): string => {
+    const parts: string[] = [];
+    if (result.detectedColumns.totalGwp) parts.push(`GWP from '${result.detectedColumns.totalGwp}'`);
+    if (result.detectedColumns.totalPolicies) parts.push(`Policies from '${result.detectedColumns.totalPolicies}'`);
+    if (result.detectedColumns.totalClaimsPaid) parts.push(`Claims Paid from '${result.detectedColumns.totalClaimsPaid}'`);
+    if (result.detectedColumns.totalClaimsReserved) parts.push(`Reserves from '${result.detectedColumns.totalClaimsReserved}'`);
+    return parts.length > 0 ? `Detected: ${parts.join(', ')}` : 'No matching columns detected';
+  };
+
   const labelClass = "block text-xs font-medium text-slate-500 mb-1";
   const inputClass = "w-full h-9 px-3 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white";
 
   return (
     <form onSubmit={handleSubmit} className="bg-slate-50 rounded-xl border border-slate-200 p-4 space-y-4">
       <h4 className="text-sm font-semibold text-slate-700">{isEdit ? 'Edit Bordereaux Entry' : 'New Bordereaux Entry'}</h4>
+
+      {/* File Upload */}
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+        <label className="cursor-pointer inline-flex flex-col items-center gap-1">
+          <Upload size={20} className={parsing ? 'text-blue-500 animate-pulse' : 'text-gray-400'} />
+          <span className="text-sm text-gray-600">{parsing ? 'Parsing...' : 'Upload Excel/CSV bordereaux to auto-fill'}</span>
+          <input
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleFileUpload}
+            className="hidden"
+            disabled={parsing}
+          />
+          <span className="text-xs text-blue-600 hover:underline">Choose file</span>
+        </label>
+      </div>
+
+      {/* Parse Result Info */}
+      {parseResult && Object.keys(parseResult.detectedColumns).length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+          <Info size={16} className="text-blue-500 mt-0.5 flex-shrink-0" />
+          <div className="text-xs text-blue-800">
+            <p className="font-medium">Parsed {parseResult.fileName}: {parseResult.rowCount} rows found.</p>
+            <p className="mt-0.5 text-blue-600">{formatDetected(parseResult)}</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-4">
         <div>
           <label className={labelClass}>Type</label>
