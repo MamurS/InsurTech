@@ -1,4 +1,4 @@
-import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus, ExchangeRate, Currency, InwardReinsurance } from '../types';
+import { Policy, Clause, ReinsuranceSlip, PolicyTemplate, User, DEFAULT_PERMISSIONS, LegalEntity, EntityLog, PolicyStatus, ExchangeRate, Currency, InwardReinsurance, BindingAgreement, BordereauxEntry } from '../types';
 import { supabase } from './supabase';
 import { AuthService } from './auth';
 
@@ -1303,6 +1303,246 @@ export const DB = {
       localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(settings));
     } catch {
       // ignore storage errors
+    }
+  },
+
+  // --- BINDING AGREEMENTS (MGA) ---
+
+  getBindingAgreements: async (): Promise<BindingAgreement[]> => {
+    if (!isSupabaseEnabled()) return [];
+    try {
+      const { data, error } = await supabase!
+        .from('binding_agreements')
+        .select('*')
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
+      if (error) {
+        if (error.code === 'PGRST205' || error.code === '42P01' || error.message?.includes('does not exist')) {
+          console.warn('binding_agreements table not found - migration may not have been run');
+          return [];
+        }
+        throw error;
+      }
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        agreementNumber: row.agreement_number,
+        agreementType: row.agreement_type,
+        mgaName: row.mga_name,
+        mgaEntityId: row.mga_entity_id,
+        brokerName: row.broker_name,
+        brokerEntityId: row.broker_entity_id,
+        underwriter: row.underwriter,
+        status: row.status,
+        inceptionDate: row.inception_date,
+        expiryDate: row.expiry_date,
+        currency: row.currency,
+        territoryScope: row.territory_scope,
+        classOfBusiness: row.class_of_business,
+        epi: Number(row.epi || 0),
+        ourShare: Number(row.our_share || 1),
+        commissionPercent: Number(row.commission_percent || 0),
+        maxLimitPerRisk: row.max_limit_per_risk ? Number(row.max_limit_per_risk) : undefined,
+        aggregateLimit: row.aggregate_limit ? Number(row.aggregate_limit) : undefined,
+        depositPremium: Number(row.deposit_premium || 0),
+        minimumPremium: Number(row.minimum_premium || 0),
+        claimsAuthorityLimit: Number(row.claims_authority_limit || 0),
+        riskParameters: row.risk_parameters,
+        notes: row.notes,
+        isDeleted: row.is_deleted,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    } catch (err) {
+      console.error('Failed to fetch binding agreements:', err);
+      return [];
+    }
+  },
+
+  getBindingAgreement: async (id: string): Promise<BindingAgreement | undefined> => {
+    if (!isSupabaseEnabled()) return undefined;
+    const { data, error } = await supabase!
+      .from('binding_agreements')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error || !data) return undefined;
+    const row = data;
+    return {
+      id: row.id,
+      agreementNumber: row.agreement_number,
+      agreementType: row.agreement_type,
+      mgaName: row.mga_name,
+      mgaEntityId: row.mga_entity_id,
+      brokerName: row.broker_name,
+      brokerEntityId: row.broker_entity_id,
+      underwriter: row.underwriter,
+      status: row.status,
+      inceptionDate: row.inception_date,
+      expiryDate: row.expiry_date,
+      currency: row.currency,
+      territoryScope: row.territory_scope,
+      classOfBusiness: row.class_of_business,
+      epi: Number(row.epi || 0),
+      ourShare: Number(row.our_share || 1),
+      commissionPercent: Number(row.commission_percent || 0),
+      maxLimitPerRisk: row.max_limit_per_risk ? Number(row.max_limit_per_risk) : undefined,
+      aggregateLimit: row.aggregate_limit ? Number(row.aggregate_limit) : undefined,
+      depositPremium: Number(row.deposit_premium || 0),
+      minimumPremium: Number(row.minimum_premium || 0),
+      claimsAuthorityLimit: Number(row.claims_authority_limit || 0),
+      riskParameters: row.risk_parameters,
+      notes: row.notes,
+      isDeleted: row.is_deleted,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  },
+
+  saveBindingAgreement: async (agreement: BindingAgreement): Promise<void> => {
+    if (!isSupabaseEnabled()) return;
+    const { error } = await supabase!.from('binding_agreements').upsert({
+      id: agreement.id,
+      agreement_number: agreement.agreementNumber,
+      agreement_type: agreement.agreementType,
+      mga_name: agreement.mgaName,
+      mga_entity_id: agreement.mgaEntityId || null,
+      broker_name: agreement.brokerName || null,
+      broker_entity_id: agreement.brokerEntityId || null,
+      underwriter: agreement.underwriter || null,
+      status: agreement.status,
+      inception_date: agreement.inceptionDate || null,
+      expiry_date: agreement.expiryDate || null,
+      currency: agreement.currency,
+      territory_scope: agreement.territoryScope || null,
+      class_of_business: agreement.classOfBusiness || null,
+      epi: agreement.epi,
+      our_share: agreement.ourShare,
+      commission_percent: agreement.commissionPercent,
+      max_limit_per_risk: agreement.maxLimitPerRisk || null,
+      aggregate_limit: agreement.aggregateLimit || null,
+      deposit_premium: agreement.depositPremium,
+      minimum_premium: agreement.minimumPremium,
+      claims_authority_limit: agreement.claimsAuthorityLimit,
+      risk_parameters: agreement.riskParameters || null,
+      notes: agreement.notes || null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error('Save binding agreement error:', error);
+      throw error;
+    }
+  },
+
+  deleteBindingAgreement: async (id: string): Promise<void> => {
+    if (!isSupabaseEnabled()) return;
+    await supabase!.from('binding_agreements').update({ is_deleted: true }).eq('id', id);
+  },
+
+  // --- BORDEREAUX ---
+
+  getBordereauxByAgreement: async (agreementId: string): Promise<BordereauxEntry[]> => {
+    if (!isSupabaseEnabled()) return [];
+    try {
+      const { data, error } = await supabase!
+        .from('bordereaux_entries')
+        .select('*')
+        .eq('agreement_id', agreementId)
+        .eq('is_deleted', false)
+        .order('period_from', { ascending: false });
+      if (error) {
+        if (error.code === 'PGRST205' || error.code === '42P01' || error.message?.includes('does not exist')) {
+          return [];
+        }
+        throw error;
+      }
+      return (data || []).map((row: any) => ({
+        id: row.id,
+        agreementId: row.agreement_id,
+        bordereauType: row.bordereaux_type,
+        periodFrom: row.period_from,
+        periodTo: row.period_to,
+        submissionDate: row.submission_date,
+        status: row.status,
+        totalGwp: Number(row.total_gwp || 0),
+        totalPolicies: Number(row.total_policies || 0),
+        totalClaimsPaid: Number(row.total_claims_paid || 0),
+        totalClaimsReserved: Number(row.total_claims_reserved || 0),
+        fileName: row.file_name,
+        notes: row.notes,
+        reviewedBy: row.reviewed_by,
+        reviewedAt: row.reviewed_at,
+        isDeleted: row.is_deleted,
+        createdAt: row.created_at,
+      }));
+    } catch (err) {
+      console.error('Failed to fetch bordereaux:', err);
+      return [];
+    }
+  },
+
+  saveBordereauxEntry: async (entry: BordereauxEntry): Promise<void> => {
+    if (!isSupabaseEnabled()) return;
+    const { error } = await supabase!.from('bordereaux_entries').upsert({
+      id: entry.id,
+      agreement_id: entry.agreementId,
+      bordereaux_type: entry.bordereauType,
+      period_from: entry.periodFrom || null,
+      period_to: entry.periodTo || null,
+      submission_date: entry.submissionDate || null,
+      status: entry.status,
+      total_gwp: entry.totalGwp,
+      total_policies: entry.totalPolicies,
+      total_claims_paid: entry.totalClaimsPaid,
+      total_claims_reserved: entry.totalClaimsReserved,
+      file_name: entry.fileName || null,
+      notes: entry.notes || null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) {
+      console.error('Save bordereaux entry error:', error);
+      throw error;
+    }
+  },
+
+  deleteBordereauxEntry: async (id: string): Promise<void> => {
+    if (!isSupabaseEnabled()) return;
+    await supabase!.from('bordereaux_entries').update({ is_deleted: true }).eq('id', id);
+  },
+
+  // --- BINDING AGREEMENT STATS ---
+
+  getBindingAgreementStats: async (): Promise<{ total: number; active: number; totalEpi: number; actualGwp: number }> => {
+    if (!isSupabaseEnabled()) return { total: 0, active: 0, totalEpi: 0, actualGwp: 0 };
+    try {
+      // Get all non-deleted agreements
+      const { data: agreements, error: agErr } = await supabase!
+        .from('binding_agreements')
+        .select('status, epi')
+        .eq('is_deleted', false);
+      if (agErr) {
+        if (agErr.message?.includes('does not exist')) return { total: 0, active: 0, totalEpi: 0, actualGwp: 0 };
+        throw agErr;
+      }
+
+      const total = (agreements || []).length;
+      const activeAgreements = (agreements || []).filter((a: any) => a.status === 'ACTIVE');
+      const active = activeAgreements.length;
+      const totalEpi = activeAgreements.reduce((sum: number, a: any) => sum + Number(a.epi || 0), 0);
+
+      // Get actual GWP from accepted bordereaux
+      const { data: bdx, error: bdxErr } = await supabase!
+        .from('bordereaux_entries')
+        .select('total_gwp')
+        .eq('status', 'ACCEPTED')
+        .eq('is_deleted', false);
+      if (bdxErr && !bdxErr.message?.includes('does not exist')) throw bdxErr;
+
+      const actualGwp = (bdx || []).reduce((sum: number, b: any) => sum + Number(b.total_gwp || 0), 0);
+
+      return { total, active, totalEpi, actualGwp };
+    } catch (err) {
+      console.error('Failed to fetch binding agreement stats:', err);
+      return { total: 0, active: 0, totalEpi: 0, actualGwp: 0 };
     }
   },
 };

@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase
+  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 import EnvironmentBadge from './EnvironmentBadge';
@@ -23,6 +23,7 @@ const routeGroups: Record<string, string[]> = {
   '/': ['/'], // Dashboard only - analytics view
   '/direct-insurance': ['/direct-insurance', '/policy', '/new', '/edit', '/wording'], // Direct insurance policies
   '/inward-reinsurance': ['/inward-reinsurance'], // Inward reinsurance dashboard and sub-pages
+  '/mga': ['/mga'],
   '/analytics': ['/analytics'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
@@ -38,6 +39,7 @@ const getPageTitle = (pathname: string): string => {
   if (pathname.includes('/inward-reinsurance/foreign')) return 'Inward Reinsurance — Foreign';
   if (pathname.includes('/inward-reinsurance/domestic')) return 'Inward Reinsurance — Domestic';
   if (pathname.startsWith('/inward-reinsurance')) return 'Inward Reinsurance';
+  if (pathname.startsWith('/mga')) return 'MGA / Binders';
   if (pathname.startsWith('/analytics')) return 'Analytics';
   if (pathname.startsWith('/slips') || pathname.startsWith('/slip')) return 'Slips';
   if (pathname.startsWith('/claims') || pathname.startsWith('/claim')) return 'Claims';
@@ -228,6 +230,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </div>
             )}
           </div>
+
+          <Link
+            to="/mga"
+            className={getLinkClass('/mga')}
+            title="MGA / Binders"
+          >
+            <FileSignature size={20} className="flex-shrink-0" />
+            <span>MGA / Binders</span>
+          </Link>
 
           <Link
             to="/analytics"

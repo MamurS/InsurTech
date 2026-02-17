@@ -24,6 +24,7 @@ import InwardReinsuranceForm from './pages/InwardReinsuranceForm';
 import InwardReinsuranceDashboard from './pages/InwardReinsuranceDashboard';
 import Analytics from './pages/Analytics';
 import DirectInsuranceList from './pages/DirectInsuranceList';
+import MGADashboard from './pages/MGADashboard';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -80,6 +81,7 @@ const AppRoutes = () => {
               <Route path="/direct-insurance" element={<DirectInsuranceList />} />
               <Route path="/policy/:id" element={<PolicyForm />} />
 
+              <Route path="/mga" element={<MGADashboard />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/new" element={<PolicyForm />} />
               <Route path="/edit/:id" element={<PolicyForm />} />

@@ -452,6 +452,58 @@ export interface InwardReinsurancePreset {
   createdAt: string;
 }
 
+// --- MGA / BINDING AUTHORITY TYPES ---
+
+export interface BindingAgreement {
+  id: string;
+  agreementNumber: string;
+  agreementType: 'BINDING_AUTHORITY' | 'LINESLIP' | 'TREATY';
+  mgaName: string;
+  mgaEntityId?: string;
+  brokerName?: string;
+  brokerEntityId?: string;
+  underwriter?: string;
+  status: 'DRAFT' | 'ACTIVE' | 'EXPIRED' | 'TERMINATED' | 'CANCELLED';
+  inceptionDate?: string;
+  expiryDate?: string;
+  currency: string;
+  territoryScope?: string;
+  classOfBusiness?: string;
+  epi: number;
+  ourShare: number;
+  commissionPercent: number;
+  maxLimitPerRisk?: number;
+  aggregateLimit?: number;
+  depositPremium: number;
+  minimumPremium: number;
+  claimsAuthorityLimit: number;
+  riskParameters?: any;
+  notes?: string;
+  isDeleted?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface BordereauxEntry {
+  id: string;
+  agreementId: string;
+  bordereauType: 'PREMIUM' | 'CLAIMS' | 'ADJUSTMENT';
+  periodFrom?: string;
+  periodTo?: string;
+  submissionDate?: string;
+  status: 'PENDING' | 'UNDER_REVIEW' | 'ACCEPTED' | 'DISPUTED' | 'REJECTED';
+  totalGwp: number;
+  totalPolicies: number;
+  totalClaimsPaid: number;
+  totalClaimsReserved: number;
+  fileName?: string;
+  notes?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  isDeleted?: boolean;
+  createdAt?: string;
+}
+
 export interface Policy {
   id: string;
   channel: Channel;
