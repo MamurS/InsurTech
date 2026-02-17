@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature
+  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 import EnvironmentBadge from './EnvironmentBadge';
@@ -25,6 +25,7 @@ const routeGroups: Record<string, string[]> = {
   '/inward-reinsurance': ['/inward-reinsurance'], // Inward reinsurance dashboard and sub-pages
   '/mga': ['/mga'],
   '/analytics': ['/analytics'],
+  '/financial-statements': ['/financial-statements'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
   '/agenda': ['/agenda'],
@@ -247,6 +248,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           >
             <BarChart3 size={20} className="flex-shrink-0" />
             <span>Analytics</span>
+          </Link>
+
+          <Link
+            to="/financial-statements"
+            className={getLinkClass('/financial-statements')}
+            title="Financial Statements"
+          >
+            <Receipt size={20} className="flex-shrink-0" />
+            <span>Financial Statements</span>
           </Link>
 
           <Link
