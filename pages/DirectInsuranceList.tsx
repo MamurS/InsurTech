@@ -9,8 +9,7 @@ import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormCon
 import { formatDate } from '../utils/dateUtils';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
-  Building2, RefreshCw, Globe, MapPin, Download, MoreVertical,
-  ChevronLeft, ChevronRight
+  Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
 
@@ -18,13 +17,15 @@ const DirectInsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
 
-  // Server-side pagination state
+  // Infinite scroll state
+  const PAGE_SIZE = 20;
   const [policies, setPolicies] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage] = useState(25);
-  const totalPages = Math.ceil(totalCount / rowsPerPage);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   // Search with debounce
   const [searchInput, setSearchInput] = useState('');
@@ -79,24 +80,32 @@ const DirectInsuranceList: React.FC = () => {
 
   // Fetch paginated data from view
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    const isFirstPage = currentPage === 1;
+    if (isFirstPage) setLoading(true);
+    else setLoadingMore(true);
     try {
       const result = await DB.getDirectPoliciesPage({
-        page: currentPage - 1, // API is 0-indexed
-        pageSize: rowsPerPage,
+        page: currentPage - 1,
+        pageSize: PAGE_SIZE,
         countryFilter,
         statusFilter,
         searchTerm,
       });
-      setPolicies(result.rows);
-      setTotalCount(result.totalCount);
+      setHasMore(result.rows.length >= PAGE_SIZE);
+      if (isFirstPage) {
+        setPolicies(result.rows);
+        setTotalCount(result.totalCount);
+      } else {
+        setPolicies(prev => [...prev, ...result.rows]);
+      }
     } catch (error) {
       console.error('Failed to load policies:', error);
       toast.error('Failed to load policies');
     } finally {
-      setLoading(false);
+      if (isFirstPage) setLoading(false);
+      else setLoadingMore(false);
     }
-  }, [currentPage, rowsPerPage, countryFilter, statusFilter, searchTerm]);
+  }, [currentPage, countryFilter, statusFilter, searchTerm]);
 
   useEffect(() => {
     fetchData();
@@ -107,12 +116,29 @@ const DirectInsuranceList: React.FC = () => {
     loadStats();
   }, [loadStats]);
 
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          setCurrentPage(prev => prev + 1);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore]);
+
   // Debounced search
   const handleSearchChange = (value: string) => {
     setSearchInput(value);
     if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setSearchTerm(value);
+      setPolicies([]);
       setCurrentPage(1);
     }, 300);
   };
@@ -120,11 +146,13 @@ const DirectInsuranceList: React.FC = () => {
   // Filter changes reset to page 1
   const handleCountryFilterChange = (value: string) => {
     setCountryFilter(value);
+    setPolicies([]);
     setCurrentPage(1);
   };
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
+    setPolicies([]);
     setCurrentPage(1);
   };
 
@@ -294,10 +322,10 @@ const DirectInsuranceList: React.FC = () => {
           {/* Export Button */}
           <button
             onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap"
           >
             <Download size={14} />
-            Export to Excel
+            Export
           </button>
 
           {/* New Policy Button */}
@@ -403,32 +431,13 @@ const DirectInsuranceList: React.FC = () => {
                 ))}
               </tbody>
             </table>
-
-            {/* Pagination Controls */}
-            <div className="p-4 border-t bg-gray-50 flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                Showing <span className="font-medium">{(currentPage - 1) * rowsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * rowsPerPage, totalCount)}</span> of <span className="font-medium">{totalCount}</span> policies
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="flex justify-center py-4">
+                <RefreshCw size={20} className="animate-spin text-blue-600" />
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm"
-                >
-                  <ChevronLeft size={16}/>
-                </button>
-                <span className="flex items-center px-4 text-sm font-medium bg-white border rounded-lg shadow-sm">
-                  Page {currentPage} of {totalPages || 1}
-                </span>
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage >= totalPages || totalPages === 0}
-                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed bg-white shadow-sm"
-                >
-                  <ChevronRight size={16}/>
-                </button>
-              </div>
-            </div>
+            )}
           </>
         )}
       </div>

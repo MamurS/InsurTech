@@ -15,7 +15,7 @@ import { PolicyFormContent } from '../components/PolicyFormContent';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Columns, List, Globe, Home, Briefcase, FileSpreadsheet, MoreVertical, Eye } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, FileSpreadsheet, MoreVertical, Eye } from 'lucide-react';
 
 // --- MAPPER FUNCTIONS ---
 
@@ -311,19 +311,15 @@ const Dashboard: React.FC = () => {
 
   // Sticky offset measurement
   const filterRef = useRef<HTMLDivElement>(null);
-  const paginationRef = useRef<HTMLDivElement>(null);
-  const [stickyOffsets, setStickyOffsets] = useState({ pagination: 48, thead: 84 });
+  const [filterHeight, setFilterHeight] = useState(48);
 
   useEffect(() => {
-    const update = () => {
-      const fh = filterRef.current?.getBoundingClientRect().height || 48;
-      const ph = paginationRef.current?.getBoundingClientRect().height || 36;
-      setStickyOffsets({ pagination: fh, thead: fh + ph });
-    };
+    const el = filterRef.current;
+    if (!el) return;
+    const update = () => setFilterHeight(el.getBoundingClientRect().height);
     update();
     const ro = new ResizeObserver(update);
-    if (filterRef.current) ro.observe(filterRef.current);
-    if (paginationRef.current) ro.observe(paginationRef.current);
+    ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
@@ -343,29 +339,12 @@ const Dashboard: React.FC = () => {
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
 
-  // View Mode State - Persistent
-  const [viewMode, setViewMode] = useState<'compact' | 'extended'>(() => {
-      const savedMode = localStorage.getItem('insurtech_dashboard_view');
-      return (savedMode === 'extended' ? 'extended' : 'compact');
-  });
-
-  const handleViewModeChange = (mode: 'compact' | 'extended') => {
-      setViewMode(mode);
-      localStorage.setItem('insurtech_dashboard_view', mode);
-  };
-
-  // Pagination State
+  // Infinite scroll
+  const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState<number>(() => {
-      const saved = localStorage.getItem('insurtech_dashboard_rows_per_page');
-      return saved ? parseInt(saved, 10) : 50;
-  });
-
-  const handleRowsPerPageChange = (value: number) => {
-      setRowsPerPage(value);
-      localStorage.setItem('insurtech_dashboard_rows_per_page', String(value));
-      setCurrentPage(1);
-  };
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -403,7 +382,10 @@ const Dashboard: React.FC = () => {
   const [editingSlipId, setEditingSlipId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    const isFirstPage = currentPage === 1;
+    if (isFirstPage) setLoading(true);
+    else setLoadingMore(true);
+
     try {
       // Map UI source filter to view's source values
       const sourceMap: Record<string, string> = {
@@ -420,7 +402,6 @@ const Dashboard: React.FC = () => {
       if (sourceFilter === 'slip') {
         const slips = await DB.getSlips();
         let slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
-        // Apply search filter client-side (slips aren't in the DB view)
         if (searchTerm && searchTerm.trim()) {
           const term = searchTerm.trim().toLowerCase();
           slipRows = slipRows.filter(row =>
@@ -430,7 +411,6 @@ const Dashboard: React.FC = () => {
             (row.classOfBusiness || '').toLowerCase().includes(term)
           );
         }
-        // Apply status filter client-side
         if (statusFilter && statusFilter !== 'All') {
           slipRows = slipRows.filter(row =>
             row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
@@ -438,6 +418,7 @@ const Dashboard: React.FC = () => {
         }
         setPortfolioData(slipRows);
         setTotalCount(slipRows.length);
+        setHasMore(false);
         setLoading(false);
         return;
       }
@@ -446,21 +427,22 @@ const Dashboard: React.FC = () => {
       if (statusFilter === 'Deleted') {
         setPortfolioData([]);
         setTotalCount(0);
+        setHasMore(false);
         setLoading(false);
         return;
       }
 
-      // Fetch view data and slips in parallel when source is 'All'
+      // Fetch view data and slips in parallel when source is 'All' and first page
       const portfolioPromise = DB.getPortfolioPage({
         page: currentPage - 1, // API is 0-indexed, UI is 1-indexed
-        pageSize: rowsPerPage,
+        pageSize: PAGE_SIZE,
         sourceFilter: viewSource,
         statusFilter: statusFilter,
         searchTerm: searchTerm,
         sortField: sortConfig.key,
         sortDirection: sortConfig.direction,
       });
-      const slipsPromise = sourceFilter === 'All' ? DB.getSlips() : Promise.resolve([]);
+      const slipsPromise = sourceFilter === 'All' && isFirstPage ? DB.getSlips() : Promise.resolve([]);
 
       const [result, slips] = await Promise.all([portfolioPromise, slipsPromise]);
 
@@ -484,39 +466,44 @@ const Dashboard: React.FC = () => {
         status: row.status || '',
         installmentCount: Number(row.installment_count || 1),
         cedantName: row.cedant_name || '',
-        // originalData is loaded on-demand when the detail modal opens
         originalData: null as any,
       }));
 
-      // If "All" source filter, append slips (filtered client-side by search term)
-      if (sourceFilter === 'All') {
-        let slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
-        // Slips aren't in the DB view, so apply search filter client-side
-        if (searchTerm && searchTerm.trim()) {
-          const term = searchTerm.trim().toLowerCase();
-          slipRows = slipRows.filter(row =>
-            (row.referenceNumber || '').toLowerCase().includes(term) ||
-            (row.insuredName || '').toLowerCase().includes(term) ||
-            (row.brokerName || '').toLowerCase().includes(term) ||
-            (row.classOfBusiness || '').toLowerCase().includes(term)
-          );
+      setHasMore(rows.length >= PAGE_SIZE);
+
+      if (isFirstPage) {
+        // On first page, include filtered slips at the end
+        if (sourceFilter === 'All') {
+          let slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
+          if (searchTerm && searchTerm.trim()) {
+            const term = searchTerm.trim().toLowerCase();
+            slipRows = slipRows.filter(row =>
+              (row.referenceNumber || '').toLowerCase().includes(term) ||
+              (row.insuredName || '').toLowerCase().includes(term) ||
+              (row.brokerName || '').toLowerCase().includes(term) ||
+              (row.classOfBusiness || '').toLowerCase().includes(term)
+            );
+          }
+          if (statusFilter && statusFilter !== 'All') {
+            slipRows = slipRows.filter(row =>
+              row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
+            );
+          }
+          setPortfolioData([...rows, ...slipRows]);
+          setTotalCount(result.totalCount + slipRows.length);
+        } else {
+          setPortfolioData(rows);
+          setTotalCount(result.totalCount);
         }
-        // Also apply status filter client-side for slips
-        if (statusFilter && statusFilter !== 'All') {
-          slipRows = slipRows.filter(row =>
-            row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
-          );
-        }
-        setPortfolioData([...rows, ...slipRows]);
-        setTotalCount(result.totalCount + slipRows.length);
       } else {
-        setPortfolioData(rows);
-        setTotalCount(result.totalCount);
+        // Subsequent pages: append rows
+        setPortfolioData(prev => [...prev, ...rows]);
       }
     } catch (e) {
       console.error("Failed to fetch portfolio data", e);
     } finally {
-      setLoading(false);
+      if (isFirstPage) setLoading(false);
+      else setLoadingMore(false);
     }
 
     // Load outward data in background (only needed for modal drill-down)
@@ -533,7 +520,7 @@ const Dashboard: React.FC = () => {
         outwardLoadedRef.current = true;
       });
     }
-  }, [currentPage, rowsPerPage, sourceFilter, statusFilter, searchTerm, sortConfig]);
+  }, [currentPage, sourceFilter, statusFilter, searchTerm, sortConfig]);
 
   useEffect(() => {
     fetchData();
@@ -657,18 +644,29 @@ const Dashboard: React.FC = () => {
       direction = 'desc';
     }
     setSortConfig({ key, direction });
+    setPortfolioData([]);
     setCurrentPage(1);
   };
 
-  // Server-side pagination: portfolioData already contains the current page's rows
+  // IntersectionObserver for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore) {
+          setCurrentPage(prev => prev + 1);
+        }
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore]);
+
   // sortedRows is used throughout the template — alias to portfolioData
   const sortedRows = portfolioData;
   const paginatedRows = portfolioData;
-
-  // Pagination calculations (server-side driven)
-  const totalPages = Math.ceil(totalCount / rowsPerPage);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const endIndex = Math.min(startIndex + rowsPerPage, totalCount);
 
   // Debounced search handler
   const handleSearchChange = (value: string) => {
@@ -676,36 +674,22 @@ const Dashboard: React.FC = () => {
     clearTimeout(searchDebounceRef.current);
     searchDebounceRef.current = setTimeout(() => {
       setSearchTerm(value);
+      setPortfolioData([]);
       setCurrentPage(1);
     }, 300);
   };
 
-  // Reset page when source or status filters change
+  // Reset page and rows when source or status filters change
   const handleSourceFilterChange = (filter: 'All' | PortfolioSource) => {
     setSourceFilter(filter);
+    setPortfolioData([]);
     setCurrentPage(1);
   };
 
   const handleStatusFilterChange = (filter: 'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted') => {
     setStatusFilter(filter);
+    setPortfolioData([]);
     setCurrentPage(1);
-  };
-
-  // Generate page numbers for pagination
-  const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (currentPage <= 3) {
-        pages.push(1, 2, 3, 4, '...', totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1, '...', totalPages - 3, totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages);
-      }
-    }
-    return pages;
   };
 
   const formatMoney = (amount: number | undefined, currency: Currency | string) => {
@@ -835,117 +819,21 @@ const Dashboard: React.FC = () => {
           />
         </div>
 
-        <div className="w-px h-5 bg-gray-300 mx-1" />
-
-        {/* Rows per page */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-500">Show:</span>
-          <select
-            value={rowsPerPage}
-            onChange={(e) => handleRowsPerPageChange(Number(e.target.value))}
-            className="text-xs border border-gray-200 rounded px-1 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500"
-          >
-            {[25, 50, 100, 200, 500].map(n => (
-              <option key={n} value={n}>{n}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* View Mode Toggle */}
-        <div className="flex bg-gray-100 p-0.5 rounded-md">
-          <button
-            onClick={() => handleViewModeChange('compact')}
-            className={`px-2 py-1 text-xs font-medium rounded transition-all flex items-center gap-1 ${
-              viewMode === 'compact'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <List size={12} /> Compact
-          </button>
-          <button
-            onClick={() => handleViewModeChange('extended')}
-            className={`px-2 py-1 text-xs font-medium rounded transition-all flex items-center gap-1 ${
-              viewMode === 'extended'
-                ? 'bg-white text-slate-800 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Columns size={12} /> Extended
-          </button>
-        </div>
+        {/* Export */}
+        <button
+          type="button"
+          onClick={handleExport}
+          className="px-3 py-1 text-xs bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded font-medium hover:from-green-600 hover:to-emerald-700 flex items-center gap-1.5 shadow-sm whitespace-nowrap"
+        >
+          <Download size={12} /> Export
+        </button>
       </div>
       </div>{/* end sticky filter bar */}
 
-      {/* Sticky pagination bar */}
-      <div ref={paginationRef} className="sticky z-30 bg-gray-50" style={{ top: `${stickyOffsets.pagination}px` }}>
-      <div className="flex justify-between items-center bg-gray-50 px-3 py-1.5 rounded-t-lg border border-b-0 border-gray-200 text-xs">
-        <span className="text-gray-600">
-          Showing {totalCount === 0 ? 0 : startIndex + 1}–{endIndex} of {totalCount} records
-        </span>
-        <div className="flex items-center gap-1">
-          {/* Export button - moved here */}
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
-          >
-            <Download size={14} /> Export to Excel
-          </button>
-          <div className="w-px h-4 bg-gray-300" />
-          <button
-            onClick={() => setCurrentPage(1)}
-            disabled={currentPage === 1}
-            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
-          >
-            First
-          </button>
-          <button
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage === 1}
-            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
-          >
-            Prev
-          </button>
-          {getPageNumbers().map((page, idx) => (
-            typeof page === 'number' ? (
-              <button
-                key={idx}
-                onClick={() => setCurrentPage(page)}
-                className={`px-2 py-1 rounded border ${
-                  currentPage === page
-                    ? 'bg-blue-600 text-white border-blue-600'
-                    : 'border-gray-300 bg-white hover:bg-gray-100'
-                }`}
-              >
-                {page}
-              </button>
-            ) : (
-              <span key={idx} className="px-1 text-gray-400">...</span>
-            )
-          ))}
-          <button
-            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
-          >
-            Next
-          </button>
-          <button
-            onClick={() => setCurrentPage(totalPages)}
-            disabled={currentPage === totalPages || totalPages === 0}
-            className="px-2 py-1 rounded border border-gray-300 bg-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-100"
-          >
-            Last
-          </button>
-        </div>
-      </div>
-      </div>{/* end sticky pagination bar */}
       {/* Unified Table */}
-      <div className="bg-white border border-gray-200 rounded-b-xl shadow-sm relative">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm relative mt-0">
             <table className="w-full text-left border-collapse">
-                <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${stickyOffsets.thead}px` }}>
-                    {viewMode === 'compact' ? (
+                <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                         <tr>
                             <th className="px-2 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
                             <SortableHeader label="Source" sortKey="source" />
@@ -961,117 +849,6 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
                             <th className="px-1 py-3 border-b border-gray-200 w-10 bg-gray-50"></th>
                         </tr>
-                    ) : (
-                        <tr>
-                            <th className="px-3 py-3 border-b border-gray-200 w-24 text-center font-semibold text-gray-600 text-xs bg-gray-50 sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">STATUS</th>
-
-                            {/* Identity / References */}
-                            <SortableHeader label="Source" sortKey="source" />
-                            <SortableHeader label="Ref No" sortKey="referenceNumber" />
-                            <SortableHeader label="Secondary Ref" sortKey="secondaryRef" />
-                            <SortableHeader label="Slip No" sortKey="slipNumber" />
-                            <SortableHeader label="Agreement No" sortKey="agreementNumber" />
-                            <SortableHeader label="Bordereau No" sortKey="bordereauNo" />
-                            <SortableHeader label="1C Code" sortKey="accountingCode" />
-                            <SortableHeader label="Ref Link" sortKey="referenceLink" />
-
-                            {/* Parties */}
-                            <SortableHeader label="Insured Name" sortKey="insuredName" />
-                            <SortableHeader label="Cedant" sortKey="cedantName" />
-                            <SortableHeader label="Broker" sortKey="brokerName" />
-                            <SortableHeader label="Borrower" sortKey="borrower" />
-                            <SortableHeader label="Retrocedent" sortKey="retrocedent" />
-                            <SortableHeader label="Performer" sortKey="performer" />
-
-                            {/* Classification */}
-                            <SortableHeader label="Class" sortKey="classOfBusiness" />
-                            <SortableHeader label="Type of Insurance" sortKey="typeOfInsurance" />
-                            <SortableHeader label="Risk Code" sortKey="riskCode" />
-                            <SortableHeader label="Insured Risk" sortKey="insuredRisk" />
-                            <SortableHeader label="Industry" sortKey="industry" />
-                            <SortableHeader label="Territory" sortKey="territory" />
-                            <SortableHeader label="City" sortKey="city" />
-
-                            {/* Financial - Currency & Exchange */}
-                            <SortableHeader label="Currency" sortKey="currency" />
-                            <SortableHeader label="Ex Rate" sortKey="exchangeRate" className="text-right" />
-                            <SortableHeader label="Ex Rate USD" sortKey="exchangeRateUSD" className="text-right" />
-                            <SortableHeader label="Equiv USD" sortKey="equivalentUSD" className="text-right" />
-
-                            {/* Financial - Sums */}
-                            <SortableHeader label="Sum Insured" sortKey="sumInsured" className="text-right" />
-                            <SortableHeader label="Sum Insured NC" sortKey="sumInsuredNational" className="text-right" />
-                            <SortableHeader label="Limit FC" sortKey="limit" className="text-right" />
-                            <SortableHeader label="Limit NC" sortKey="limitNational" className="text-right" />
-                            <SortableHeader label="Excess FC" sortKey="excess" className="text-right" />
-                            <SortableHeader label="Priority" sortKey="prioritySum" className="text-right" />
-
-                            {/* Financial - Premium */}
-                            <SortableHeader label="Prem Rate" sortKey="premiumRate" className="text-right" />
-                            <SortableHeader label="Gross Prem FC" sortKey="grossPremium" className="text-right" />
-                            <SortableHeader label="Gross Prem NC" sortKey="grossPremiumNational" className="text-right" />
-                            <SortableHeader label="Premium NC" sortKey="premiumNational" className="text-right" />
-                            <SortableHeader label="Full Prem FC" sortKey="fullPremiumForeign" className="text-right" />
-                            <SortableHeader label="Full Prem NC" sortKey="fullPremiumNational" className="text-right" />
-                            <SortableHeader label="Net Prem FC" sortKey="netPremium" className="text-right" />
-                            <SortableHeader label="Net Prem NC" sortKey="netPremiumNational" className="text-right" />
-                            <SortableHeader label="Inst." sortKey="installmentCount" className="text-center w-14" />
-
-                            {/* Rates */}
-                            <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
-                            <SortableHeader label="Comm %" sortKey="commissionPercent" className="text-right" />
-                            <SortableHeader label="Comm NC" sortKey="commissionNational" className="text-right" />
-                            <SortableHeader label="Tax %" sortKey="taxPercent" className="text-right" />
-
-                            {/* Reinsurance */}
-                            <SortableHeader label="Reins Type" sortKey="reinsuranceType" />
-                            <SortableHeader label="Sum Reins FC" sortKey="sumReinsuredForeign" className="text-right" />
-                            <SortableHeader label="Sum Reins NC" sortKey="sumReinsuredNational" className="text-right" />
-                            <SortableHeader label="Reinsurer" sortKey="reinsurerName" />
-                            <SortableHeader label="Ceded %" sortKey="cededShare" className="text-right" />
-                            <SortableHeader label="Ceded Prem" sortKey="cededPremium" className="text-right" />
-                            <SortableHeader label="Reins Comm" sortKey="reinsuranceCommission" className="text-right" />
-                            <SortableHeader label="Net Reins Prem" sortKey="netReinsurancePremium" className="text-right" />
-
-                            {/* Treaty & AIC */}
-                            <SortableHeader label="Treaty Placement" sortKey="treatyPlacement" className="text-right" />
-                            <SortableHeader label="Treaty Prem" sortKey="treatyPremium" className="text-right" />
-                            <SortableHeader label="AIC Comm" sortKey="aicCommission" className="text-right" />
-                            <SortableHeader label="AIC Retention" sortKey="aicRetention" className="text-right" />
-                            <SortableHeader label="AIC Prem" sortKey="aicPremium" className="text-right" />
-
-                            {/* Retrocession */}
-                            <SortableHeader label="Risks Count" sortKey="risksCount" className="text-right" />
-                            <SortableHeader label="Retro Sum" sortKey="retroSumReinsured" className="text-right" />
-                            <SortableHeader label="Retro Prem" sortKey="retroPremium" className="text-right" />
-
-                            {/* Dates */}
-                            <SortableHeader label="Inception" sortKey="inceptionDate" />
-                            <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <SortableHeader label="Ins Days" sortKey="insuranceDays" className="text-right" />
-                            <SortableHeader label="Reins Inception" sortKey="reinsuranceInceptionDate" />
-                            <SortableHeader label="Reins Expiry" sortKey="reinsuranceExpiryDate" />
-                            <SortableHeader label="Reins Days" sortKey="reinsuranceDays" className="text-right" />
-                            <SortableHeader label="Slip Date" sortKey="dateOfSlip" />
-                            <SortableHeader label="Acct Date" sortKey="accountingDate" />
-                            <SortableHeader label="Warranty" sortKey="warrantyPeriod" />
-
-                            {/* Payment Tracking */}
-                            <SortableHeader label="Prem Pay Date" sortKey="premiumPaymentDate" />
-                            <SortableHeader label="Actual Pay Date" sortKey="actualPaymentDate" />
-                            <SortableHeader label="Rcvd Prem FC" sortKey="receivedPremiumForeign" className="text-right" />
-                            <SortableHeader label="Rcvd Prem Curr" sortKey="receivedPremiumCurrency" />
-                            <SortableHeader label="Rcvd Ex Rate" sortKey="receivedPremiumExchangeRate" className="text-right" />
-                            <SortableHeader label="Rcvd Prem NC" sortKey="receivedPremiumNational" className="text-right" />
-                            <SortableHeader label="No. Slips" sortKey="numberOfSlips" className="text-right" />
-
-                            {/* Contract Info */}
-                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Type</th>
-                            <th className="px-3 py-3 border-b border-gray-200 text-xs font-semibold text-gray-600">Structure</th>
-
-                            <th className="px-1 py-3 border-b border-gray-200 w-10 bg-gray-100 sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]"></th>
-                        </tr>
-                    )}
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
                     {paginatedRows.map(row => {
@@ -1083,8 +860,6 @@ const Dashboard: React.FC = () => {
                             onClick={() => handleRowClick(row)}
                             className={`group transition-colors cursor-pointer ${rowClass}`}
                         >
-                            {viewMode === 'compact' ? (
-                                <>
                                     <td className="px-2 py-3 text-center">
                                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                           row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
@@ -1199,192 +974,12 @@ const Dashboard: React.FC = () => {
                                             </>
                                         )}
                                     </td>
-                                </>
-                            ) : (
-                                <>
-                                    {/* EXTENDED VIEW */}
-                                    <td className={`px-3 py-2 text-center sticky left-0 z-20 border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`}>
-                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                          row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
-                                          row.normalizedStatus === 'Pending' ? 'text-amber-700 bg-amber-100' :
-                                          row.normalizedStatus === 'Cancelled' ? 'text-red-700 bg-red-100' :
-                                          'text-gray-600 bg-gray-100'
-                                        }`}>
-                                          {row.isDeleted ? <><Trash2 size={10}/> DEL</> : row.normalizedStatus.toUpperCase()}
-                                        </span>
-                                    </td>
-
-                                    {/* Identity / References */}
-                                    <td className="px-3 py-2 whitespace-nowrap"><SourceBadge source={row.source} /></td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-blue-600">
-                                      {row.referenceNumber}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.secondaryRef || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.slipNumber || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.agreementNumber || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.bordereauNo || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap font-mono text-xs text-gray-500">{row.accountingCode || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">
-                                        {row.referenceLink ? (
-                                            <a href={row.referenceLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline" onClick={(e) => e.stopPropagation()}>Link</a>
-                                        ) : '-'}
-                                    </td>
-
-                                    {/* Parties */}
-                                    <td
-                                        className="px-3 py-2 whitespace-nowrap font-medium text-gray-900 hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, row.insuredName)}
-                                    >
-                                        {row.insuredName}
-                                    </td>
-                                    <td
-                                        className="px-3 py-2 whitespace-nowrap text-xs text-gray-700 hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, row.cedantName)}
-                                    >
-                                        {row.cedantName || '-'}
-                                    </td>
-                                    <td
-                                        className="px-3 py-2 whitespace-nowrap text-xs hover:text-blue-600 hover:underline cursor-pointer"
-                                        onClick={(e) => handleEntityClick(e, row.brokerName)}
-                                    >
-                                        {row.brokerName || '-'}
-                                    </td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.borrower || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.retrocedent || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.performer || '-'}</td>
-
-                                    {/* Classification */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{row.classOfBusiness}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.typeOfInsurance || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.riskCode || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600 max-w-[200px] truncate" title={row.insuredRisk}>{row.insuredRisk || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.industry || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{row.territory || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.city || '-'}</td>
-
-                                    {/* Financial - Currency & Exchange */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center font-bold">{row.currency}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.exchangeRate || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.exchangeRateUSD || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.equivalentUSD)}</td>
-
-                                    {/* Financial - Sums */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.sumInsured)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.sumInsuredNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-blue-50/30">{formatNumber(row.limit)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.limitNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.excess)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.prioritySum)}</td>
-
-                                    {/* Financial - Premium */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.premiumRate ? `${row.premiumRate}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right bg-green-50/30 font-bold">{formatNumber(row.grossPremium)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.grossPremiumNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.premiumNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.fullPremiumForeign)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.fullPremiumNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.netPremium)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.netPremiumNational)}</td>
-                                    <td className="px-3 py-2 text-center text-xs">
-                                        {row.installmentCount > 1 ? (
-                                          <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-full font-semibold">
-                                            {row.installmentCount}
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400">1</span>
-                                        )}
-                                    </td>
-
-                                    {/* Rates */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right font-bold text-blue-700">{row.ourShare}%</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.commissionPercent ? `${row.commissionPercent}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.commissionNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.taxPercent ? `${row.taxPercent}%` : '-'}</td>
-
-                                    {/* Reinsurance */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{row.reinsuranceType || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.sumReinsuredForeign)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.sumReinsuredNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.reinsurerName || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.cededShare ? `${row.cededShare}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.cededPremium)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.reinsuranceCommission)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.netReinsurancePremium)}</td>
-
-                                    {/* Treaty & AIC */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.treatyPlacement ? `${row.treatyPlacement}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.treatyPremium)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.aicCommission)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.aicRetention ? `${row.aicRetention}%` : '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.aicPremium)}</td>
-
-                                    {/* Retrocession */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.risksCount || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.retroSumReinsured)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.retroPremium)}</td>
-
-                                    {/* Dates */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.inceptionDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.expiryDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.insuranceDays || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.reinsuranceInceptionDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.reinsuranceExpiryDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.reinsuranceDays || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.dateOfSlip)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.accountingDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">{row.warrantyPeriod || '-'}</td>
-
-                                    {/* Payment Tracking */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.premiumPaymentDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs">{formatDate(row.actualPaymentDate)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.receivedPremiumForeign)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-center">{row.receivedPremiumCurrency || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.receivedPremiumExchangeRate || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{formatNumber(row.receivedPremiumNational)}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-right">{row.numberOfSlips || '-'}</td>
-
-                                    {/* Contract Info */}
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.contractType || '-'}</td>
-                                    <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-500">{row.structure || '-'}</td>
-
-                                    <td className={`px-1 py-2 text-center w-10 relative sticky right-0 z-20 border-l shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)] transition-colors bg-white group-hover:bg-blue-50/30`} onClick={e => e.stopPropagation()}>
-                                        {!row.isDeleted ? (
-                                            <>
-                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === `ext-${row.source}-${row.id}` ? null : `ext-${row.source}-${row.id}`); }}
-                                                    className="p-1.5 hover:bg-gray-100 rounded-lg">
-                                                    <MoreVertical size={16} className="text-gray-500" />
-                                                </button>
-                                                {openMenuId === `ext-${row.source}-${row.id}` && (
-                                                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50 min-w-[120px]">
-                                                        <button onClick={() => { setOpenMenuId(null); handleRowClick(row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                            <Eye size={14} /> View
-                                                        </button>
-                                                        <button onClick={(e) => { setOpenMenuId(null); handleEdit(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                            <Edit size={14} /> Edit
-                                                        </button>
-                                                        {row.source === 'direct' && (
-                                                            <>
-                                                                <button onClick={(e) => { setOpenMenuId(null); handleWording(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
-                                                                    <FileText size={14} /> Wording
-                                                                </button>
-                                                                <button onClick={(e) => { setOpenMenuId(null); initiateDelete(e as any, row); }} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50">
-                                                                    <Trash2 size={14} /> Delete
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </>
-                                        ) : null}
-                                    </td>
-                                </>
-                            )}
                         </tr>
                     )})}
 
                     {!loading && paginatedRows.length === 0 && (
                         <tr>
-                            <td colSpan={viewMode === 'compact' ? 13 : 80} className="py-12 text-center text-gray-400">
+                            <td colSpan={13} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     {statusFilter === 'Deleted' ? (
@@ -1408,6 +1003,13 @@ const Dashboard: React.FC = () => {
                     )}
                 </tbody>
             </table>
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className="h-1" />
+            {loadingMore && (
+              <div className="flex justify-center py-4">
+                <RefreshCw size={20} className="animate-spin text-blue-600" />
+              </div>
+            )}
       </div>
 
       <ConfirmDialog
