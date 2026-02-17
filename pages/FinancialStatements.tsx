@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RefreshCw, Download, AlertCircle } from 'lucide-react';
 import { useAnalyticsSummary } from '../hooks/useAnalytics';
+import { DB } from '../services/db';
 import { exportToExcel } from '../services/excelExport';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -68,6 +69,18 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 const FinancialStatements: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const [period, setPeriod] = useState('all');
+  const [ibnrTotal, setIbnrTotal] = useState(0);
+
+  useEffect(() => {
+    DB.getSetting('ibnr_estimates').then(raw => {
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Record<string, number>;
+          setIbnrTotal(Object.values(parsed).reduce((s, v) => s + (Number(v) || 0), 0));
+        } catch { /* ignore */ }
+      }
+    });
+  }, []);
 
   if (error) {
     return (
@@ -107,7 +120,7 @@ const FinancialStatements: React.FC = () => {
   const operatingExpenses = data?.operatingExpenses || 0;
   const expenseRatio = data?.expenseRatio || 0;
 
-  const underwritingResult = netEarnedRevenue - netClaimsIncurred - operatingExpenses;
+  const underwritingResult = netEarnedRevenue - netClaimsIncurred - ibnrTotal - operatingExpenses;
   const combinedRatio = lossRatio + commissionRatio + expenseRatio;
   const retentionRatio = gwp > 0 ? (nwp / gwp) * 100 : 0;
   const earningRatio = gwp > 0 ? (gpe / gwp) * 100 : 0;
@@ -130,6 +143,7 @@ const FinancialStatements: React.FC = () => {
       { 'Line Item': '  Claims Paid', 'Amount (USD)': -claimsPaid, 'Ratio (%)': '' },
       { 'Line Item': '  Change in Claims Reserves', 'Amount (USD)': -claimsReserveChange, 'Ratio (%)': '' },
       { 'Line Item': '  Net Claims Incurred', 'Amount (USD)': -netClaimsIncurred, 'Ratio (%)': lossRatio },
+      { 'Line Item': '  IBNR Reserve', 'Amount (USD)': -ibnrTotal, 'Ratio (%)': '' },
       { 'Line Item': '', 'Amount (USD)': '', 'Ratio (%)': '' },
       { 'Line Item': 'OPERATING EXPENSES', 'Amount (USD)': '', 'Ratio (%)': '' },
       { 'Line Item': '  Operating Expenses', 'Amount (USD)': -operatingExpenses, 'Ratio (%)': expenseRatio },
@@ -224,6 +238,12 @@ const FinancialStatements: React.FC = () => {
             <LineItem label="Claims Paid" amount={-claimsPaid} negative />
             <LineItem label="Change in Claims Reserves" amount={-claimsReserveChange} indent negative />
             <LineItem label="Net Claims Incurred" amount={-netClaimsIncurred} subtotal negative bold />
+            <LineItem
+              label={ibnrTotal > 0 ? 'IBNR Reserve' : 'IBNR Reserve (not estimated)'}
+              amount={-ibnrTotal}
+              indent
+              negative={ibnrTotal > 0}
+            />
             <LineItem label="Loss Ratio" ratio={lossRatio} indent />
 
             {/* OPERATING EXPENSES */}

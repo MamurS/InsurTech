@@ -27,6 +27,7 @@ import DirectInsuranceList from './pages/DirectInsuranceList';
 import MGADashboard from './pages/MGADashboard';
 import FinancialStatements from './pages/FinancialStatements';
 import RiskAccumulation from './pages/RiskAccumulation';
+import IBNREstimation from './pages/IBNREstimation';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: React.PropsWithChildren) => {
@@ -87,6 +88,7 @@ const AppRoutes = () => {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/financial-statements" element={<FinancialStatements />} />
               <Route path="/risk-accumulation" element={<RiskAccumulation />} />
+              <Route path="/ibnr" element={<IBNREstimation />} />
               <Route path="/new" element={<PolicyForm />} />
               <Route path="/edit/:id" element={<PolicyForm />} />
               <Route path="/wording/:id" element={<PolicyWording />} />
