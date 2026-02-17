@@ -53,10 +53,11 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
 
   const formatMoney = (amount: number | undefined, currency: string = 'USD') => {
     if (amount === undefined || amount === null) return '-';
+    const safeCurrency = currency && currency.length === 3 ? currency : 'USD';
     try {
-      return new Intl.NumberFormat('en-US', { style: 'currency', currency }).format(amount);
+      return new Intl.NumberFormat('en-US', { style: 'currency', currency: safeCurrency }).format(amount);
     } catch {
-      return `${currency} ${amount}`;
+      return `${safeCurrency} ${Number(amount).toLocaleString()}`;
     }
   };
 
@@ -393,11 +394,19 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
   };
 
   const renderSlipDetail = (slip: ReinsuranceSlip) => {
+    try {
       // Normalize legacy status values
       let currentStatus = (slip.status as unknown as string) || 'DRAFT';
-      
+
       // Map legacy 'Active' to 'BOUND'
       if (currentStatus === 'Active') currentStatus = 'BOUND';
+
+      // Safely parse reinsurers — may arrive as JSON string from DB
+      let reinsurers = slip.reinsurers as any;
+      if (typeof reinsurers === 'string') {
+        try { reinsurers = JSON.parse(reinsurers); } catch { reinsurers = []; }
+      }
+      if (!Array.isArray(reinsurers)) reinsurers = [];
 
       return (
       <div className="space-y-6">
@@ -405,18 +414,18 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
               <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold">Reinsurance Slip</span>
               {getSlipStatusBadge(currentStatus)}
           </div>
-          
+
           {/* Slip Workflow Actions */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
             <h3 className="font-bold text-gray-800 mb-3 flex items-center gap-2 text-xs uppercase tracking-wide">
                 <Settings size={14} />
                 Workflow Actions
             </h3>
-            
+
             <div className="flex flex-wrap gap-2">
                 {/* DRAFT status */}
                 {(!slip.status || currentStatus === 'DRAFT') && (
-                    <button 
+                    <button
                         onClick={() => requestSlipStatusChange('PENDING')}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
@@ -424,18 +433,18 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         Submit for Review
                     </button>
                 )}
-                
+
                 {/* PENDING status */}
                 {currentStatus === 'PENDING' && (
                     <>
-                        <button 
+                        <button
                             onClick={() => requestSlipStatusChange('QUOTED')}
                             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <FileText size={16} />
                             Quote Received
                         </button>
-                        <button 
+                        <button
                             onClick={() => handleSlipDecline()}
                             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
@@ -444,18 +453,18 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         </button>
                     </>
                 )}
-                
+
                 {/* QUOTED status */}
                 {currentStatus === 'QUOTED' && (
                     <>
-                        <button 
+                        <button
                             onClick={() => requestSlipStatusChange('SIGNED', { signed_date: new Date().toISOString().split('T')[0] })}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <CheckCircle size={16} />
                             Accept & Sign
                         </button>
-                        <button 
+                        <button
                             onClick={() => requestSlipStatusChange('NTU')}
                             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
@@ -464,10 +473,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         </button>
                     </>
                 )}
-                
+
                 {/* SIGNED status */}
                 {currentStatus === 'SIGNED' && (
-                    <button 
+                    <button
                         onClick={() => requestSlipStatusChange('SENT', { sent_date: new Date().toISOString().split('T')[0] })}
                         className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
@@ -475,18 +484,18 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         Send to Reinsurer
                     </button>
                 )}
-                
+
                 {/* SENT status */}
                 {currentStatus === 'SENT' && (
                     <>
-                        <button 
+                        <button
                             onClick={() => requestSlipStatusChange('BOUND', { bound_date: new Date().toISOString().split('T')[0] })}
                             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
                             <CheckCircle size={16} />
                             Confirm Bound
                         </button>
-                        <button 
+                        <button
                             onClick={() => requestSlipStatusChange('NTU')}
                             className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                         >
@@ -495,10 +504,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         </button>
                     </>
                 )}
-                
+
                 {/* BOUND status */}
                 {currentStatus === 'BOUND' && (
-                    <button 
+                    <button
                         onClick={() => requestSlipStatusChange('CLOSED', { closed_date: new Date().toISOString().split('T')[0] })}
                         className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
@@ -506,10 +515,10 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                         Close Slip
                     </button>
                 )}
-                
+
                 {/* DECLINED, NTU, CANCELLED status */}
                 {['DECLINED', 'NTU', 'CANCELLED'].includes(currentStatus) && (
-                    <button 
+                    <button
                         onClick={() => requestSlipStatusChange('PENDING')}
                         className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 flex items-center gap-2 text-sm font-bold shadow-sm"
                     >
@@ -538,7 +547,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
               </div>
           </div>
 
-          {slip.reinsurers && slip.reinsurers.length > 0 && (
+          {reinsurers.length > 0 && (
               <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <h4 className="font-bold text-gray-800 mb-3 text-sm">Market Panel</h4>
                   <table className="w-full text-sm text-left">
@@ -550,7 +559,7 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
                           </tr>
                       </thead>
                       <tbody>
-                          {slip.reinsurers.map((r, i) => (
+                          {reinsurers.map((r: any, i: number) => (
                               <tr key={i} className="border-b border-gray-100 last:border-0">
                                   <td className="py-2 font-medium">{r.name}</td>
                                   <td className="py-2 text-right">{r.share}%</td>
@@ -563,6 +572,15 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
           )}
       </div>
       );
+    } catch (error) {
+      console.error('Error rendering slip detail:', error);
+      return (
+        <div className="p-4 text-red-600">
+          <p>Error displaying slip details. Please try again.</p>
+          <pre className="text-xs mt-2">{String(error)}</pre>
+        </div>
+      );
+    }
   };
 
   const renderClauseDetail = (clause: Clause) => (
@@ -604,6 +622,13 @@ export const DetailModal: React.FC<DetailModalProps> = ({ item, onClose, onRefre
             {isPolicy(item) && renderPolicyDetail(item)}
             {isSlip(item) && renderSlipDetail(item)}
             {isClause(item) && renderClauseDetail(item)}
+            {!isPolicy(item) && !isSlip(item) && !isClause(item) && (
+              <div className="p-4">
+                <pre className="text-xs text-gray-600 whitespace-pre-wrap">
+                  {JSON.stringify(item, null, 2)}
+                </pre>
+              </div>
+            )}
         </div>
 
         {/* Footer */}
