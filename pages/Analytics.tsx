@@ -408,17 +408,21 @@ const Analytics: React.FC = () => {
         />
         <KPICard
           title="Combined Ratio"
-          value={data ? formatPercent(data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) : '-'}
-          subtitle={data && (data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) < 100
-            ? 'Underwriting profit' : 'Underwriting loss'}
+          value={data ? formatPercent(data.expenseRatio > 0 ? data.fullCombinedRatio : data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) : '-'}
+          subtitle={data
+            ? data.expenseRatio > 0
+              ? `L: ${formatPercent(data.claims.lossRatio)} + C: ${formatPercent(currentMetrics?.commissionRatio || 0)} + E: ${formatPercent(data.expenseRatio)}`
+              : (data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) < 100
+                ? 'Underwriting profit' : 'Underwriting loss'
+            : undefined}
           icon={<Percent className="w-5 h-5 text-white" />}
-          color={data && (data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) < 100
+          color={data && (data.expenseRatio > 0 ? data.fullCombinedRatio : data.claims.lossRatio + (currentMetrics?.commissionRatio || 0)) < 100
             ? 'bg-green-500' : 'bg-red-500'}
         />
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+      <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
         <StatCard
           label="Commission"
           value={currentMetrics ? formatCurrency(currentMetrics.commission) : '-'}
@@ -448,6 +452,11 @@ const Analytics: React.FC = () => {
           label="Comm. Ratio"
           value={currentMetrics ? formatPercent(currentMetrics.commissionRatio) : '-'}
           color="text-orange-600"
+        />
+        <StatCard
+          label="Expense Ratio"
+          value={data?.expenseRatio ? formatPercent(data.expenseRatio) : 'N/A'}
+          color="text-purple-600"
         />
       </div>
 
