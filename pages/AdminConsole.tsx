@@ -139,6 +139,10 @@ const AdminConsole: React.FC = () => {
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState<number>(30);
   const [sessionTimeoutSaving, setSessionTimeoutSaving] = useState(false);
 
+  // Operating Expenses State
+  const [annualOperatingExpenses, setAnnualOperatingExpenses] = useState<string>('');
+  const [operatingExpensesSaving, setOperatingExpensesSaving] = useState(false);
+
   // Stats for Dashboard
   const stats = {
     totalPolicies: rawPolicies.length,
@@ -254,11 +258,14 @@ const AdminConsole: React.FC = () => {
     }
   }, [activeSection, activitySearch, activityCategory, activityDateFrom, activityDateTo, activityPage]);
 
-  // Load session timeout setting when settings section is active
+  // Load session timeout and operating expenses settings when settings section is active
   useEffect(() => {
     if (activeSection === 'settings') {
       DB.getSetting('session_timeout_minutes').then(val => {
         if (val) setSessionTimeoutMinutes(Number(val));
+      });
+      DB.getSetting('annual_operating_expenses').then(val => {
+        if (val) setAnnualOperatingExpenses(val);
       });
     }
   }, [activeSection]);
@@ -1490,6 +1497,18 @@ const AdminConsole: React.FC = () => {
     }
   };
 
+  const handleSaveOperatingExpenses = async () => {
+    setOperatingExpensesSaving(true);
+    try {
+      await DB.setSetting('annual_operating_expenses', annualOperatingExpenses || '0');
+      toast.success('Operating expenses updated');
+    } catch {
+      toast.error('Failed to save operating expenses');
+    } finally {
+      setOperatingExpensesSaving(false);
+    }
+  };
+
   const renderSettings = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -1535,6 +1554,50 @@ const AdminConsole: React.FC = () => {
           <span className="text-xs text-gray-400">
             Current: {TIMEOUT_OPTIONS.find(o => o.value === sessionTimeoutMinutes)?.label || `${sessionTimeoutMinutes} min`}
           </span>
+        </div>
+      </div>
+
+      {/* Operating Expenses Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <DollarSign size={22} className="text-purple-600" />
+          <h3 className="text-lg font-semibold text-gray-800">Operating Expenses (Annual)</h3>
+        </div>
+        <p className="text-sm text-gray-500 mb-4">
+          Enter total annual operating expenses (salaries, rent, IT, etc.)
+        </p>
+        <div className="flex items-center gap-4">
+          <label className="text-sm font-medium text-gray-700">Amount (USD):</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+            <input
+              type="number"
+              min="0"
+              step="1000"
+              value={annualOperatingExpenses}
+              onChange={(e) => setAnnualOperatingExpenses(e.target.value)}
+              placeholder="0"
+              className="pl-7 pr-4 py-2 border border-gray-300 rounded-lg text-sm w-56 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-gray-400 mt-3">
+          This is used to calculate the Expense Ratio in Analytics. Expense Ratio = Operating Expenses / Net Premium Earned
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            onClick={handleSaveOperatingExpenses}
+            disabled={operatingExpensesSaving}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors text-sm font-medium"
+          >
+            {operatingExpensesSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save
+          </button>
+          {annualOperatingExpenses && Number(annualOperatingExpenses) > 0 && (
+            <span className="text-xs text-gray-400">
+              Current: ${Number(annualOperatingExpenses).toLocaleString()}
+            </span>
+          )}
         </div>
       </div>
     </div>

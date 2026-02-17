@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabase';
+import { DB } from '../services/db';
 
 // =============================================
 // TYPES
@@ -45,6 +46,9 @@ export interface AnalyticsSummary {
   mga: MGAMetrics;
   lossRatioByClass: LossRatioData[];
   recentActivity: ActivityItem[];
+  operatingExpenses: number;
+  expenseRatio: number;
+  fullCombinedRatio: number;
 }
 
 export interface ClaimsMetrics {
@@ -205,11 +209,12 @@ export const useAnalyticsSummary = () => {
 
       // Fetch all data sources in parallel
       // Use RPC for claims to get properly calculated totals
-      const [policiesRes, inwardRes, claimsRes, mgaMetrics] = await Promise.all([
+      const [policiesRes, inwardRes, claimsRes, mgaMetrics, expenseSetting] = await Promise.all([
         supabase.from('policies').select('*').eq('isDeleted', false),
         supabase.from('inward_reinsurance').select('*').eq('is_deleted', false),
         supabase.rpc('get_claims_with_totals'),
         processMGAData(),
+        DB.getSetting('annual_operating_expenses'),
       ]);
 
       // Handle potential errors gracefully
@@ -248,6 +253,12 @@ export const useAnalyticsSummary = () => {
       // Loss ratio by class (from all policies + claims)
       const lossRatioByClass = calculateLossRatioByClass(allPolicies, claims);
 
+      // Calculate expense ratio from operating expenses setting
+      const operatingExpenses = Number(expenseSetting) || 0;
+      const expenseRatio = totalMetrics.netPremiumEarned > 0
+        ? (operatingExpenses / totalMetrics.netPremiumEarned) * 100 : 0;
+      const fullCombinedRatio = claimsMetrics.lossRatio + totalMetrics.commissionRatio + expenseRatio;
+
       setData({
         channels,
         total: totalMetrics,
@@ -255,6 +266,9 @@ export const useAnalyticsSummary = () => {
         mga: mgaMetrics,
         lossRatioByClass,
         recentActivity: [],
+        operatingExpenses,
+        expenseRatio,
+        fullCombinedRatio,
       });
     } catch (err: any) {
       console.error('Analytics fetch error:', err);

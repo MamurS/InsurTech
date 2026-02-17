@@ -104,8 +104,11 @@ const FinancialStatements: React.FC = () => {
   const netClaimsIncurred = claims?.totalIncurred || 0;
   const lossRatio = claims?.lossRatio || 0;
 
-  const underwritingResult = netEarnedRevenue - netClaimsIncurred;
-  const combinedRatio = lossRatio + commissionRatio;
+  const operatingExpenses = data?.operatingExpenses || 0;
+  const expenseRatio = data?.expenseRatio || 0;
+
+  const underwritingResult = netEarnedRevenue - netClaimsIncurred - operatingExpenses;
+  const combinedRatio = lossRatio + commissionRatio + expenseRatio;
   const retentionRatio = gwp > 0 ? (nwp / gwp) * 100 : 0;
   const earningRatio = gwp > 0 ? (gpe / gwp) * 100 : 0;
 
@@ -128,11 +131,15 @@ const FinancialStatements: React.FC = () => {
       { 'Line Item': '  Change in Claims Reserves', 'Amount (USD)': -claimsReserveChange, 'Ratio (%)': '' },
       { 'Line Item': '  Net Claims Incurred', 'Amount (USD)': -netClaimsIncurred, 'Ratio (%)': lossRatio },
       { 'Line Item': '', 'Amount (USD)': '', 'Ratio (%)': '' },
+      { 'Line Item': 'OPERATING EXPENSES', 'Amount (USD)': '', 'Ratio (%)': '' },
+      { 'Line Item': '  Operating Expenses', 'Amount (USD)': -operatingExpenses, 'Ratio (%)': expenseRatio },
+      { 'Line Item': '', 'Amount (USD)': '', 'Ratio (%)': '' },
       { 'Line Item': 'UNDERWRITING RESULT', 'Amount (USD)': underwritingResult, 'Ratio (%)': '' },
       { 'Line Item': '', 'Amount (USD)': '', 'Ratio (%)': '' },
       { 'Line Item': 'KEY RATIOS', 'Amount (USD)': '', 'Ratio (%)': '' },
       { 'Line Item': '  Loss Ratio', 'Amount (USD)': '', 'Ratio (%)': lossRatio },
       { 'Line Item': '  Commission Ratio', 'Amount (USD)': '', 'Ratio (%)': commissionRatio },
+      { 'Line Item': '  Expense Ratio', 'Amount (USD)': '', 'Ratio (%)': expenseRatio },
       { 'Line Item': '  Combined Ratio', 'Amount (USD)': '', 'Ratio (%)': combinedRatio },
       { 'Line Item': '  Retention Ratio', 'Amount (USD)': '', 'Ratio (%)': retentionRatio },
       { 'Line Item': '  Earning Ratio', 'Amount (USD)': '', 'Ratio (%)': earningRatio },
@@ -219,6 +226,17 @@ const FinancialStatements: React.FC = () => {
             <LineItem label="Net Claims Incurred" amount={-netClaimsIncurred} subtotal negative bold />
             <LineItem label="Loss Ratio" ratio={lossRatio} indent />
 
+            {/* OPERATING EXPENSES */}
+            <SectionHeader title="Operating Expenses" />
+            <LineItem
+              label={operatingExpenses > 0 ? 'Operating Expenses' : 'Operating Expenses (not configured)'}
+              amount={-operatingExpenses}
+              negative={operatingExpenses > 0}
+            />
+            {operatingExpenses > 0 && (
+              <LineItem label="Expense Ratio" ratio={expenseRatio} indent />
+            )}
+
             {/* UNDERWRITING RESULT */}
             <LineItem
               label="Underwriting Result"
@@ -243,6 +261,7 @@ const FinancialStatements: React.FC = () => {
               {[
                 ['Loss Ratio (Claims / GPE)', lossRatio],
                 ['Commission Ratio (Comm / GWP)', commissionRatio],
+                ['Expense Ratio (OpEx / NPE)', expenseRatio],
                 ['Combined Ratio', combinedRatio],
                 ['Retention Ratio (NWP / GWP)', retentionRatio],
                 ['Earning Ratio (GPE / GWP)', earningRatio],
