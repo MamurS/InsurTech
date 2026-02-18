@@ -46,7 +46,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     const format = getPickerFormat();
     
     return (
-        <div className={`w-full ${wrapperClassName}`}>
+        <div className={`${wrapperClassName || 'w-full'}`}>
             {label && <label className="block text-sm font-medium text-gray-600 mb-1.5">{label} {required && <span className="text-red-500">*</span>}</label>}
             <div className="relative">
                 <DatePicker
@@ -54,7 +54,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                     onChange={onChange}
                     dateFormat={format}
                     placeholderText={placeholder || format.toLowerCase()}
-                    className={`w-full p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-gray-900 ${className} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                    className={`${!wrapperClassName ? 'w-full' : ''} p-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm text-gray-900 ${className} ${disabled ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                     minDate={minDate}
                     maxDate={maxDate}
                     disabled={disabled}
