@@ -12,9 +12,41 @@
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
 
+      /* Force stable scrollbar space */
       html {
-        overflow-y: scroll !important;
-        scrollbar-gutter: stable;
+        scrollbar-gutter: stable !important;
+      }
+
+      /* Custom Scrollbar — Webkit (Chrome, Edge, Safari) */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.0);
+        border-radius: 99px;
+        transition: background 0.3s ease;
+      }
+      *:hover::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.4);
+      }
+      *:hover::-webkit-scrollbar-thumb:hover {
+        background: rgba(100, 116, 139, 0.7);
+      }
+      *:active::-webkit-scrollbar-thumb {
+        background: rgba(71, 85, 105, 0.8);
+      }
+
+      /* Firefox */
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: transparent transparent;
+      }
+      *:hover {
+        scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
       }
 
       body {
