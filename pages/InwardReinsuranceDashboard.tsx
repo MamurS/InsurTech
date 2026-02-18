@@ -3,6 +3,7 @@ import { DB } from '../services/db';
 import { InwardReinsurance, Currency } from '../types';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { FormModal } from '../components/FormModal';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import {
@@ -36,8 +37,8 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
   // Date filter state
   const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   // Stats (lightweight count queries)
   const [stats, setStats] = useState({ total: 0, foreign: 0, domestic: 0, active: 0 });
@@ -105,8 +106,8 @@ const InwardReinsuranceDashboard: React.FC = () => {
         classFilter,
         searchTerm,
         dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
+        dateFrom: toISODateString(dateFrom) || undefined,
+        dateTo: toISODateString(dateTo) || undefined,
       });
       setContracts(result.rows);
       setTotalCount(result.totalCount);
@@ -154,7 +155,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDateFilterChange = (field: string, from: string, to: string) => {
+  const handleDateFilterChange = (field: string, from: Date | null, to: Date | null) => {
     setDateFilterField(field);
     setDateFrom(from);
     setDateTo(to);
@@ -344,17 +345,19 @@ const InwardReinsuranceDashboard: React.FC = () => {
           <option value="premiumPaymentDate">Prem. Payment</option>
           <option value="actualPaymentDate">Actual Payment</option>
         </select>
-        <input
-          type="date"
+        <DatePickerInput
           value={dateFrom}
-          onChange={(e) => handleDateFilterChange(dateFilterField, e.target.value, dateTo)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+          onChange={(d) => handleDateFilterChange(dateFilterField, d, dateTo)}
+          placeholder="From"
+          className="!p-1.5 !text-xs !w-[110px]"
+          wrapperClassName="w-auto"
         />
-        <input
-          type="date"
+        <DatePickerInput
           value={dateTo}
-          onChange={(e) => handleDateFilterChange(dateFilterField, dateFrom, e.target.value)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+          onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
+          placeholder="To"
+          className="!p-1.5 !text-xs !w-[110px]"
+          wrapperClassName="w-auto"
         />
 
         {/* Refresh */}
