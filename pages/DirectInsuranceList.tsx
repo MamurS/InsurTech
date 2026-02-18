@@ -7,7 +7,8 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormModal } from '../components/FormModal';
 import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
+import { toISODateString } from '../components/DatePickerInput';
+import { CompactDateFilter } from '../components/CompactDateFilter';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
   Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
@@ -338,19 +339,15 @@ const DirectInsuranceList: React.FC = () => {
             <option value="premiumPaymentDate">Prem. Payment</option>
             <option value="actualPaymentDate">Actual Payment</option>
           </select>
-          <DatePickerInput
+          <CompactDateFilter
             value={dateFrom}
             onChange={(d) => handleDateFilterChange(dateFilterField, d, dateTo)}
             placeholder="From"
-            className="!p-1.5 !text-xs !w-[110px]"
-            wrapperClassName="w-auto"
           />
-          <DatePickerInput
+          <CompactDateFilter
             value={dateTo}
             onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
             placeholder="To"
-            className="!p-1.5 !text-xs !w-[110px]"
-            wrapperClassName="w-auto"
           />
 
           {/* Refresh */}

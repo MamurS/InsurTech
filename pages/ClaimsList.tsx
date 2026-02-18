@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
-import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
+import { toISODateString } from '../components/DatePickerInput';
+import { CompactDateFilter } from '../components/CompactDateFilter';
 import RegisterClaimModal from '../components/RegisterClaimModal';
 import { AlertOctagon, Search, Plus, Filter, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
@@ -168,19 +169,15 @@ const ClaimsList: React.FC = () => {
             <option value="lossDate">Loss Date</option>
             <option value="reportDate">Report Date</option>
           </select>
-          <DatePickerInput
+          <CompactDateFilter
             value={dateFrom}
             onChange={(d) => setDateFrom(d)}
             placeholder="From"
-            className="!p-1.5 !text-xs !w-[110px]"
-            wrapperClassName="w-auto"
           />
-          <DatePickerInput
+          <CompactDateFilter
             value={dateTo}
             onChange={(d) => setDateTo(d)}
             placeholder="To"
-            className="!p-1.5 !text-xs !w-[110px]"
-            wrapperClassName="w-auto"
           />
 
           <button onClick={() => refetch()} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">

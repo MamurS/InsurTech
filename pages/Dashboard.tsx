@@ -16,6 +16,7 @@ import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFor
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
 import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
+import { CompactDateFilter } from '../components/CompactDateFilter';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, FileSpreadsheet, MoreVertical, Eye } from 'lucide-react';
 
 // --- MAPPER FUNCTIONS ---
@@ -859,19 +860,15 @@ const Dashboard: React.FC = () => {
           <option value="reinsuranceInceptionDate">RI Inception</option>
           <option value="reinsuranceExpiryDate">RI Expiry</option>
         </select>
-        <DatePickerInput
+        <CompactDateFilter
           value={dateFrom}
           onChange={(d) => handleDateFilterChange(dateFilterField, d, dateTo)}
           placeholder="From"
-          className="!p-1.5 !text-xs !w-[110px]"
-          wrapperClassName="w-auto"
         />
-        <DatePickerInput
+        <CompactDateFilter
           value={dateTo}
           onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
           placeholder="To"
-          className="!p-1.5 !text-xs !w-[110px]"
-          wrapperClassName="w-auto"
         />
 
         {/* Export */}
