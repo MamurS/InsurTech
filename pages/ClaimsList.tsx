@@ -141,7 +141,7 @@ const ClaimsList: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 min-h-[40px] overflow-visible">
           {/* Search */}
           <div className="relative flex-1 min-w-[180px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
@@ -161,6 +161,7 @@ const ClaimsList: React.FC = () => {
             <Filter size={14}/> Filters
           </button>
           {/* Date Filter */}
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => setDateFilterField(e.target.value)}
@@ -179,6 +180,7 @@ const ClaimsList: React.FC = () => {
             onChange={(d) => setDateTo(d)}
             placeholder="To"
           />
+          </div>
 
           <button onClick={() => refetch()} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
             <RefreshCw size={14}/>

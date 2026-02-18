@@ -289,7 +289,7 @@ const DirectInsuranceList: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white rounded-xl border border-slate-200 p-3">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 min-h-[40px] overflow-visible">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -327,6 +327,7 @@ const DirectInsuranceList: React.FC = () => {
           </select>
 
           {/* Date Filter */}
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
@@ -349,6 +350,7 @@ const DirectInsuranceList: React.FC = () => {
             onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
             placeholder="To"
           />
+          </div>
 
           {/* Refresh */}
           <button
