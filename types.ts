@@ -620,7 +620,7 @@ export interface Policy {
 // PORTFOLIO UNIFIED VIEW TYPES
 // =============================================
 
-export type PortfolioSource = 'direct' | 'inward-foreign' | 'inward-domestic' | 'slip';
+export type PortfolioSource = 'direct' | 'inward-foreign' | 'inward-domestic';
 
 export type PortfolioStatus = 'Active' | 'Pending' | 'Cancelled' | 'Deleted';
 

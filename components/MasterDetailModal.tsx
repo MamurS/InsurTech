@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PortfolioRow, Policy, InwardReinsurance, ReinsuranceSlip, PolicyStatus } from '../types';
+import { PortfolioRow, Policy, InwardReinsurance, PolicyStatus } from '../types';
 import { formatDate } from '../utils/dateUtils';
 import {
   X, Building2, Calendar, DollarSign, FileText, Layers,
@@ -48,14 +48,12 @@ const sourceColor: Record<string, string> = {
   direct: 'bg-blue-100 text-blue-700',
   'inward-foreign': 'bg-purple-100 text-purple-700',
   'inward-domestic': 'bg-emerald-100 text-emerald-700',
-  slip: 'bg-amber-100 text-amber-700',
 };
 
 const sourceLabel: Record<string, string> = {
   direct: 'Direct Insurance',
   'inward-foreign': 'Inward Reinsurance — Foreign',
   'inward-domestic': 'Inward Reinsurance — Domestic',
-  slip: 'Reinsurance Slip',
 };
 
 const statusBadge = (status: string, isDeleted?: boolean) => {
@@ -92,12 +90,10 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
   const currency = row.currency || 'USD';
   const isInward = row.source === 'inward-foreign' || row.source === 'inward-domestic';
   const isDirect = row.source === 'direct';
-  const isSlip = row.source === 'slip';
 
   // Get original data
   const policy = isDirect ? (row.originalData as Policy) : null;
   const inward = isInward ? (row.originalData as InwardReinsurance) : null;
-  const slip = isSlip ? (row.originalData as ReinsuranceSlip) : null;
 
   // Build tabs
   const tabs: { key: TabKey; label: string; icon: React.ReactNode }[] = [
@@ -106,7 +102,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
   ];
 
   if (isDirect) {
-    tabs.push({ key: 'reinsurance', label: 'Reinsurance', icon: <Shield size={14} /> });
+    tabs.push({ key: 'reinsurance', label: 'Outward Reinsurance', icon: <Shield size={14} /> });
   } else if (isInward) {
     tabs.push({ key: 'reinsurance', label: 'Treaty / Structure', icon: <Layers size={14} /> });
   }
@@ -249,6 +245,31 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Outward Reinsurance Quick Summary for Direct policies */}
+      {isDirect && outwardPolicies.length > 0 && (() => {
+        const totalCeded = outwardPolicies.reduce((sum, p) => sum + Number(p.cededShare || 0), 0);
+        const retention = Math.max(0, 100 - totalCeded);
+        return (
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+            <h4 className="font-bold text-blue-800 mb-3 flex items-center gap-2 text-sm"><Shield size={14} /> Outward Reinsurance Summary</h4>
+            <div className="flex gap-4">
+              <div className="flex-1 text-center">
+                <div className="text-[11px] text-blue-600 uppercase font-bold">Total Ceded</div>
+                <div className="text-lg font-bold text-blue-800">{pct(totalCeded)}</div>
+              </div>
+              <div className="flex-1 text-center">
+                <div className="text-[11px] text-emerald-600 uppercase font-bold">Retention</div>
+                <div className="text-lg font-bold text-emerald-800">{pct(retention)}</div>
+              </div>
+              <div className="flex-1 text-center">
+                <div className="text-[11px] text-amber-600 uppercase font-bold">Reinsurers</div>
+                <div className="text-lg font-bold text-amber-800">{outwardPolicies.length}</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 
@@ -382,6 +403,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
 
         {/* Reinsurer table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b text-xs font-semibold text-gray-600 uppercase">
               <tr>
@@ -390,6 +412,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
                 <th className="px-4 py-3 text-right">Ceded Premium</th>
                 <th className="px-4 py-3 text-right">Commission %</th>
                 <th className="px-4 py-3 text-right">Net RI Premium</th>
+                <th className="px-4 py-3 text-left">Slip No</th>
                 <th className="px-4 py-3 text-center">Status</th>
               </tr>
             </thead>
@@ -401,6 +424,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
                   <td className="px-4 py-2.5 text-right font-mono">{fmtFull(op.cededPremiumForeign || op.grossPremium, currency)}</td>
                   <td className="px-4 py-2.5 text-right">{pct(op.commissionPercent)}</td>
                   <td className="px-4 py-2.5 text-right font-mono">{fmtFull(op.netPremium, currency)}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{op.slipNumber || '-'}</td>
                   <td className="px-4 py-2.5 text-center">
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadge(op.status)}`}>
                       {op.status}
@@ -414,12 +438,11 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
                 <td className="px-4 py-3">TOTAL</td>
                 <td className="px-4 py-3 text-right font-mono">{pct(totalCededShare)}</td>
                 <td className="px-4 py-3 text-right font-mono text-green-700">{fmtFull(totalCededPremium, currency)}</td>
-                <td className="px-4 py-3"></td>
-                <td className="px-4 py-3"></td>
-                <td className="px-4 py-3"></td>
+                <td className="px-4 py-3" colSpan={4}></td>
               </tr>
             </tfoot>
           </table>
+          </div>
         </div>
 
         {/* Additional reinsurance fields from the policy */}
@@ -496,6 +519,31 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
             <Field label="Commission %" value={pct(inward.commissionPercent)} />
           </div>
         </div>
+
+        {/* Retrocession details */}
+        {(row.retroSumReinsured != null || row.retroPremium != null || row.risksCount != null) && (
+          <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+            <h4 className="font-bold text-amber-800 mb-3 text-sm flex items-center gap-2"><Shield size={14} /> Retrocession</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+              {row.retroSumReinsured != null && <Field label="Retro Sum Reinsured" value={fmt(row.retroSumReinsured, currency)} mono />}
+              {row.retroPremium != null && <Field label="Retro Premium" value={fmt(row.retroPremium, currency)} mono />}
+              {row.risksCount != null && <Field label="Risks Count" value={row.risksCount} />}
+            </div>
+          </div>
+        )}
+
+        {/* Slip information */}
+        {row.slipNumber && (
+          <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+            <h4 className="font-bold text-blue-800 mb-3 text-sm flex items-center gap-2"><FileText size={14} /> Slip Information</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <Field label="Slip Number" value={row.slipNumber} mono />
+              {row.dateOfSlip && <Field label="Date of Slip" value={formatDate(row.dateOfSlip)} />}
+              {row.numberOfSlips != null && <Field label="Number of Slips" value={row.numberOfSlips} />}
+              {row.referenceLink && <Field label="Reference Link" value={row.referenceLink} />}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
