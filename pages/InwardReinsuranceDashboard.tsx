@@ -34,6 +34,11 @@ const InwardReinsuranceDashboard: React.FC = () => {
   const [classFilter, setClassFilter] = useState<string>('all');
   const [exporting, setExporting] = useState(false);
 
+  // Date filter state
+  const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
   // Stats (lightweight count queries)
   const [stats, setStats] = useState({ total: 0, foreign: 0, domestic: 0, active: 0 });
 
@@ -99,6 +104,9 @@ const InwardReinsuranceDashboard: React.FC = () => {
         statusFilter,
         classFilter,
         searchTerm,
+        dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
       });
       setContracts(result.rows);
       setTotalCount(result.totalCount);
@@ -108,7 +116,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [currentPage, rowsPerPage, typeFilter, statusFilter, classFilter, searchTerm]);
+  }, [currentPage, rowsPerPage, typeFilter, statusFilter, classFilter, searchTerm, dateFilterField, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchData();
@@ -143,6 +151,13 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
   const handleClassFilterChange = (value: string) => {
     setClassFilter(value);
+    setCurrentPage(1);
+  };
+
+  const handleDateFilterChange = (field: string, from: string, to: string) => {
+    setDateFilterField(field);
+    setDateFrom(from);
+    setDateTo(to);
     setCurrentPage(1);
   };
 
@@ -313,6 +328,34 @@ const InwardReinsuranceDashboard: React.FC = () => {
           <option value="EXPIRED">Expired</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
+
+        {/* Date Filter */}
+        <select
+          value={dateFilterField}
+          onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
+          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="inceptionDate">Inception</option>
+          <option value="expiryDate">Expiry</option>
+          <option value="dateOfSlip">Date of Slip</option>
+          <option value="accountingDate">Accounting</option>
+          <option value="reinsuranceInceptionDate">RI Inception</option>
+          <option value="reinsuranceExpiryDate">RI Expiry</option>
+          <option value="premiumPaymentDate">Prem. Payment</option>
+          <option value="actualPaymentDate">Actual Payment</option>
+        </select>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => handleDateFilterChange(dateFilterField, e.target.value, dateTo)}
+          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => handleDateFilterChange(dateFilterField, dateFrom, e.target.value)}
+          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+        />
 
         {/* Refresh */}
         <button

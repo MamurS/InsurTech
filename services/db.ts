@@ -912,10 +912,13 @@ export const DB = {
     searchTerm?: string;
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
+    dateField?: string;     // column name for date filter
+    dateFrom?: string;      // YYYY-MM-DD
+    dateTo?: string;        // YYYY-MM-DD
   }): Promise<{ rows: any[]; totalCount: number }> => {
     if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
 
-    const { page, pageSize, sourceFilter, statusFilter, searchTerm, sortField, sortDirection } = params;
+    const { page, pageSize, sourceFilter, statusFilter, searchTerm, sortField, sortDirection, dateField, dateFrom, dateTo } = params;
 
     let query = supabase!
       .from('v_portfolio')
@@ -943,6 +946,23 @@ export const DB = {
       query = query.or(
         `reference_number.ilike.%${term}%,insured_name.ilike.%${term}%,broker_name.ilike.%${term}%,cedant_name.ilike.%${term}%`
       );
+    }
+
+    // Date range filter
+    if (dateField && (dateFrom || dateTo)) {
+      const dateColumnMap: Record<string, string> = {
+        'inceptionDate': 'inception_date',
+        'expiryDate': 'expiry_date',
+        'dateOfSlip': 'date_of_slip',
+        'accountingDate': 'accounting_date',
+        'reinsuranceInceptionDate': 'reinsurance_inception_date',
+        'reinsuranceExpiryDate': 'reinsurance_expiry_date',
+        'premiumPaymentDate': 'premium_payment_date',
+        'actualPaymentDate': 'actual_payment_date',
+      };
+      const dbDateCol = dateColumnMap[dateField] || dateField;
+      if (dateFrom) query = query.gte(dbDateCol, dateFrom);
+      if (dateTo) query = query.lte(dbDateCol, dateTo);
     }
 
     // Sort - map camelCase field names to snake_case DB columns
@@ -1022,6 +1042,15 @@ export const DB = {
         typeOfCover: row.type_of_cover,
         territory: row.territory,
         isDeleted: row.is_deleted,
+        dateOfSlip: row.date_of_slip,
+        accountingDate: row.accounting_date,
+        reinsuranceInceptionDate: row.reinsurance_inception_date,
+        reinsuranceExpiryDate: row.reinsurance_expiry_date,
+        premiumPaymentDate: row.premium_payment_date,
+        actualPaymentDate: row.actual_payment_date,
+        insuranceDays: row.insurance_days,
+        reinsuranceDays: row.reinsurance_days,
+        originalInsuredName: row.original_insured_name,
       })) as any[];
     }
 
@@ -1037,10 +1066,13 @@ export const DB = {
     searchTerm?: string;
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
+    dateField?: string;
+    dateFrom?: string;
+    dateTo?: string;
   }): Promise<{ rows: any[]; totalCount: number }> => {
     if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
 
-    const { page, pageSize, countryFilter, statusFilter, searchTerm, sortField, sortDirection } = params;
+    const { page, pageSize, countryFilter, statusFilter, searchTerm, sortField, sortDirection, dateField, dateFrom, dateTo } = params;
 
     let query = supabase!
       .from('v_direct_policies_consolidated')
@@ -1066,6 +1098,21 @@ export const DB = {
       query = query.or(
         `policy_number.ilike.%${term}%,insured_name.ilike.%${term}%`
       );
+    }
+
+    // Date range filter
+    if (dateField && (dateFrom || dateTo)) {
+      const dateColumnMap: Record<string, string> = {
+        'inceptionDate': 'inception_date',
+        'expiryDate': 'expiry_date',
+        'dateOfSlip': 'date_of_slip',
+        'accountingDate': 'accounting_date',
+        'premiumPaymentDate': 'premium_payment_date',
+        'actualPaymentDate': 'actual_payment_date',
+      };
+      const dbDateCol = dateColumnMap[dateField] || dateField;
+      if (dateFrom) query = query.gte(dbDateCol, dateFrom);
+      if (dateTo) query = query.lte(dbDateCol, dateTo);
     }
 
     // Sort
@@ -1130,10 +1177,13 @@ export const DB = {
     searchTerm?: string;
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
+    dateField?: string;
+    dateFrom?: string;
+    dateTo?: string;
   }): Promise<{ rows: any[]; totalCount: number }> => {
     if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
 
-    const { page, pageSize, typeFilter, statusFilter, classFilter, searchTerm, sortField, sortDirection } = params;
+    const { page, pageSize, typeFilter, statusFilter, classFilter, searchTerm, sortField, sortDirection, dateField, dateFrom, dateTo } = params;
 
     let query = supabase!
       .from('v_inward_consolidated')
@@ -1160,6 +1210,23 @@ export const DB = {
       query = query.or(
         `contract_number.ilike.%${term}%,cedant_name.ilike.%${term}%,broker_name.ilike.%${term}%,original_insured_name.ilike.%${term}%`
       );
+    }
+
+    // Date range filter
+    if (dateField && (dateFrom || dateTo)) {
+      const dateColumnMap: Record<string, string> = {
+        'inceptionDate': 'inception_date',
+        'expiryDate': 'expiry_date',
+        'dateOfSlip': 'date_of_slip',
+        'accountingDate': 'accounting_date',
+        'reinsuranceInceptionDate': 'reinsurance_inception_date',
+        'reinsuranceExpiryDate': 'reinsurance_expiry_date',
+        'premiumPaymentDate': 'premium_payment_date',
+        'actualPaymentDate': 'actual_payment_date',
+      };
+      const dbDateCol = dateColumnMap[dateField] || dateField;
+      if (dateFrom) query = query.gte(dbDateCol, dateFrom);
+      if (dateTo) query = query.lte(dbDateCol, dateTo);
     }
 
     // Sort

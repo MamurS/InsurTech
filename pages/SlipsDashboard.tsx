@@ -46,6 +46,11 @@ const SlipsDashboard: React.FC = () => {
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
+  // Date filter state
+  const [dateFilterField, setDateFilterField] = useState<string>('date');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
   // Selection State
   const [selectedSlip, setSelectedSlip] = useState<ReinsuranceSlip | null>(null);
 
@@ -192,6 +197,15 @@ const SlipsDashboard: React.FC = () => {
     }
 
     return true;
+  }).filter(slip => {
+    // Date filter (client-side)
+    if (dateFrom || dateTo) {
+      const val = (slip as any)[dateFilterField] || '';
+      const dateStr = typeof val === 'string' ? val.slice(0, 10) : '';
+      if (dateFrom && dateStr < dateFrom) return false;
+      if (dateTo && dateStr > dateTo) return false;
+    }
+    return true;
   });
 
   const sortedSlips = [...filteredSlips].sort((a, b) => {
@@ -335,6 +349,29 @@ const SlipsDashboard: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          <div className="w-px h-5 bg-gray-300" />
+
+          {/* Date Filter */}
+          <select
+            value={dateFilterField}
+            onChange={(e) => { setDateFilterField(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
+            className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+          >
+            <option value="date">Slip Date</option>
+          </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => { setDateFrom(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
+            className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-[130px]"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => { setDateTo(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
+            className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-[130px]"
+          />
 
           <div className="w-px h-5 bg-gray-300" />
 
