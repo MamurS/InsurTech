@@ -443,7 +443,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </header>
 
           {/* Scrollable Page Content */}
-          <main className="flex-1 overflow-y-auto pt-2 px-4 pb-4 md:pt-2 md:px-8 md:pb-8 relative">
+          <main className="flex-1 overflow-y-scroll pt-2 px-4 pb-4 md:pt-2 md:px-8 md:pb-8 relative main-content-area">
              <div className="w-full mx-auto">
                 {children}
              </div>
