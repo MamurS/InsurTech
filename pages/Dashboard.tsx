@@ -15,6 +15,7 @@ import { PolicyFormContent } from '../components/PolicyFormContent';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, FileSpreadsheet, MoreVertical, Eye } from 'lucide-react';
 
 // --- MAPPER FUNCTIONS ---
@@ -341,8 +342,8 @@ const Dashboard: React.FC = () => {
 
   // Date Filter State
   const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   // Infinite scroll
   const PAGE_SIZE = 20;
@@ -447,8 +448,8 @@ const Dashboard: React.FC = () => {
         sortField: sortConfig.key,
         sortDirection: sortConfig.direction,
         dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
+        dateFrom: toISODateString(dateFrom) || undefined,
+        dateTo: toISODateString(dateTo) || undefined,
       });
       const slipsPromise = sourceFilter === 'All' && isFirstPage ? DB.getSlips() : Promise.resolve([]);
 
@@ -706,7 +707,7 @@ const Dashboard: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDateFilterChange = (field: string, from: string, to: string) => {
+  const handleDateFilterChange = (field: string, from: Date | null, to: Date | null) => {
     setDateFilterField(field);
     setDateFrom(from);
     setDateTo(to);
@@ -858,19 +859,19 @@ const Dashboard: React.FC = () => {
           <option value="reinsuranceInceptionDate">RI Inception</option>
           <option value="reinsuranceExpiryDate">RI Expiry</option>
         </select>
-        <input
-          type="date"
+        <DatePickerInput
           value={dateFrom}
-          onChange={(e) => handleDateFilterChange(dateFilterField, e.target.value, dateTo)}
-          className="border border-gray-200 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 w-[120px]"
+          onChange={(d) => handleDateFilterChange(dateFilterField, d, dateTo)}
           placeholder="From"
+          className="!p-1.5 !text-xs !w-[110px]"
+          wrapperClassName="w-auto"
         />
-        <input
-          type="date"
+        <DatePickerInput
           value={dateTo}
-          onChange={(e) => handleDateFilterChange(dateFilterField, dateFrom, e.target.value)}
-          className="border border-gray-200 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 w-[120px]"
+          onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
           placeholder="To"
+          className="!p-1.5 !text-xs !w-[110px]"
+          wrapperClassName="w-auto"
         />
 
         {/* Export */}

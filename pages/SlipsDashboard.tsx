@@ -9,6 +9,7 @@ import { DetailModal } from '../components/DetailModal';
 import { FormModal } from '../components/FormModal';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye, RefreshCw } from 'lucide-react';
 
 // Detect shifted column data from legacy CSV import:
@@ -48,8 +49,8 @@ const SlipsDashboard: React.FC = () => {
 
   // Date filter state
   const [dateFilterField, setDateFilterField] = useState<string>('date');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   // Selection State
   const [selectedSlip, setSelectedSlip] = useState<ReinsuranceSlip | null>(null);
@@ -199,11 +200,13 @@ const SlipsDashboard: React.FC = () => {
     return true;
   }).filter(slip => {
     // Date filter (client-side)
-    if (dateFrom || dateTo) {
+    const fromStr = toISODateString(dateFrom) || '';
+    const toStr = toISODateString(dateTo) || '';
+    if (fromStr || toStr) {
       const val = (slip as any)[dateFilterField] || '';
       const dateStr = typeof val === 'string' ? val.slice(0, 10) : '';
-      if (dateFrom && dateStr < dateFrom) return false;
-      if (dateTo && dateStr > dateTo) return false;
+      if (fromStr && dateStr < fromStr) return false;
+      if (toStr && dateStr > toStr) return false;
     }
     return true;
   });
@@ -360,17 +363,19 @@ const SlipsDashboard: React.FC = () => {
           >
             <option value="date">Slip Date</option>
           </select>
-          <input
-            type="date"
+          <DatePickerInput
             value={dateFrom}
-            onChange={(e) => { setDateFrom(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-[130px]"
+            onChange={(d) => { setDateFrom(d); setVisibleCount(VISIBLE_INCREMENT); }}
+            placeholder="From"
+            className="!p-1.5 !text-xs !w-[110px]"
+            wrapperClassName="w-auto"
           />
-          <input
-            type="date"
+          <DatePickerInput
             value={dateTo}
-            onChange={(e) => { setDateTo(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500 w-[130px]"
+            onChange={(d) => { setDateTo(d); setVisibleCount(VISIBLE_INCREMENT); }}
+            placeholder="To"
+            className="!p-1.5 !text-xs !w-[110px]"
+            wrapperClassName="w-auto"
           />
 
           <div className="w-px h-5 bg-gray-300" />

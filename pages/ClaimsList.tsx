@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ClaimFilters } from '../types';
 import { useClaimsList } from '../hooks/useClaims';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import RegisterClaimModal from '../components/RegisterClaimModal';
 import { AlertOctagon, Search, Plus, Filter, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
@@ -54,8 +55,8 @@ const ClaimsList: React.FC = () => {
 
   // Date filter state
   const [dateFilterField, setDateFilterField] = useState<string>('lossDate');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   const { data, isLoading, isError, refetch } = useClaimsList(filters);
   const totalCount = data?.count || 0;
@@ -73,11 +74,13 @@ const ClaimsList: React.FC = () => {
   }, [data, filters.page]);
 
   const claims = allClaims.filter(claim => {
-    if (dateFrom || dateTo) {
+    const fromStr = toISODateString(dateFrom) || '';
+    const toStr = toISODateString(dateTo) || '';
+    if (fromStr || toStr) {
       const val = (claim as any)[dateFilterField] || '';
       const dateStr = typeof val === 'string' ? val.slice(0, 10) : '';
-      if (dateFrom && dateStr < dateFrom) return false;
-      if (dateTo && dateStr > dateTo) return false;
+      if (fromStr && dateStr < fromStr) return false;
+      if (toStr && dateStr > toStr) return false;
     }
     return true;
   });
@@ -165,17 +168,19 @@ const ClaimsList: React.FC = () => {
             <option value="lossDate">Loss Date</option>
             <option value="reportDate">Report Date</option>
           </select>
-          <input
-            type="date"
+          <DatePickerInput
             value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+            onChange={(d) => setDateFrom(d)}
+            placeholder="From"
+            className="!p-1.5 !text-xs !w-[110px]"
+            wrapperClassName="w-auto"
           />
-          <input
-            type="date"
+          <DatePickerInput
             value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+            onChange={(d) => setDateTo(d)}
+            placeholder="To"
+            className="!p-1.5 !text-xs !w-[110px]"
+            wrapperClassName="w-auto"
           />
 
           <button onClick={() => refetch()} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">

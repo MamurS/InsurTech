@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormModal } from '../components/FormModal';
 import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormContent';
 import { formatDate } from '../utils/dateUtils';
+import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import {
   Plus, Search, FileText, Trash2, Edit, Eye,
   Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
@@ -50,8 +51,8 @@ const DirectInsuranceList: React.FC = () => {
 
   // Date filter state
   const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
-  const [dateFrom, setDateFrom] = useState<string>('');
-  const [dateTo, setDateTo] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   // Stats (lightweight count queries)
   const [stats, setStats] = useState({ total: 0, uzbekistan: 0, foreign: 0, active: 0, draft: 0 });
@@ -96,8 +97,8 @@ const DirectInsuranceList: React.FC = () => {
         statusFilter,
         searchTerm,
         dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
+        dateFrom: toISODateString(dateFrom) || undefined,
+        dateTo: toISODateString(dateTo) || undefined,
       });
       setHasMore(result.rows.length >= PAGE_SIZE);
       if (isFirstPage) {
@@ -164,7 +165,7 @@ const DirectInsuranceList: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleDateFilterChange = (field: string, from: string, to: string) => {
+  const handleDateFilterChange = (field: string, from: Date | null, to: Date | null) => {
     setDateFilterField(field);
     setDateFrom(from);
     setDateTo(to);
@@ -337,17 +338,19 @@ const DirectInsuranceList: React.FC = () => {
             <option value="premiumPaymentDate">Prem. Payment</option>
             <option value="actualPaymentDate">Actual Payment</option>
           </select>
-          <input
-            type="date"
+          <DatePickerInput
             value={dateFrom}
-            onChange={(e) => handleDateFilterChange(dateFilterField, e.target.value, dateTo)}
-            className="px-2 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+            onChange={(d) => handleDateFilterChange(dateFilterField, d, dateTo)}
+            placeholder="From"
+            className="!p-1.5 !text-xs !w-[110px]"
+            wrapperClassName="w-auto"
           />
-          <input
-            type="date"
+          <DatePickerInput
             value={dateTo}
-            onChange={(e) => handleDateFilterChange(dateFilterField, dateFrom, e.target.value)}
-            className="px-2 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+            onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
+            placeholder="To"
+            className="!p-1.5 !text-xs !w-[110px]"
+            wrapperClassName="w-auto"
           />
 
           {/* Refresh */}
