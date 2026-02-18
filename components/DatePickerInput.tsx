@@ -44,11 +44,19 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
     wrapperClassName = ''
 }) => {
     const format = getPickerFormat();
-    
+
+    React.useEffect(() => {
+        if (!document.getElementById('datepicker-portal')) {
+            const div = document.createElement('div');
+            div.id = 'datepicker-portal';
+            document.body.appendChild(div);
+        }
+    }, []);
+
     return (
-        <div className={`${wrapperClassName || 'w-full'}`}>
+        <div className={`${wrapperClassName || 'w-full'} flex-shrink-0`}>
             {label && <label className="block text-sm font-medium text-gray-600 mb-1.5">{label} {required && <span className="text-red-500">*</span>}</label>}
-            <div className="relative">
+            <div className="relative flex-shrink-0">
                 <DatePicker
                     selected={value}
                     onChange={onChange}
@@ -64,6 +72,8 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                     dropdownMode="select"
                     autoComplete="off"
                     strictParsing
+                    popperPlacement="bottom-start"
+                    portalId="datepicker-portal"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                     <Calendar size={16} />
