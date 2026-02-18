@@ -787,7 +787,7 @@ const Dashboard: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       {/* Row 1: All Filters in One Row */}
-      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200">
+      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200 min-h-[40px] overflow-visible">
         {/* Source Filter Pills */}
         {([
           { key: 'All', label: 'All', icon: null },
@@ -846,6 +846,7 @@ const Dashboard: React.FC = () => {
         <div className="w-px h-5 bg-gray-300 mx-1" />
 
         {/* Date Filter */}
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
@@ -870,6 +871,7 @@ const Dashboard: React.FC = () => {
           onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
           placeholder="To"
         />
+        </div>
 
         {/* Export */}
         <button

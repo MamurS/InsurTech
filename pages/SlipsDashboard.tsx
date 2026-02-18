@@ -322,7 +322,7 @@ const SlipsDashboard: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 min-h-[40px] overflow-visible">
           {/* Status Tabs - Compact */}
           <div className="flex bg-gray-100 p-0.5 rounded-md overflow-x-auto">
             {slipStatusTabs.map(tab => (
@@ -357,6 +357,7 @@ const SlipsDashboard: React.FC = () => {
           <div className="w-px h-5 bg-gray-300" />
 
           {/* Date Filter */}
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => { setDateFilterField(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
@@ -374,6 +375,7 @@ const SlipsDashboard: React.FC = () => {
             onChange={(d) => { setDateTo(d); setVisibleCount(VISIBLE_INCREMENT); }}
             placeholder="To"
           />
+          </div>
 
           <div className="w-px h-5 bg-gray-300" />
 

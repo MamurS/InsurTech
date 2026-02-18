@@ -281,7 +281,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
-      <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+      <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm min-h-[40px] overflow-visible">
         {/* Search */}
         <div className="relative flex-1 min-w-[120px]">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -332,6 +332,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         </select>
 
         {/* Date Filter */}
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
@@ -356,6 +357,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
           onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
           placeholder="To"
         />
+        </div>
 
         {/* Refresh */}
         <button
