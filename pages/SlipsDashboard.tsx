@@ -9,7 +9,8 @@ import { DetailModal } from '../components/DetailModal';
 import { FormModal } from '../components/FormModal';
 import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
-import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
+import { toISODateString } from '../components/DatePickerInput';
+import { CompactDateFilter } from '../components/CompactDateFilter';
 import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye, RefreshCw } from 'lucide-react';
 
 // Detect shifted column data from legacy CSV import:
@@ -363,19 +364,15 @@ const SlipsDashboard: React.FC = () => {
           >
             <option value="date">Slip Date</option>
           </select>
-          <DatePickerInput
+          <CompactDateFilter
             value={dateFrom}
             onChange={(d) => { setDateFrom(d); setVisibleCount(VISIBLE_INCREMENT); }}
             placeholder="From"
-            className="!p-1.5 !text-xs !w-[110px]"
-            wrapperClassName="w-auto"
           />
-          <DatePickerInput
+          <CompactDateFilter
             value={dateTo}
             onChange={(d) => { setDateTo(d); setVisibleCount(VISIBLE_INCREMENT); }}
             placeholder="To"
-            className="!p-1.5 !text-xs !w-[110px]"
-            wrapperClassName="w-auto"
           />
 
           <div className="w-px h-5 bg-gray-300" />

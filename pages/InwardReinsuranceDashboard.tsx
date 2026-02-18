@@ -3,7 +3,8 @@ import { DB } from '../services/db';
 import { InwardReinsurance, Currency } from '../types';
 import { useToast } from '../context/ToastContext';
 import { formatDate } from '../utils/dateUtils';
-import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
+import { toISODateString } from '../components/DatePickerInput';
+import { CompactDateFilter } from '../components/CompactDateFilter';
 import { FormModal } from '../components/FormModal';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
 import {
@@ -345,19 +346,15 @@ const InwardReinsuranceDashboard: React.FC = () => {
           <option value="premiumPaymentDate">Prem. Payment</option>
           <option value="actualPaymentDate">Actual Payment</option>
         </select>
-        <DatePickerInput
+        <CompactDateFilter
           value={dateFrom}
           onChange={(d) => handleDateFilterChange(dateFilterField, d, dateTo)}
           placeholder="From"
-          className="!p-1.5 !text-xs !w-[110px]"
-          wrapperClassName="w-auto"
         />
-        <DatePickerInput
+        <CompactDateFilter
           value={dateTo}
           onChange={(d) => handleDateFilterChange(dateFilterField, dateFrom, d)}
           placeholder="To"
-          className="!p-1.5 !text-xs !w-[110px]"
-          wrapperClassName="w-auto"
         />
 
         {/* Refresh */}
