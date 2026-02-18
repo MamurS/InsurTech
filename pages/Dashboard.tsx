@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
-import { Policy, Currency, PolicyStatus, LegalEntity, Installment, PortfolioRow, PortfolioSource, PortfolioStatus, InwardReinsurance, ReinsuranceSlip } from '../types';
+import { Policy, Currency, PolicyStatus, LegalEntity, Installment, PortfolioRow, PortfolioSource, PortfolioStatus, InwardReinsurance } from '../types';
 import { ExcelService } from '../services/excel';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -13,11 +13,10 @@ import { EntityDetailModal } from '../components/EntityDetailModal';
 import { FormModal } from '../components/FormModal';
 import { PolicyFormContent } from '../components/PolicyFormContent';
 import { InwardReinsuranceFormContent } from '../components/InwardReinsuranceFormContent';
-import { SlipFormContent } from '../components/SlipFormContent';
 import { formatDate } from '../utils/dateUtils';
 import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { CompactDateFilter } from '../components/CompactDateFilter';
-import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, FileSpreadsheet, MoreVertical, Eye } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, MoreVertical, Eye, Shield } from 'lucide-react';
 
 // --- MAPPER FUNCTIONS ---
 
@@ -183,54 +182,6 @@ const mapInwardReinsuranceToPortfolioRow = (ir: InwardReinsurance): PortfolioRow
   originalData: ir,
 });
 
-// Detect shifted column data from legacy CSV import:
-// insuredName got a numeric ID, brokerReinsurer got the actual insured name.
-// For new slips (created via form), insuredName is correct.
-const isNumericValue = (v: string) => /^\d+(\.\d+)?$/.test(v);
-
-const mapSlipToPortfolioRow = (s: ReinsuranceSlip): PortfolioRow => {
-  // If insuredName is numeric, columns are shifted — use brokerReinsurer as insured
-  const shiftedColumns = !s.insuredName || isNumericValue(s.insuredName);
-  const insured = shiftedColumns ? (s.brokerReinsurer || '') : (s.insuredName || '');
-  const broker = shiftedColumns ? '' : (s.brokerReinsurer || '');
-
-  // Clean up numeric slip numbers from legacy import (e.g. "900.0" → "SLIP-900")
-  let refNum = s.slipNumber || '';
-  const cleanRef = refNum.replace(/\.0$/, '');
-  if (/^\d+$/.test(cleanRef)) {
-    refNum = `SLIP-${cleanRef}`;
-  }
-
-  return {
-    id: s.id,
-    source: 'slip',
-    referenceNumber: refNum,
-
-    // Parties — fixed for shifted column data
-    insuredName: insured,
-    brokerName: broker,
-
-    // Classification
-    classOfBusiness: 'Reinsurance Slip',
-
-    // Financial
-    currency: (s.currency as Currency) || Currency.USD,
-    limit: Number(s.limitOfLiability || 0),
-    grossPremium: 0,
-    ourShare: 100,
-
-    // Dates
-    inceptionDate: s.date || '',
-    expiryDate: s.date || '',
-    dateOfSlip: s.date || '',
-
-    // Status
-    status: s.status || 'Draft',
-    normalizedStatus: normalizeStatus(s.status || 'Draft', s.isDeleted),
-    isDeleted: s.isDeleted,
-    originalData: s,
-  };
-};
 
 // LEGACY: Client-side consolidation (replaced by v_portfolio view)
 // Kept as fallback in case view is unavailable
@@ -384,10 +335,6 @@ const Dashboard: React.FC = () => {
   const [editingInwardId, setEditingInwardId] = useState<string | null>(null);
   const [editingInwardOrigin, setEditingInwardOrigin] = useState<'FOREIGN' | 'DOMESTIC'>('FOREIGN');
 
-  // Slip Form Modal State
-  const [showSlipModal, setShowSlipModal] = useState(false);
-  const [editingSlipId, setEditingSlipId] = useState<string | null>(null);
-
   const fetchData = useCallback(async () => {
     const isFirstPage = currentPage === 1;
     if (isFirstPage) setLoading(true);
@@ -400,35 +347,9 @@ const Dashboard: React.FC = () => {
         'direct': 'direct',
         'inward-foreign': 'inward-foreign',
         'inward-domestic': 'inward-domestic',
-        'slip': 'slip', // slips not in view yet, handle separately
       };
 
       const viewSource = sourceMap[sourceFilter] || 'all';
-
-      // If filtering by Slips only, use old method (slips aren't in the view)
-      if (sourceFilter === 'slip') {
-        const slips = await DB.getSlips();
-        let slipRows = slips.filter(s => !s.isDeleted).map(mapSlipToPortfolioRow);
-        if (searchTerm && searchTerm.trim()) {
-          const term = searchTerm.trim().toLowerCase();
-          slipRows = slipRows.filter(row =>
-            (row.referenceNumber || '').toLowerCase().includes(term) ||
-            (row.insuredName || '').toLowerCase().includes(term) ||
-            (row.brokerName || '').toLowerCase().includes(term) ||
-            (row.classOfBusiness || '').toLowerCase().includes(term)
-          );
-        }
-        if (statusFilter && statusFilter !== 'All') {
-          slipRows = slipRows.filter(row =>
-            row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
-          );
-        }
-        setPortfolioData(slipRows);
-        setTotalCount(slipRows.length);
-        setHasMore(false);
-        setLoading(false);
-        return;
-      }
 
       // Handle "Deleted" status: v_portfolio excludes deleted records
       if (statusFilter === 'Deleted') {
@@ -452,9 +373,7 @@ const Dashboard: React.FC = () => {
         dateFrom: toISODateString(dateFrom) || undefined,
         dateTo: toISODateString(dateTo) || undefined,
       });
-      const slipsPromise = sourceFilter === 'All' && isFirstPage ? DB.getSlips() : Promise.resolve([]);
-
-      const [result, slips] = await Promise.all([portfolioPromise, slipsPromise]);
+      const result = await portfolioPromise;
 
       // Map view columns to PortfolioRow format
       const rows: PortfolioRow[] = result.rows.map((row: any) => ({
@@ -488,29 +407,8 @@ const Dashboard: React.FC = () => {
       setHasMore(rows.length >= PAGE_SIZE);
 
       if (isFirstPage) {
-        // On first page, include filtered slips at the end
-        if (sourceFilter === 'All') {
-          let slipRows = slips.filter((s: any) => !s.isDeleted).map(mapSlipToPortfolioRow);
-          if (searchTerm && searchTerm.trim()) {
-            const term = searchTerm.trim().toLowerCase();
-            slipRows = slipRows.filter(row =>
-              (row.referenceNumber || '').toLowerCase().includes(term) ||
-              (row.insuredName || '').toLowerCase().includes(term) ||
-              (row.brokerName || '').toLowerCase().includes(term) ||
-              (row.classOfBusiness || '').toLowerCase().includes(term)
-            );
-          }
-          if (statusFilter && statusFilter !== 'All') {
-            slipRows = slipRows.filter(row =>
-              row.normalizedStatus.toLowerCase() === statusFilter.toLowerCase()
-            );
-          }
-          setPortfolioData([...rows, ...slipRows]);
-          setTotalCount(result.totalCount + slipRows.length);
-        } else {
-          setPortfolioData(rows);
-          setTotalCount(result.totalCount);
-        }
+        setPortfolioData(rows);
+        setTotalCount(result.totalCount);
       } else {
         // Subsequent pages: append rows
         setPortfolioData(prev => [...prev, ...rows]);
@@ -567,10 +465,6 @@ const Dashboard: React.FC = () => {
         setEditingInwardOrigin('DOMESTIC');
         setShowInwardModal(true);
         break;
-      case 'slip':
-        setEditingSlipId(row.id);
-        setShowSlipModal(true);
-        break;
     }
   };
 
@@ -595,10 +489,6 @@ const Dashboard: React.FC = () => {
           row.installmentCount = installments.length || row.installmentCount;
         }
         setSelectedRow(row);
-        break;
-      case 'slip':
-        setEditingSlipId(row.id);
-        setShowSlipModal(true);
         break;
     }
   };
@@ -771,12 +661,6 @@ const Dashboard: React.FC = () => {
               <Home size={10} /> IN-DOMESTIC
             </span>
           );
-        case 'slip':
-          return (
-            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
-              <FileSpreadsheet size={10} /> SLIP
-            </span>
-          );
         default:
           return <span className="text-[10px] text-gray-500">{source}</span>;
       }
@@ -794,7 +678,6 @@ const Dashboard: React.FC = () => {
           { key: 'direct', label: 'Direct', icon: Briefcase },
           { key: 'inward-foreign', label: 'In-Foreign', icon: Globe },
           { key: 'inward-domestic', label: 'In-Domestic', icon: Home },
-          { key: 'slip', label: 'Slips', icon: FileSpreadsheet },
         ] as const).map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -899,6 +782,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Limit" sortKey="limit" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
+                            <th className="px-2 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs uppercase tracking-wider whitespace-nowrap bg-gray-50 text-right">Ceded %</th>
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
                             <th className="px-1 py-3 border-b border-gray-200 w-10 bg-gray-50"></th>
@@ -907,6 +791,9 @@ const Dashboard: React.FC = () => {
                 <tbody className="divide-y divide-gray-100 text-sm">
                     {paginatedRows.map(row => {
                         const rowClass = row.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30';
+                        // Compute ceded % from outward reinsurance data
+                        const outwardForRow = row.source === 'direct' ? (outwardByPolicyRef.current.get(row.referenceNumber) || []) : [];
+                        const cededPct = outwardForRow.reduce((sum, p) => sum + Number(p.cededShare || 0), 0);
 
                         return (
                         <tr
@@ -985,6 +872,17 @@ const Dashboard: React.FC = () => {
                                     <td className="px-2 py-3 text-right text-xs whitespace-nowrap">
                                         {row.ourShare}%
                                     </td>
+                                    <td className="px-2 py-3 text-right text-xs whitespace-nowrap">
+                                        {row.source === 'direct' && cededPct > 0 ? (
+                                          <span className={`font-medium ${cededPct >= 100 ? 'text-green-700' : cededPct >= 50 ? 'text-blue-700' : 'text-amber-700'}`}>
+                                            {cededPct}%
+                                          </span>
+                                        ) : row.source === 'direct' ? (
+                                          <span className="text-gray-300">-</span>
+                                        ) : (
+                                          <span className="text-gray-300">n/a</span>
+                                        )}
+                                    </td>
                                     <td className="px-2 py-3 text-xs text-gray-600 whitespace-nowrap">
                                         {formatDate(row.inceptionDate)}
                                     </td>
@@ -1033,7 +931,7 @@ const Dashboard: React.FC = () => {
 
                     {!loading && paginatedRows.length === 0 && (
                         <tr>
-                            <td colSpan={13} className="py-12 text-center text-gray-400">
+                            <td colSpan={14} className="py-12 text-center text-gray-400">
                                 <div className="flex flex-col items-center gap-2">
                                     <Filter size={32} className="opacity-20"/>
                                     {statusFilter === 'Deleted' ? (
@@ -1165,28 +1063,6 @@ const Dashboard: React.FC = () => {
         />
       </FormModal>
 
-      {/* Slip Form Modal */}
-      <FormModal
-        isOpen={showSlipModal}
-        onClose={() => {
-          setShowSlipModal(false);
-          setEditingSlipId(null);
-        }}
-        title={editingSlipId ? 'Edit Reinsurance Slip' : 'New Reinsurance Slip'}
-      >
-        <SlipFormContent
-          id={editingSlipId || undefined}
-          onSave={() => {
-            setShowSlipModal(false);
-            setEditingSlipId(null);
-            fetchData();
-          }}
-          onCancel={() => {
-            setShowSlipModal(false);
-            setEditingSlipId(null);
-          }}
-        />
-      </FormModal>
     </div>
   );
 };
