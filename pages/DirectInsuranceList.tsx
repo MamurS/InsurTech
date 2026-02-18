@@ -48,6 +48,11 @@ const DirectInsuranceList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [countryFilter, setCountryFilter] = useState<string>('all');
 
+  // Date filter state
+  const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
   // Stats (lightweight count queries)
   const [stats, setStats] = useState({ total: 0, uzbekistan: 0, foreign: 0, active: 0, draft: 0 });
 
@@ -90,6 +95,9 @@ const DirectInsuranceList: React.FC = () => {
         countryFilter,
         statusFilter,
         searchTerm,
+        dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
       });
       setHasMore(result.rows.length >= PAGE_SIZE);
       if (isFirstPage) {
@@ -105,7 +113,7 @@ const DirectInsuranceList: React.FC = () => {
       if (isFirstPage) setLoading(false);
       else setLoadingMore(false);
     }
-  }, [currentPage, countryFilter, statusFilter, searchTerm]);
+  }, [currentPage, countryFilter, statusFilter, searchTerm, dateFilterField, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchData();
@@ -152,6 +160,14 @@ const DirectInsuranceList: React.FC = () => {
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
+    setPolicies([]);
+    setCurrentPage(1);
+  };
+
+  const handleDateFilterChange = (field: string, from: string, to: string) => {
+    setDateFilterField(field);
+    setDateFrom(from);
+    setDateTo(to);
     setPolicies([]);
     setCurrentPage(1);
   };
@@ -307,6 +323,32 @@ const DirectInsuranceList: React.FC = () => {
             <option value="Expired">Expired</option>
             <option value="Cancelled">Cancelled</option>
           </select>
+
+          {/* Date Filter */}
+          <select
+            value={dateFilterField}
+            onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
+            className="px-2 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-xs"
+          >
+            <option value="inceptionDate">Inception</option>
+            <option value="expiryDate">Expiry</option>
+            <option value="dateOfSlip">Date of Slip</option>
+            <option value="accountingDate">Accounting</option>
+            <option value="premiumPaymentDate">Prem. Payment</option>
+            <option value="actualPaymentDate">Actual Payment</option>
+          </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => handleDateFilterChange(dateFilterField, e.target.value, dateTo)}
+            className="px-2 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => handleDateFilterChange(dateFilterField, dateFrom, e.target.value)}
+            className="px-2 py-2 border border-slate-200 rounded-lg text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+          />
 
           {/* Refresh */}
           <button

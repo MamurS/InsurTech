@@ -52,6 +52,11 @@ const ClaimsList: React.FC = () => {
       pageSize: PAGE_SIZE
   });
 
+  // Date filter state
+  const [dateFilterField, setDateFilterField] = useState<string>('lossDate');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
   const { data, isLoading, isError, refetch } = useClaimsList(filters);
   const totalCount = data?.count || 0;
 
@@ -67,7 +72,15 @@ const ClaimsList: React.FC = () => {
     }
   }, [data, filters.page]);
 
-  const claims = allClaims;
+  const claims = allClaims.filter(claim => {
+    if (dateFrom || dateTo) {
+      const val = (claim as any)[dateFilterField] || '';
+      const dateStr = typeof val === 'string' ? val.slice(0, 10) : '';
+      if (dateFrom && dateStr < dateFrom) return false;
+      if (dateTo && dateStr > dateTo) return false;
+    }
+    return true;
+  });
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -143,6 +156,28 @@ const ClaimsList: React.FC = () => {
           >
             <Filter size={14}/> Filters
           </button>
+          {/* Date Filter */}
+          <select
+            value={dateFilterField}
+            onChange={(e) => setDateFilterField(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          >
+            <option value="lossDate">Loss Date</option>
+            <option value="reportDate">Report Date</option>
+          </select>
+          <input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+          />
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none w-[130px]"
+          />
+
           <button onClick={() => refetch()} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
             <RefreshCw size={14}/>
           </button>

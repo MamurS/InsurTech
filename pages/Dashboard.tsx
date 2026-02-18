@@ -339,6 +339,11 @@ const Dashboard: React.FC = () => {
   // Status Filter State
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
 
+  // Date Filter State
+  const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
+
   // Infinite scroll
   const PAGE_SIZE = 20;
   const [currentPage, setCurrentPage] = useState(1);
@@ -441,6 +446,9 @@ const Dashboard: React.FC = () => {
         searchTerm: searchTerm,
         sortField: sortConfig.key,
         sortDirection: sortConfig.direction,
+        dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
       });
       const slipsPromise = sourceFilter === 'All' && isFirstPage ? DB.getSlips() : Promise.resolve([]);
 
@@ -466,6 +474,12 @@ const Dashboard: React.FC = () => {
         status: row.status || '',
         installmentCount: Number(row.installment_count || 1),
         cedantName: row.cedant_name || '',
+        dateOfSlip: row.date_of_slip || '',
+        accountingDate: row.accounting_date || '',
+        reinsuranceInceptionDate: row.reinsurance_inception_date || '',
+        reinsuranceExpiryDate: row.reinsurance_expiry_date || '',
+        premiumPaymentDate: row.premium_payment_date || '',
+        actualPaymentDate: row.actual_payment_date || '',
         originalData: null as any,
       }));
 
@@ -520,7 +534,7 @@ const Dashboard: React.FC = () => {
         outwardLoadedRef.current = true;
       });
     }
-  }, [currentPage, sourceFilter, statusFilter, searchTerm, sortConfig]);
+  }, [currentPage, sourceFilter, statusFilter, searchTerm, sortConfig, dateFilterField, dateFrom, dateTo]);
 
   useEffect(() => {
     fetchData();
@@ -692,6 +706,14 @@ const Dashboard: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleDateFilterChange = (field: string, from: string, to: string) => {
+    setDateFilterField(field);
+    setDateFrom(from);
+    setDateTo(to);
+    setPortfolioData([]);
+    setCurrentPage(1);
+  };
+
   const formatMoney = (amount: number | undefined, currency: Currency | string) => {
     if (amount === undefined || amount === null) return '-';
     try {
@@ -818,6 +840,38 @@ const Dashboard: React.FC = () => {
             onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
+
+        <div className="w-px h-5 bg-gray-300 mx-1" />
+
+        {/* Date Filter */}
+        <select
+          value={dateFilterField}
+          onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
+          className="border border-gray-200 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700"
+        >
+          <option value="inceptionDate">Inception</option>
+          <option value="expiryDate">Expiry</option>
+          <option value="dateOfSlip">Date of Slip</option>
+          <option value="accountingDate">Accounting</option>
+          <option value="premiumPaymentDate">Prem. Payment</option>
+          <option value="actualPaymentDate">Actual Payment</option>
+          <option value="reinsuranceInceptionDate">RI Inception</option>
+          <option value="reinsuranceExpiryDate">RI Expiry</option>
+        </select>
+        <input
+          type="date"
+          value={dateFrom}
+          onChange={(e) => handleDateFilterChange(dateFilterField, e.target.value, dateTo)}
+          className="border border-gray-200 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 w-[120px]"
+          placeholder="From"
+        />
+        <input
+          type="date"
+          value={dateTo}
+          onChange={(e) => handleDateFilterChange(dateFilterField, dateFrom, e.target.value)}
+          className="border border-gray-200 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700 w-[120px]"
+          placeholder="To"
+        />
 
         {/* Export */}
         <button
