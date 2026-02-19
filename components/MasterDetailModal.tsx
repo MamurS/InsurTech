@@ -44,6 +44,9 @@ const pct = (v: number | undefined): string => {
   return `${v}%`;
 };
 
+// Normalize cededShare: values <= 1 are decimals (0.95 = 95%), values > 1 are already percentages
+const normalizeCededShare = (v: number): number => v <= 1 ? v * 100 : v;
+
 const sourceColor: Record<string, string> = {
   direct: 'bg-blue-100 text-blue-700',
   'inward-foreign': 'bg-purple-100 text-purple-700',
@@ -246,9 +249,9 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
         </div>
       </div>
 
-      {/* Outward Reinsurance Quick Summary for Direct policies */}
-      {isDirect && outwardPolicies.length > 0 && (() => {
-        const totalCeded = outwardPolicies.reduce((sum, p) => sum + Number(p.cededShare || 0), 0);
+      {/* Outward Reinsurance Quick Summary */}
+      {outwardPolicies.length > 0 && (() => {
+        const totalCeded = outwardPolicies.reduce((sum, p) => sum + normalizeCededShare(Number(p.cededShare || 0)), 0);
         const retention = Math.max(0, 100 - totalCeded);
         return (
           <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
@@ -380,7 +383,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
       );
     }
 
-    const totalCededShare = outwardPolicies.reduce((sum, p) => sum + Number(p.cededShare || 0), 0);
+    const totalCededShare = outwardPolicies.reduce((sum, p) => sum + normalizeCededShare(Number(p.cededShare || 0)), 0);
     const totalCededPremium = outwardPolicies.reduce((sum, p) => sum + Number(p.cededPremiumForeign || p.grossPremium || 0), 0);
 
     return (
@@ -420,7 +423,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
               {outwardPolicies.map((op, idx) => (
                 <tr key={op.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
                   <td className="px-4 py-2.5 font-medium text-gray-900">{op.reinsurerName || op.insuredName || '-'}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">{pct(op.cededShare)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono">{pct(normalizeCededShare(Number(op.cededShare || 0)))}</td>
                   <td className="px-4 py-2.5 text-right font-mono">{fmtFull(op.cededPremiumForeign || op.grossPremium, currency)}</td>
                   <td className="px-4 py-2.5 text-right">{pct(op.commissionPercent)}</td>
                   <td className="px-4 py-2.5 text-right font-mono">{fmtFull(op.netPremium, currency)}</td>

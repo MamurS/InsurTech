@@ -258,6 +258,7 @@ const Dashboard: React.FC = () => {
   const [totalCount, setTotalCount] = useState(0);
   const outwardByPolicyRef = useRef<Map<string, Policy[]>>(new Map());
   const outwardLoadedRef = useRef(false);
+  const [, setOutwardReady] = useState(false); // triggers re-render when outward data loads
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -432,6 +433,7 @@ const Dashboard: React.FC = () => {
         }
         outwardByPolicyRef.current = outwardMap;
         outwardLoadedRef.current = true;
+        setOutwardReady(true);
       });
     }
   }, [currentPage, sourceFilter, statusFilter, searchTerm, sortConfig, dateFilterField, dateFrom, dateTo]);
@@ -791,9 +793,13 @@ const Dashboard: React.FC = () => {
                 <tbody className="divide-y divide-gray-100 text-sm">
                     {paginatedRows.map(row => {
                         const rowClass = row.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30';
-                        // Compute ceded % from outward reinsurance data
-                        const outwardForRow = row.source === 'direct' ? (outwardByPolicyRef.current.get(row.referenceNumber) || []) : [];
-                        const cededPct = outwardForRow.reduce((sum, p) => sum + Number(p.cededShare || 0), 0);
+                        // Compute ceded % from outward reinsurance data (matches both direct and inward rows)
+                        const outwardForRow = outwardByPolicyRef.current.get(row.referenceNumber) || [];
+                        const cededPct = outwardForRow.reduce((sum, p) => {
+                          const raw = Number(p.cededShare || 0);
+                          // Normalize: values <= 1 are decimals (0.95 = 95%), values > 1 are already percentages
+                          return sum + (raw <= 1 ? raw * 100 : raw);
+                        }, 0);
 
                         return (
                         <tr
@@ -873,14 +879,12 @@ const Dashboard: React.FC = () => {
                                         {row.ourShare}%
                                     </td>
                                     <td className="px-2 py-3 text-right text-xs whitespace-nowrap">
-                                        {row.source === 'direct' && cededPct > 0 ? (
+                                        {cededPct > 0 ? (
                                           <span className={`font-medium ${cededPct >= 100 ? 'text-green-700' : cededPct >= 50 ? 'text-blue-700' : 'text-amber-700'}`}>
-                                            {cededPct}%
+                                            {Math.round(cededPct * 100) / 100}%
                                           </span>
-                                        ) : row.source === 'direct' ? (
-                                          <span className="text-gray-300">-</span>
                                         ) : (
-                                          <span className="text-gray-300">n/a</span>
+                                          <span className="text-gray-300">-</span>
                                         )}
                                     </td>
                                     <td className="px-2 py-3 text-xs text-gray-600 whitespace-nowrap">
@@ -987,7 +991,7 @@ const Dashboard: React.FC = () => {
       {selectedRow && (selectedRow.source === 'direct' || selectedRow.source === 'inward-foreign' || selectedRow.source === 'inward-domestic') && (
           <MasterDetailModal
             row={selectedRow}
-            outwardPolicies={selectedRow.source === 'direct' ? (outwardByPolicyRef.current.get(selectedRow.referenceNumber) || []) : []}
+            outwardPolicies={outwardByPolicyRef.current.get(selectedRow.referenceNumber) || []}
             onClose={() => setSelectedRow(null)}
             onRefresh={fetchData}
             onEdit={(r) => {
