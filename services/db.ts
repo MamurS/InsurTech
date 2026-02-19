@@ -279,7 +279,7 @@ export const DB = {
         const { data, error } = await supabase!
           .from('policies')
           .select('*')
-          .eq('recordType', 'Reinsurance')
+          .neq('recordType', 'Direct')
           .eq('isDeleted', false)
           .order('created_at', { ascending: false })
           .range(from, from + batchSize - 1);

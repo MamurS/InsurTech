@@ -222,9 +222,9 @@ export const useAnalyticsSummary = () => {
       const inwardContracts = inwardRes.data || [];
       const claims = claimsRes.data || [];
 
-      // Separate Direct from Outward (Reinsurance channel) policies
-      const directPolicies = allPolicies.filter((p: any) => p.channel === 'Direct');
-      const outwardPolicies = allPolicies.filter((p: any) => p.channel === 'Reinsurance');
+      // Separate Direct from Outward policies using recordType (preserved from DB)
+      const directPolicies = allPolicies.filter((p: any) => p.recordType === 'Direct');
+      const outwardPolicies = allPolicies.filter((p: any) => p.recordType && p.recordType !== 'Direct');
 
       // Process each channel
       // Direct: Mosaic issues policies to clients (REVENUE)
