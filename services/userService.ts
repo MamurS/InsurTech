@@ -107,7 +107,8 @@ export const UserService = {
                     avatar_url,
                     is_active,
                     created_at,
-                    updated_at
+                    updated_at,
+                    deactivated_at
                 `)
                 .order('full_name');
             
@@ -129,7 +130,8 @@ export const UserService = {
                 avatarUrl: p.avatar_url,
                 isActive: p.is_active !== undefined ? p.is_active : true,
                 createdAt: p.created_at || new Date().toISOString(),
-                updatedAt: p.updated_at
+                updatedAt: p.updated_at,
+                deactivatedAt: p.deactivated_at
             }));
         } catch (err) {
             console.error("UserService: Unexpected error:", err);
@@ -178,13 +180,68 @@ export const UserService = {
     // Delete user (Auth + Profile)
     deleteUser: async (userId: string) => {
         if (!supabase) return;
-        
+
         // Call RPC function to delete from auth.users (requires setup in DB)
         const { error } = await supabase.rpc('delete_user_account', { user_id: userId });
-        
+
         if (error) {
             console.error("Error deleting user:", error);
             throw new Error(error.message || "Failed to delete user. Check permissions.");
         }
+    },
+
+    // Deactivate user (soft delete — preserves all data)
+    deactivateUser: async (userId: string) => {
+        if (!supabase) throw new Error("No DB connection");
+
+        // 1. Update profile: mark inactive with timestamp
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+                is_active: false,
+                deactivated_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+
+        if (profileError) throw profileError;
+
+        // 2. Ban the auth account so they can't log in
+        const { error: banError } = await supabase.rpc('ban_user_account', { user_id: userId });
+        if (banError) {
+            console.warn("Could not ban auth account (RPC may not exist):", banError.message);
+            // Non-fatal: the is_active check on login will still block them
+        }
+    },
+
+    // Reactivate user (reverse of deactivate)
+    reactivateUser: async (userId: string) => {
+        if (!supabase) throw new Error("No DB connection");
+
+        // 1. Update profile: mark active, clear timestamp
+        const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+                is_active: true,
+                deactivated_at: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+
+        if (profileError) throw profileError;
+
+        // 2. Unban the auth account
+        const { error: unbanError } = await supabase.rpc('unban_user_account', { user_id: userId });
+        if (unbanError) {
+            console.warn("Could not unban auth account (RPC may not exist):", unbanError.message);
+        }
+    },
+
+    // Reset password — sends password reset email
+    resetPassword: async (email: string) => {
+        if (!supabase) throw new Error("No DB connection");
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
+        if (error) throw error;
     }
 };
