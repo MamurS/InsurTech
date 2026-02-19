@@ -626,12 +626,13 @@ const Dashboard: React.FC = () => {
     await ExcelService.exportPortfolio(sortedRows);
   };
 
-  const SortableHeader = ({ label, sortKey, className = "" }: { label: string, sortKey: string, className?: string }) => {
+  const SortableHeader = ({ label, sortKey, className = "", style }: { label: string, sortKey: string, className?: string, style?: React.CSSProperties }) => {
     const isActive = sortConfig.key === sortKey;
     return (
       <th
         className={`px-3 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors group select-none whitespace-nowrap bg-gray-50 ${className}`}
         onClick={() => handleSort(sortKey)}
+        style={style}
       >
         <div className="flex items-center gap-1">
           {label}
@@ -770,11 +771,27 @@ const Dashboard: React.FC = () => {
       </div>{/* end sticky filter bar */}
 
       {/* Unified Table */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm relative mt-0">
-            <table className="w-full text-left border-collapse">
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm relative mt-0 overflow-x-auto">
+            <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed', minWidth: '1280px' }}>
+                <colgroup>
+                    <col style={{ width: '80px' }} />   {/* STATUS */}
+                    <col style={{ width: '90px' }} />   {/* Source */}
+                    <col style={{ width: '130px' }} />  {/* Ref No */}
+                    <col style={{ width: '180px' }} />  {/* Insured / Cedant */}
+                    <col style={{ width: '120px' }} />  {/* Broker */}
+                    <col style={{ width: '120px' }} />  {/* Class */}
+                    <col style={{ width: '100px' }} />  {/* Territory */}
+                    <col style={{ width: '110px' }} />  {/* Limit */}
+                    <col style={{ width: '110px' }} />  {/* Gross Prem */}
+                    <col style={{ width: '60px' }} />   {/* Our % */}
+                    <col style={{ width: '70px' }} />   {/* Ceded % */}
+                    <col style={{ width: '90px' }} />   {/* Inception */}
+                    <col style={{ width: '90px' }} />   {/* Expiry */}
+                    <col style={{ width: '40px' }} />   {/* Actions */}
+                </colgroup>
                 <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
                         <tr>
-                            <th className="px-2 py-3 border-b border-gray-200 w-20 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
+                            <th className="px-2 py-3 border-b border-gray-200 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
                             <SortableHeader label="Source" sortKey="source" />
                             <SortableHeader label="Ref No" sortKey="referenceNumber" />
                             <SortableHeader label="Insured / Cedant" sortKey="insuredName" />
@@ -787,7 +804,7 @@ const Dashboard: React.FC = () => {
                             <th className="px-2 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs uppercase tracking-wider whitespace-nowrap bg-gray-50 text-right">Ceded %</th>
                             <SortableHeader label="Inception" sortKey="inceptionDate" />
                             <SortableHeader label="Expiry" sortKey="expiryDate" />
-                            <th className="px-1 py-3 border-b border-gray-200 w-10 bg-gray-50"></th>
+                            <th className="px-1 py-3 border-b border-gray-200 bg-gray-50"></th>
                         </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-sm">
@@ -813,7 +830,7 @@ const Dashboard: React.FC = () => {
                             onClick={() => handleRowClick(row)}
                             className={`group transition-colors cursor-pointer ${rowClass}`}
                         >
-                                    <td className="px-2 py-3 text-center">
+                                    <td className="px-2 py-3 text-center overflow-hidden">
                                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                           row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
                                           row.normalizedStatus === 'Pending' ? 'text-amber-700 bg-amber-100' :
@@ -823,13 +840,13 @@ const Dashboard: React.FC = () => {
                                           {row.isDeleted ? <><Trash2 size={10}/> DELETED</> : row.normalizedStatus.toUpperCase()}
                                         </span>
                                     </td>
-                                    <td className="px-2 py-3">
+                                    <td className="px-2 py-3 overflow-hidden">
                                         <SourceBadge source={row.source} />
                                     </td>
-                                    <td className="px-2 py-3 font-mono text-xs text-blue-600 font-medium max-w-[140px] truncate">
+                                    <td className="px-2 py-3 font-mono text-xs text-blue-600 font-medium truncate overflow-hidden">
                                         {row.referenceNumber}
                                     </td>
-                                    <td className="px-2 py-3 font-medium text-gray-900 max-w-[180px]">
+                                    <td className="px-2 py-3 font-medium text-gray-900 overflow-hidden">
                                         {row.cedantName ? (
                                             <div className="flex flex-col min-w-0">
                                                 <span
@@ -857,7 +874,7 @@ const Dashboard: React.FC = () => {
                                             </span>
                                         )}
                                     </td>
-                                    <td className="px-2 py-3 text-xs text-gray-600 max-w-[120px] truncate">
+                                    <td className="px-2 py-3 text-xs text-gray-600 truncate overflow-hidden">
                                         {row.brokerName ? (
                                             <span
                                                 className="text-blue-600 hover:underline cursor-pointer"
@@ -869,10 +886,10 @@ const Dashboard: React.FC = () => {
                                             <span className="text-gray-400 italic">-</span>
                                         )}
                                     </td>
-                                    <td className="px-2 py-3 text-gray-600 text-xs max-w-[120px] truncate">
+                                    <td className="px-2 py-3 text-gray-600 text-xs truncate overflow-hidden">
                                         {row.classOfBusiness}
                                     </td>
-                                    <td className="px-2 py-3 text-gray-600 text-xs max-w-[100px] truncate">
+                                    <td className="px-2 py-3 text-gray-600 text-xs truncate overflow-hidden">
                                         {row.territory || '-'}
                                     </td>
                                     <td className="px-2 py-3 text-right font-medium text-gray-700 whitespace-nowrap">
@@ -902,7 +919,7 @@ const Dashboard: React.FC = () => {
                                         {formatDate(row.expiryDate)}
                                     </td>
 
-                                    <td className="px-1 py-2 text-center w-10 relative" onClick={e => e.stopPropagation()}>
+                                    <td className="px-1 py-2 text-center relative overflow-hidden" onClick={e => e.stopPropagation()}>
                                         {row.isDeleted ? (
                                             user?.role === 'Super Admin' && row.source === 'direct' && (
                                                 <button onClick={(e) => handleRestore(e, row)} title="Restore" className="p-1.5 text-green-600 hover:bg-green-100 rounded-lg">
