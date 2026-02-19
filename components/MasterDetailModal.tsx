@@ -251,7 +251,16 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
 
       {/* Outward Reinsurance Quick Summary */}
       {outwardPolicies.length > 0 && (() => {
-        const totalCeded = outwardPolicies.reduce((sum, p) => sum + normalizeCededShare(Number(p.cededShare || 0)), 0);
+        // Deduplicate by reinsurer to avoid installment double-counting
+        const uniqueShares = new Map<string, number>();
+        for (const p of outwardPolicies) {
+          const name = p.reinsurerName || p.insuredName || 'Unknown';
+          const share = normalizeCededShare(Number(p.cededShare || 0));
+          if (!uniqueShares.has(name) || share > (uniqueShares.get(name) || 0)) {
+            uniqueShares.set(name, share);
+          }
+        }
+        const totalCeded = Array.from(uniqueShares.values()).reduce((a, b) => a + b, 0);
         const retention = Math.max(0, 100 - totalCeded);
         return (
           <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
@@ -259,15 +268,15 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
             <div className="flex gap-4">
               <div className="flex-1 text-center">
                 <div className="text-[11px] text-blue-600 uppercase font-bold">Total Ceded</div>
-                <div className="text-lg font-bold text-blue-800">{pct(totalCeded)}</div>
+                <div className="text-lg font-bold text-blue-800">{totalCeded.toFixed(2)}%</div>
               </div>
               <div className="flex-1 text-center">
                 <div className="text-[11px] text-emerald-600 uppercase font-bold">Retention</div>
-                <div className="text-lg font-bold text-emerald-800">{pct(retention)}</div>
+                <div className="text-lg font-bold text-emerald-800">{retention.toFixed(2)}%</div>
               </div>
               <div className="flex-1 text-center">
                 <div className="text-[11px] text-amber-600 uppercase font-bold">Reinsurers</div>
-                <div className="text-lg font-bold text-amber-800">{outwardPolicies.length}</div>
+                <div className="text-lg font-bold text-amber-800">{uniqueShares.size}</div>
               </div>
             </div>
           </div>
@@ -383,8 +392,33 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
       );
     }
 
-    const totalCededShare = outwardPolicies.reduce((sum, p) => sum + normalizeCededShare(Number(p.cededShare || 0)), 0);
-    const totalCededPremium = outwardPolicies.reduce((sum, p) => sum + Number(p.cededPremiumForeign || p.grossPremium || 0), 0);
+    // Group outward policies by reinsurer — installments repeat the same cededShare
+    type ReinsurerRow = { name: string; share: number; cededPremium: number; commission: number; netPremium: number; slipNo: string; status: string };
+    const reinsurerMap = new Map<string, ReinsurerRow>();
+    for (const op of outwardPolicies) {
+      const name = op.reinsurerName || op.insuredName || 'Unknown';
+      const share = normalizeCededShare(Number(op.cededShare || 0));
+      const existing = reinsurerMap.get(name);
+      if (existing) {
+        // Sum premiums across installments, keep max share
+        existing.cededPremium += Number(op.cededPremiumForeign || op.grossPremium || 0);
+        existing.netPremium += Number(op.netPremium || 0);
+        if (share > existing.share) existing.share = share;
+      } else {
+        reinsurerMap.set(name, {
+          name,
+          share,
+          cededPremium: Number(op.cededPremiumForeign || op.grossPremium || 0),
+          commission: Number(op.commissionPercent || 0),
+          netPremium: Number(op.netPremium || 0),
+          slipNo: op.slipNumber || '-',
+          status: op.status,
+        });
+      }
+    }
+    const reinsurerRows = Array.from(reinsurerMap.values());
+    const totalCededShare = reinsurerRows.reduce((sum, r) => sum + r.share, 0);
+    const totalCededPremium = reinsurerRows.reduce((sum, r) => sum + r.cededPremium, 0);
 
     return (
       <div className="space-y-5">
@@ -392,15 +426,15 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
         <div className="flex gap-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex-1 text-center">
             <div className="text-[11px] text-blue-600 uppercase font-bold">Total Ceded</div>
-            <div className="text-xl font-bold text-blue-800">{pct(totalCededShare)}</div>
+            <div className="text-xl font-bold text-blue-800">{totalCededShare.toFixed(2)}%</div>
           </div>
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 flex-1 text-center">
             <div className="text-[11px] text-emerald-600 uppercase font-bold">Retention</div>
-            <div className="text-xl font-bold text-emerald-800">{pct(Math.max(0, 100 - totalCededShare))}</div>
+            <div className="text-xl font-bold text-emerald-800">{Math.max(0, 100 - totalCededShare).toFixed(2)}%</div>
           </div>
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex-1 text-center">
             <div className="text-[11px] text-amber-600 uppercase font-bold">Reinsurers</div>
-            <div className="text-xl font-bold text-amber-800">{outwardPolicies.length}</div>
+            <div className="text-xl font-bold text-amber-800">{reinsurerRows.length}</div>
           </div>
         </div>
 
@@ -420,17 +454,17 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {outwardPolicies.map((op, idx) => (
-                <tr key={op.id || idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-                  <td className="px-4 py-2.5 font-medium text-gray-900">{op.reinsurerName || op.insuredName || '-'}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">{pct(normalizeCededShare(Number(op.cededShare || 0)))}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">{fmtFull(op.cededPremiumForeign || op.grossPremium, currency)}</td>
-                  <td className="px-4 py-2.5 text-right">{pct(op.commissionPercent)}</td>
-                  <td className="px-4 py-2.5 text-right font-mono">{fmtFull(op.netPremium, currency)}</td>
-                  <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{op.slipNumber || '-'}</td>
+              {reinsurerRows.map((rr, idx) => (
+                <tr key={rr.name + idx} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
+                  <td className="px-4 py-2.5 font-medium text-gray-900">{rr.name}</td>
+                  <td className="px-4 py-2.5 text-right font-mono">{rr.share.toFixed(2)}%</td>
+                  <td className="px-4 py-2.5 text-right font-mono">{fmtFull(rr.cededPremium, currency)}</td>
+                  <td className="px-4 py-2.5 text-right">{pct(rr.commission)}</td>
+                  <td className="px-4 py-2.5 text-right font-mono">{fmtFull(rr.netPremium, currency)}</td>
+                  <td className="px-4 py-2.5 text-xs font-mono text-gray-600">{rr.slipNo}</td>
                   <td className="px-4 py-2.5 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadge(op.status)}`}>
-                      {op.status}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusBadge(rr.status)}`}>
+                      {rr.status}
                     </span>
                   </td>
                 </tr>
@@ -439,7 +473,7 @@ export const MasterDetailModal: React.FC<MasterDetailModalProps> = ({
             <tfoot className="bg-slate-100 border-t-2 border-slate-300 font-bold text-sm">
               <tr>
                 <td className="px-4 py-3">TOTAL</td>
-                <td className="px-4 py-3 text-right font-mono">{pct(totalCededShare)}</td>
+                <td className="px-4 py-3 text-right font-mono">{totalCededShare.toFixed(2)}%</td>
                 <td className="px-4 py-3 text-right font-mono text-green-700">{fmtFull(totalCededPremium, currency)}</td>
                 <td className="px-4 py-3" colSpan={4}></td>
               </tr>

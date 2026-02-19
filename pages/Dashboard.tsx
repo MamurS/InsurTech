@@ -794,12 +794,18 @@ const Dashboard: React.FC = () => {
                     {paginatedRows.map(row => {
                         const rowClass = row.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30';
                         // Compute ceded % from outward reinsurance data (matches both direct and inward rows)
+                        // Deduplicate: one share per reinsurer (installments repeat the same cededShare)
                         const outwardForRow = outwardByPolicyRef.current.get(row.referenceNumber) || [];
-                        const cededPct = outwardForRow.reduce((sum, p) => {
-                          const raw = Number(p.cededShare || 0);
-                          // Normalize: values <= 1 are decimals (0.95 = 95%), values > 1 are already percentages
-                          return sum + (raw <= 1 ? raw * 100 : raw);
-                        }, 0);
+                        const uniqueReinsurers = new Map<string, number>();
+                        for (const op of outwardForRow) {
+                          const name = op.reinsurerName || op.intermediaryName || op.insuredName || 'Unknown';
+                          const raw = Number(op.cededShare || 0);
+                          const share = raw <= 1 ? raw * 100 : raw;
+                          if (!uniqueReinsurers.has(name) || share > (uniqueReinsurers.get(name) || 0)) {
+                            uniqueReinsurers.set(name, share);
+                          }
+                        }
+                        const cededPct = Array.from(uniqueReinsurers.values()).reduce((a, b) => a + b, 0);
 
                         return (
                         <tr
@@ -879,9 +885,11 @@ const Dashboard: React.FC = () => {
                                         {row.ourShare}%
                                     </td>
                                     <td className="px-2 py-3 text-right text-xs whitespace-nowrap">
-                                        {cededPct > 0 ? (
+                                        {cededPct > 100 ? (
+                                          <span className="font-medium text-red-600">100%+</span>
+                                        ) : cededPct > 0 ? (
                                           <span className={`font-medium ${cededPct >= 100 ? 'text-green-700' : cededPct >= 50 ? 'text-blue-700' : 'text-amber-700'}`}>
-                                            {Math.round(cededPct * 100) / 100}%
+                                            {cededPct.toFixed(2)}%
                                           </span>
                                         ) : (
                                           <span className="text-gray-300">-</span>
