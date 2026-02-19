@@ -20,13 +20,19 @@ export const AuthService = {
     if (isSupabaseEnabled()) {
       const { data: { session } } = await supabase!.auth.getSession();
       if (session?.user) {
-        
+
         // Fetch Profile from 'profiles' table
         const { data: profile } = await supabase!
           .from('profiles')
           .select('*')
           .eq('id', session.user.id)
           .single();
+
+        // Block deactivated users from restoring session
+        if (profile && profile.is_active === false) {
+          await supabase!.auth.signOut();
+          return null;
+        }
 
         // Default Role if no profile found (e.g. first login)
         const role: UserRole = profile?.role || 'Underwriter';
@@ -109,6 +115,12 @@ export const AuthService = {
       .select('*')
       .eq('id', data.user.id)
       .single();
+
+    // Check if the user account has been deactivated
+    if (profile && profile.is_active === false) {
+      await supabase!.auth.signOut();
+      throw new Error('Your account has been deactivated. Contact your administrator.');
+    }
 
     const role: UserRole = profile?.role || 'Underwriter';
     const permissions: UserPermissions = (profile as any)?.permissions || DEFAULT_PERMISSIONS[role];

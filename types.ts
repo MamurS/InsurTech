@@ -142,6 +142,7 @@ export interface Profile {
     customClaimLimit?: number;
     canOverrideLimits?: boolean;
     updatedAt?: string;
+    deactivatedAt?: string;
 }
 
 export interface AgendaTask {
