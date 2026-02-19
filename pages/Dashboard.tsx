@@ -674,7 +674,7 @@ const Dashboard: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       {/* Row 1: All Filters in One Row */}
-      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-lg shadow-sm border border-gray-200 min-h-[40px] overflow-visible">
+      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-t-lg shadow-sm border border-gray-200 min-h-[40px] overflow-visible">
         {/* Source Filter Pills */}
         {([
           { key: 'All', label: 'All', icon: null },
@@ -770,8 +770,8 @@ const Dashboard: React.FC = () => {
       </div>
       </div>{/* end sticky filter bar */}
 
-      {/* Unified Table */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm relative mt-0 overflow-x-auto">
+      {/* Unified Table — flush against filter bar, no gap */}
+      <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl shadow-sm relative overflow-x-auto -mt-px">
             <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed', minWidth: '1280px' }}>
                 <colgroup>
                     <col style={{ width: '80px' }} />   {/* STATUS */}
