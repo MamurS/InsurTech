@@ -731,7 +731,7 @@ const Dashboard: React.FC = () => {
         <div className="w-px h-5 bg-gray-300 mx-1" />
 
         {/* Date Filter */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}

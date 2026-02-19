@@ -327,7 +327,7 @@ const DirectInsuranceList: React.FC = () => {
           </select>
 
           {/* Date Filter */}
-          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ minWidth: '340px' }}>
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
