@@ -79,10 +79,11 @@ WHERE "recordType" = 'Direct'
 GROUP BY "policyNumber";
 
 -- Recreate v_inward_consolidated
+-- Groups by agreement_number with fallback to contract_number
 CREATE OR REPLACE VIEW v_inward_consolidated AS
 SELECT
     MIN(id::text)::uuid  AS id,
-    contract_number,
+    COALESCE(NULLIF(MIN(agreement_number), ''), contract_number) AS contract_number,
     MIN(original_insured_name) AS original_insured_name,
     MIN(cedant_name)     AS cedant_name,
     MIN(broker_name)     AS broker_name,
@@ -109,7 +110,7 @@ SELECT
     MIN(actual_payment_date)             AS actual_payment_date
 FROM inward_reinsurance
 WHERE is_deleted = false
-GROUP BY contract_number;
+GROUP BY COALESCE(NULLIF(agreement_number, ''), contract_number);
 
 -- Recreate v_portfolio
 CREATE OR REPLACE VIEW v_portfolio AS
