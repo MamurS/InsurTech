@@ -73,6 +73,7 @@ export const DatePickerInput: React.FC<DatePickerInputProps> = ({
                     autoComplete="off"
                     strictParsing
                     popperPlacement="bottom-start"
+                    popperProps={{ strategy: 'fixed' }}
                     portalId="datepicker-portal"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
