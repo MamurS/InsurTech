@@ -21,7 +21,7 @@ import {
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
   Coins, LogOut, Key, Building2, Briefcase, DollarSign, TrendingDown, TrendingUp,
   PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List, Globe, Minus, Timer,
-  MoreVertical, UserX, UserCheck, Mail
+  UserX, UserCheck, Mail
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
@@ -108,7 +108,6 @@ const AdminConsole: React.FC = () => {
   });
   const [newUserPassword, setNewUserPassword] = useState('');
   const [showInactiveUsers, setShowInactiveUsers] = useState(true);
-  const [userActionMenu, setUserActionMenu] = useState<string | null>(null); // userId of open menu
   const [deactivateConfirm, setDeactivateConfirm] = useState<{ show: boolean; user: Profile | null }>({ show: false, user: null });
   const [reactivateConfirm, setReactivateConfirm] = useState<{ show: boolean; user: Profile | null }>({ show: false, user: null });
 
@@ -706,7 +705,6 @@ const AdminConsole: React.FC = () => {
           toast.error("Error: " + (err.message || "Failed to send reset link"));
       } finally {
           setActionLoading(false);
-          setUserActionMenu(null);
       }
   };
 
@@ -1041,46 +1039,7 @@ const AdminConsole: React.FC = () => {
                                 <td className="px-6 py-4"><div className={`text-sm font-medium ${u.isActive ? 'text-gray-900' : 'text-gray-500'}`}>{u.role}</div><div className="text-xs text-gray-500">{u.department||'No Dept'}</div></td>
                                 <td className="px-6 py-4 text-center">{u.isActive ? <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full">Active</span> : <span className="bg-red-100 text-red-500 text-xs px-2 py-1 rounded-full">Deactivated</span>}</td>
                                 <td className="px-6 py-4 text-right">
-                                    <div className="flex items-center justify-end gap-1">
-                                        <button onClick={()=>handleEditUser(u)} className="text-blue-600 hover:bg-blue-50 p-2 rounded" title="Edit user"><Edit size={16}/></button>
-                                        <div className="relative">
-                                            <button onClick={(e) => { e.stopPropagation(); setUserActionMenu(userActionMenu === u.id ? null : u.id); }} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded" title="More actions"><MoreVertical size={16}/></button>
-                                            {userActionMenu === u.id && (
-                                                <>
-                                                    <div className="fixed inset-0 z-40" onClick={() => setUserActionMenu(null)}/>
-                                                    <div className="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-xl border py-1 z-50 min-w-[200px]">
-                                                        <button
-                                                            onClick={() => { handleResetPassword(u); }}
-                                                            className="w-full px-4 py-2.5 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2.5"
-                                                        >
-                                                            <Mail size={15} className="text-gray-400"/> Reset Password
-                                                        </button>
-                                                        {u.isActive ? (
-                                                            isSuperAdmin ? (
-                                                                <button
-                                                                    onClick={() => { setUserActionMenu(null); u.id === user?.id ? toast.warning("You cannot deactivate your own account") : setDeactivateConfirm({ show: true, user: u }); }}
-                                                                    disabled={u.id === user?.id}
-                                                                    className={`w-full px-4 py-2.5 text-left text-sm flex items-center gap-2.5 ${u.id === user?.id ? 'text-gray-300 cursor-not-allowed' : 'text-red-600 hover:bg-red-50'}`}
-                                                                    title={u.id === user?.id ? "You cannot deactivate your own account" : undefined}
-                                                                >
-                                                                    <UserX size={15}/> Deactivate User
-                                                                </button>
-                                                            ) : null
-                                                        ) : (
-                                                            isSuperAdmin ? (
-                                                                <button
-                                                                    onClick={() => { setUserActionMenu(null); setReactivateConfirm({ show: true, user: u }); }}
-                                                                    className="w-full px-4 py-2.5 text-left text-sm text-green-600 hover:bg-green-50 flex items-center gap-2.5"
-                                                                >
-                                                                    <UserCheck size={15}/> Reactivate User
-                                                                </button>
-                                                            ) : null
-                                                        )}
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    </div>
+                                    <button onClick={()=>handleEditUser(u)} className="text-blue-600 hover:bg-blue-50 p-2 rounded" title="Edit user"><Edit size={16}/></button>
                                 </td>
                             </tr>
                         ))}
@@ -1124,9 +1083,42 @@ const AdminConsole: React.FC = () => {
                         </div>
                         <div><label className="block text-sm font-bold text-gray-700 mb-1">Phone</label><input type="tel" className="w-full p-2.5 border rounded-lg" value={currentUser.phone||''} onChange={e=>setCurrentUser({...currentUser,phone:e.target.value})}/></div>
                     </div>
-                    <div className="p-6 border-t bg-gray-50 flex justify-end gap-3 rounded-b-xl">
-                        <button onClick={()=>setShowUserModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Cancel</button>
-                        <button onClick={handleSaveUser} disabled={actionLoading} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70">{actionLoading?<Loader2 className="animate-spin" size={16}/>:<Save size={16}/>}Save</button>
+                    <div className="p-6 border-t bg-gray-50 rounded-b-xl">
+                        <div className="flex justify-end gap-3">
+                            <button onClick={()=>setShowUserModal(false)} className="px-4 py-2 text-gray-600 font-medium hover:bg-gray-200 rounded-lg">Cancel</button>
+                            <button onClick={handleSaveUser} disabled={actionLoading} className="px-4 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-70">{actionLoading?<Loader2 className="animate-spin" size={16}/>:<Save size={16}/>}Save</button>
+                        </div>
+                        {currentUser.id && (
+                            <div className="border-t border-gray-200 pt-4 mt-4">
+                                <p className="text-xs text-gray-400 uppercase font-semibold mb-3">Account Actions</p>
+                                <div className="flex gap-3">
+                                    <button
+                                        onClick={() => handleResetPassword(currentUser as Profile)}
+                                        disabled={actionLoading}
+                                        className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                                    >
+                                        <Mail size={14}/> Reset Password
+                                    </button>
+                                    {isSuperAdmin && currentUser.id !== user?.id && (
+                                        currentUser.isActive !== false ? (
+                                            <button
+                                                onClick={() => { setShowUserModal(false); setDeactivateConfirm({ show: true, user: currentUser as Profile }); }}
+                                                className="flex items-center gap-1.5 px-3 py-2 text-sm border border-red-300 rounded-lg hover:bg-red-50 text-red-600"
+                                            >
+                                                <UserX size={14}/> Deactivate User
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { setShowUserModal(false); setReactivateConfirm({ show: true, user: currentUser as Profile }); }}
+                                                className="flex items-center gap-1.5 px-3 py-2 text-sm border border-green-300 rounded-lg hover:bg-green-50 text-green-600"
+                                            >
+                                                <UserCheck size={14}/> Reactivate User
+                                            </button>
+                                        )
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
