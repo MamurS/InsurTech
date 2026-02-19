@@ -190,11 +190,11 @@ export const UserService = {
         }
     },
 
-    // Deactivate user (soft delete — preserves all data)
+    // Deactivate user — keeps profile row for history, deletes auth entry to free the email
     deactivateUser: async (userId: string) => {
         if (!supabase) throw new Error("No DB connection");
 
-        // 1. Update profile: mark inactive with timestamp
+        // 1. Update profile: mark inactive with timestamp (keep row for history)
         const { error: profileError } = await supabase
             .from('profiles')
             .update({
@@ -206,35 +206,80 @@ export const UserService = {
 
         if (profileError) throw profileError;
 
-        // 2. Ban the auth account so they can't log in
-        const { error: banError } = await supabase.rpc('ban_user_account', { user_id: userId });
-        if (banError) {
-            console.warn("Could not ban auth account (RPC may not exist):", banError.message);
+        // 2. Delete auth.users entry so the email is freed for re-registration
+        //    Uses server-side RPC since client SDK doesn't expose admin.deleteUser
+        const { error: deleteAuthError } = await supabase.rpc('delete_auth_user', { target_user_id: userId });
+        if (deleteAuthError) {
+            console.warn("Could not delete auth account via RPC:", deleteAuthError.message);
             // Non-fatal: the is_active check on login will still block them
         }
     },
 
-    // Reactivate user (reverse of deactivate)
-    reactivateUser: async (userId: string) => {
+    // Reactivate a deactivated profile by pointing it to a new auth user ID.
+    // Called when creating a user whose email matches a deactivated profile.
+    reactivateProfile: async (oldProfileId: string, newAuthUserId: string, updates: {
+        fullName: string;
+        email: string;
+        role: string;
+        roleId?: string | null;
+        department?: string | null;
+        departmentId?: string | null;
+        phone?: string | null;
+        avatarUrl?: string | null;
+    }) => {
         if (!supabase) throw new Error("No DB connection");
 
-        // 1. Update profile: mark active, clear timestamp
-        const { error: profileError } = await supabase
+        // Update the old profile: reassign to new auth UUID, mark active, apply form fields
+        const { error } = await supabase
             .from('profiles')
             .update({
+                id: newAuthUserId,
+                full_name: updates.fullName,
+                email: updates.email,
+                role: updates.role,
+                role_id: updates.roleId || null,
+                department: updates.department || null,
+                department_id: updates.departmentId || null,
+                phone: updates.phone || null,
+                avatar_url: updates.avatarUrl || updates.fullName.substring(0, 2).toUpperCase(),
                 is_active: true,
                 deactivated_at: null,
                 updated_at: new Date().toISOString()
             })
-            .eq('id', userId);
+            .eq('id', oldProfileId);
 
-        if (profileError) throw profileError;
+        if (error) throw error;
+    },
 
-        // 2. Unban the auth account
-        const { error: unbanError } = await supabase.rpc('unban_user_account', { user_id: userId });
-        if (unbanError) {
-            console.warn("Could not unban auth account (RPC may not exist):", unbanError.message);
-        }
+    // Find a deactivated profile by email (for reuse during user creation)
+    findDeactivatedProfileByEmail: async (email: string): Promise<Profile | null> => {
+        if (!supabase) return null;
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', email)
+            .eq('is_active', false)
+            .limit(1)
+            .maybeSingle();
+
+        if (error || !data) return null;
+
+        return {
+            id: data.id,
+            email: data.email,
+            fullName: data.full_name || '',
+            role: data.role || 'Viewer',
+            roleId: data.role_id,
+            department: data.department || '',
+            departmentId: data.department_id,
+            phone: data.phone || '',
+            avatarUrl: data.avatar_url,
+            isActive: data.is_active,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+            deactivatedAt: data.deactivated_at
+        };
     },
 
     // Reset password — sends password reset email
