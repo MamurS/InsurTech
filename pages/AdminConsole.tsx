@@ -21,7 +21,7 @@ import {
   Activity, ShieldCheck, FileText, Plus, Save, X, Edit, Loader2, Phone, AlertTriangle,
   Coins, LogOut, Key, Building2, Briefcase, DollarSign, TrendingDown, TrendingUp,
   PieChart, BarChart3, Clock, CheckCircle, AlertCircle, ScrollText, List, Globe, Minus, Timer,
-  UserX, UserCheck, Mail
+  UserX, Mail
 } from 'lucide-react';
 
 type Section = 'dashboard' | 'database' | 'recycle' | 'roles' | 'users' | 'departments' | 'settings' | 'templates' | 'fx' | 'activity-log' | 'presets';
@@ -109,7 +109,6 @@ const AdminConsole: React.FC = () => {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [showInactiveUsers, setShowInactiveUsers] = useState(true);
   const [deactivateConfirm, setDeactivateConfirm] = useState<{ show: boolean; user: Profile | null }>({ show: false, user: null });
-  const [reactivateConfirm, setReactivateConfirm] = useState<{ show: boolean; user: Profile | null }>({ show: false, user: null });
 
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -618,9 +617,16 @@ const AdminConsole: React.FC = () => {
       try {
         const selectedRoleObj = roles.find(r => r.id === currentUser.roleId);
         const selectedDeptObj = departments.find(d => d.id === currentUser.departmentId);
+        const roleName = selectedRoleObj?.name || 'Underwriter';
 
         if (!currentUser.id) {
+            // Creating a new user
             if (!newUserPassword) { toast.error("Password required"); setActionLoading(false); return; }
+
+            // Check if a deactivated profile exists for this email
+            const deactivatedProfile = await UserService.findDeactivatedProfileByEmail(currentUser.email);
+
+            // Create new auth account (email is free since deactivate deletes auth entry)
             const { data: authData, error: authError } = await supabase.auth.signUp({
                 email: currentUser.email,
                 password: newUserPassword,
@@ -629,21 +635,37 @@ const AdminConsole: React.FC = () => {
             if (authError) throw authError;
             if (!authData.user) throw new Error("User creation failed");
 
-            await supabase.from('profiles').upsert({
-                id: authData.user.id,
-                email: currentUser.email,
-                full_name: currentUser.fullName,
-                role: selectedRoleObj?.name || 'Underwriter',
-                role_id: currentUser.roleId || null,
-                department: selectedDeptObj?.name || null,
-                department_id: currentUser.departmentId || null,
-                phone: currentUser.phone || null,
-                is_active: currentUser.isActive !== false,
-                avatar_url: currentUser.avatarUrl || currentUser.fullName.substring(0, 2).toUpperCase(),
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            });
-            toast.success("User created!");
+            if (deactivatedProfile) {
+                // Reactivate the old profile — preserves history chain
+                await UserService.reactivateProfile(deactivatedProfile.id, authData.user.id, {
+                    fullName: currentUser.fullName,
+                    email: currentUser.email,
+                    role: roleName,
+                    roleId: currentUser.roleId || null,
+                    department: selectedDeptObj?.name || null,
+                    departmentId: currentUser.departmentId || null,
+                    phone: currentUser.phone || null,
+                    avatarUrl: currentUser.avatarUrl || currentUser.fullName.substring(0, 2).toUpperCase(),
+                });
+                toast.success("User reactivated with preserved history!");
+            } else {
+                // Brand new user — create fresh profile
+                await supabase.from('profiles').upsert({
+                    id: authData.user.id,
+                    email: currentUser.email,
+                    full_name: currentUser.fullName,
+                    role: roleName,
+                    role_id: currentUser.roleId || null,
+                    department: selectedDeptObj?.name || null,
+                    department_id: currentUser.departmentId || null,
+                    phone: currentUser.phone || null,
+                    is_active: true,
+                    avatar_url: currentUser.avatarUrl || currentUser.fullName.substring(0, 2).toUpperCase(),
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+                toast.success("User created!");
+            }
         } else {
             await supabase.from('profiles').update({
                 full_name: currentUser.fullName,
@@ -679,20 +701,6 @@ const AdminConsole: React.FC = () => {
       } finally {
           setActionLoading(false);
           setDeactivateConfirm({ show: false, user: null });
-      }
-  };
-
-  const handleReactivateUser = async (targetUser: Profile) => {
-      setActionLoading(true);
-      try {
-          await UserService.reactivateUser(targetUser.id);
-          toast.success(`User ${targetUser.email} has been reactivated`);
-          refetchProfiles();
-      } catch (err: any) {
-          toast.error("Error: " + (err.message || "Failed to reactivate user"));
-      } finally {
-          setActionLoading(false);
-          setReactivateConfirm({ show: false, user: null });
       }
   };
 
@@ -1058,17 +1066,6 @@ const AdminConsole: React.FC = () => {
             variant="danger"
             isLoading={actionLoading}
         />
-        {/* Reactivate Confirmation Dialog */}
-        <ConfirmDialog
-            isOpen={reactivateConfirm.show}
-            title="Reactivate User"
-            message={`Reactivate user ${reactivateConfirm.user?.email}? They will regain access to the system.`}
-            onConfirm={() => reactivateConfirm.user && handleReactivateUser(reactivateConfirm.user)}
-            onCancel={() => setReactivateConfirm({ show: false, user: null })}
-            confirmText="Reactivate"
-            variant="info"
-            isLoading={actionLoading}
-        />
         {showUserModal && (
             <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg">
@@ -1091,32 +1088,29 @@ const AdminConsole: React.FC = () => {
                         {currentUser.id && (
                             <div className="border-t border-gray-200 pt-4 mt-4">
                                 <p className="text-xs text-gray-400 uppercase font-semibold mb-3">Account Actions</p>
-                                <div className="flex gap-3">
-                                    <button
-                                        onClick={() => handleResetPassword(currentUser as Profile)}
-                                        disabled={actionLoading}
-                                        className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 disabled:opacity-50"
-                                    >
-                                        <Mail size={14}/> Reset Password
-                                    </button>
-                                    {isSuperAdmin && currentUser.id !== user?.id && (
-                                        currentUser.isActive !== false ? (
+                                {currentUser.isActive !== false ? (
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => handleResetPassword(currentUser as Profile)}
+                                            disabled={actionLoading}
+                                            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                                        >
+                                            <Mail size={14}/> Reset Password
+                                        </button>
+                                        {isSuperAdmin && currentUser.id !== user?.id && (
                                             <button
                                                 onClick={() => { setShowUserModal(false); setDeactivateConfirm({ show: true, user: currentUser as Profile }); }}
                                                 className="flex items-center gap-1.5 px-3 py-2 text-sm border border-red-300 rounded-lg hover:bg-red-50 text-red-600"
                                             >
                                                 <UserX size={14}/> Deactivate User
                                             </button>
-                                        ) : (
-                                            <button
-                                                onClick={() => { setShowUserModal(false); setReactivateConfirm({ show: true, user: currentUser as Profile }); }}
-                                                className="flex items-center gap-1.5 px-3 py-2 text-sm border border-green-300 rounded-lg hover:bg-green-50 text-green-600"
-                                            >
-                                                <UserCheck size={14}/> Reactivate User
-                                            </button>
-                                        )
-                                    )}
-                                </div>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 italic">
+                                        This account is deactivated. To reactivate, use <strong>+ Add User</strong> with the same email &mdash; the previous history will be preserved.
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>
