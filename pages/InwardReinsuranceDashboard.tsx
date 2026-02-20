@@ -14,9 +14,11 @@ import {
   ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 const InwardReinsuranceDashboard: React.FC = () => {
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Server-side pagination state
   const [contracts, setContracts] = useState<any[]>([]);
@@ -199,6 +201,20 @@ const InwardReinsuranceDashboard: React.FC = () => {
     }
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        disabled={exporting || contracts.length === 0}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [contracts, exporting, setHeaderActions]);
+
   const formatCurrency = (amount: number, short: boolean = false) => {
     if (short) {
       if (amount >= 1000000) return `$${(amount / 1000000).toFixed(1)}M`;
@@ -281,16 +297,16 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
-      <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm min-h-[40px] overflow-visible">
+      <div className="flex flex-wrap items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm min-h-[48px] overflow-visible">
         {/* Search */}
-        <div className="relative flex-1 min-w-[120px]">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search..."
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
           />
         </div>
 
@@ -298,7 +314,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <select
           value={typeFilter}
           onChange={(e) => handleTypeFilterChange(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
         >
           <option value="all">All Types</option>
           <option value="foreign">Foreign</option>
@@ -309,7 +325,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <select
           value={classFilter}
           onChange={(e) => handleClassFilterChange(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
         >
           <option value="all">All Classes</option>
           {uniqueClasses.map(cls => (
@@ -321,7 +337,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => handleStatusFilterChange(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
         >
           <option value="all">All Statuses</option>
           <option value="DRAFT">Draft</option>
@@ -332,11 +348,11 @@ const InwardReinsuranceDashboard: React.FC = () => {
         </select>
 
         {/* Date Filter */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '340px' }}>
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
-          className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
         >
           <option value="inceptionDate">Inception</option>
           <option value="expiryDate">Expiry</option>
@@ -366,16 +382,6 @@ const InwardReinsuranceDashboard: React.FC = () => {
           title="Refresh"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
-        </button>
-
-        {/* Export Button */}
-        <button
-          onClick={handleExport}
-          disabled={exporting || contracts.length === 0}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={14} />
-          Export to Excel
         </button>
       </div>
       </div>{/* end sticky filter bar */}

@@ -14,10 +14,12 @@ import {
   Building2, RefreshCw, Globe, MapPin, Download, MoreVertical
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 const DirectInsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Infinite scroll state
   const PAGE_SIZE = 20;
@@ -247,6 +249,19 @@ const DirectInsuranceList: React.FC = () => {
     exportToExcel(exportData, `Direct_Insurance_${new Date().toISOString().split('T')[0]}`, 'Direct Insurance');
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [policies, setHeaderActions]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -289,16 +304,16 @@ const DirectInsuranceList: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white rounded-xl border border-slate-200 p-3">
-        <div className="flex flex-wrap items-center gap-3 min-h-[40px] overflow-visible">
+        <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search..."
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
             />
           </div>
 
@@ -306,7 +321,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={countryFilter}
             onChange={(e) => handleCountryFilterChange(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
           >
             <option value="all">All Countries</option>
             <option value="uzbekistan">Uzbekistan</option>
@@ -317,7 +332,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => handleStatusFilterChange(e.target.value)}
-            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-sm"
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
           >
             <option value="all">All Statuses</option>
             <option value="Draft">Draft</option>
@@ -327,11 +342,11 @@ const DirectInsuranceList: React.FC = () => {
           </select>
 
           {/* Date Filter */}
-          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '340px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
-            className="px-2 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white text-xs"
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
           >
             <option value="inceptionDate">Inception</option>
             <option value="expiryDate">Expiry</option>
@@ -361,21 +376,12 @@ const DirectInsuranceList: React.FC = () => {
             <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
           </button>
 
-          <div className="w-px h-5 bg-slate-300" />
-
-          {/* Export Button */}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap"
-          >
-            <Download size={14} />
-            Export
-          </button>
+          <div className="w-px h-6 bg-slate-300" />
 
           {/* New Policy Button */}
           <button
             onClick={handleNewPolicy}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap"
           >
             <Plus size={16} />
             New Policy
