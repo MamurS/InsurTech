@@ -672,9 +672,9 @@ const Dashboard: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
+      <div ref={filterRef} className="sticky top-0 z-30">
       {/* Row 1: All Filters in One Row */}
-      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-t-lg shadow-sm border border-gray-200 min-h-[40px] overflow-visible">
+      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-t-lg border border-gray-200 min-h-[40px] overflow-visible">
         {/* Source Filter Pills */}
         {([
           { key: 'All', label: 'All', icon: null },
