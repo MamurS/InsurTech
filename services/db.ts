@@ -910,6 +910,7 @@ export const DB = {
     sourceFilter?: string;  // 'all' | 'direct' | 'inward-foreign' | 'inward-domestic' | 'inward'
     statusFilter?: string;  // 'All' | 'Active' | 'Pending' | 'Cancelled'
     searchTerm?: string;
+    searchFilters?: { field: string; value: string }[];
     sortField?: string;
     sortDirection?: 'asc' | 'desc';
     dateField?: string;     // column name for date filter
@@ -918,7 +919,7 @@ export const DB = {
   }): Promise<{ rows: any[]; totalCount: number }> => {
     if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
 
-    const { page, pageSize, sourceFilter, statusFilter, searchTerm, sortField, sortDirection, dateField, dateFrom, dateTo } = params;
+    const { page, pageSize, sourceFilter, statusFilter, searchTerm, searchFilters, sortField, sortDirection, dateField, dateFrom, dateTo } = params;
 
     let query = supabase!
       .from('v_portfolio')
@@ -938,14 +939,34 @@ export const DB = {
       query = query.ilike('status', statusFilter);
     }
 
-    // Search across reference_number, insured_name, broker_name, cedant_name
-    // NOTE: cedant_name requires the v_portfolio view to include it.
-    // Run the SQL migration in supabase_portfolio_view_add_cedant.sql first.
-    if (searchTerm && searchTerm.trim()) {
+    // Advanced multi-field search with column:value support
+    // All text columns in v_portfolio for broad (_any) search
+    const broadColumns = [
+      'reference_number', 'insured_name', 'broker_name', 'cedant_name',
+      'class_of_business', 'territory', 'currency', 'status', 'source',
+    ];
+
+    if (searchFilters && searchFilters.length > 0) {
+      // Structured filters: each filter is AND-ed
+      for (const filter of searchFilters) {
+        if (filter.field === '_any') {
+          // Broad search: OR across all text columns
+          const orClause = broadColumns
+            .map(col => `${col}.ilike.%${filter.value}%`)
+            .join(',');
+          query = query.or(orClause);
+        } else {
+          // Column-specific search
+          query = query.ilike(filter.field, `%${filter.value}%`);
+        }
+      }
+    } else if (searchTerm && searchTerm.trim()) {
+      // Legacy fallback: broad search across all text columns
       const term = searchTerm.trim();
-      query = query.or(
-        `reference_number.ilike.%${term}%,insured_name.ilike.%${term}%,broker_name.ilike.%${term}%,cedant_name.ilike.%${term}%`
-      );
+      const orClause = broadColumns
+        .map(col => `${col}.ilike.%${term}%`)
+        .join(',');
+      query = query.or(orClause);
     }
 
     // Date range filter
