@@ -57,13 +57,30 @@ export function parseSearchString(input: string): SearchFilter[] {
 
   const filters: SearchFilter[] = [];
   // Split by spaces, but handle quoted values: column:"multi word"
-  const tokens = tokenize(input.trim());
+  const rawTokens = tokenize(input.trim());
+
+  // Merge tokens: if a token is "class:" (trailing colon, known shortcut)
+  // and the next token has no colon, treat them as "class:nextToken".
+  // This handles "class: 14" → "class:14"
+  const tokens: string[] = [];
+  for (let i = 0; i < rawTokens.length; i++) {
+    const t = rawTokens[i];
+    if (t.endsWith(':') && t.length > 1) {
+      const prefix = t.slice(0, -1).toLowerCase();
+      if (COLUMN_SHORTCUTS[prefix] && i + 1 < rawTokens.length && !rawTokens[i + 1].includes(':')) {
+        tokens.push(t + rawTokens[i + 1]);
+        i++; // skip next token — consumed as value
+        continue;
+      }
+    }
+    tokens.push(t);
+  }
 
   for (const token of tokens) {
     const colonIdx = token.indexOf(':');
     if (colonIdx > 0) {
       const prefix = token.substring(0, colonIdx).toLowerCase();
-      const value = token.substring(colonIdx + 1).replace(/^["']|["']$/g, '');
+      const value = token.substring(colonIdx + 1).replace(/^["']|["']$/g, '').trim();
       if (!value) continue;
 
       const dbColumn = COLUMN_SHORTCUTS[prefix];
@@ -78,6 +95,7 @@ export function parseSearchString(input: string): SearchFilter[] {
     }
   }
 
+  console.log('[SearchParser]', JSON.stringify({ input, filters }));
   return filters;
 }
 
