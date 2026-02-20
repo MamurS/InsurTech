@@ -18,6 +18,7 @@ import { DatePickerInput, toISODateString } from '../components/DatePickerInput'
 import { CompactDateFilter } from '../components/CompactDateFilter';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, MoreVertical, Eye, Shield } from 'lucide-react';
 import { usePageHeader } from '../context/PageHeaderContext';
+import { parseSearchString } from '../utils/searchParser';
 
 // --- MAPPER FUNCTIONS ---
 
@@ -354,12 +355,13 @@ const Dashboard: React.FC = () => {
       }
 
       // Fetch view data and slips in parallel when source is 'All' and first page
+      const filters = parseSearchString(searchTerm);
       const portfolioPromise = DB.getPortfolioPage({
         page: currentPage - 1, // API is 0-indexed, UI is 1-indexed
         pageSize: PAGE_SIZE,
         sourceFilter: viewSource,
         statusFilter: statusFilter,
-        searchTerm: searchTerm,
+        searchFilters: filters.length > 0 ? filters : undefined,
         sortField: sortConfig.key,
         sortDirection: sortConfig.direction,
         dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
@@ -727,7 +729,7 @@ const Dashboard: React.FC = () => {
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search..."
+            placeholder="Search... (try broker:Howden or class:Fire)"
             className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
