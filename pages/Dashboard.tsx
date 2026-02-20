@@ -17,6 +17,7 @@ import { formatDate } from '../utils/dateUtils';
 import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { CompactDateFilter } from '../components/CompactDateFilter';
 import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, FileText, CheckCircle, XCircle, AlertCircle, AlertTriangle, RefreshCw, Lock, Filter, Globe, Home, Briefcase, MoreVertical, Eye, Shield } from 'lucide-react';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // --- MAPPER FUNCTIONS ---
 
@@ -313,6 +314,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Create Entity Confirmation State
   const [createEntityConfirm, setCreateEntityConfirm] = useState<{ isOpen: boolean; name: string }>({ isOpen: false, name: '' });
@@ -616,6 +618,19 @@ const Dashboard: React.FC = () => {
     await ExcelService.exportPortfolio(sortedRows);
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={() => ExcelService.exportPortfolio(sortedRows)}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [sortedRows, setHeaderActions]);
+
   const SortableHeader = ({ label, sortKey, className = "", style }: { label: string, sortKey: string, className?: string, style?: React.CSSProperties }) => {
     const isActive = sortConfig.key === sortKey;
     return (
@@ -664,7 +679,7 @@ const Dashboard: React.FC = () => {
       {/* Sticky group: filter bar + table header */}
       <div className="sticky top-0 z-30">
       {/* Row 1: All Filters in One Row */}
-      <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-t-lg border border-gray-200 min-h-[40px] overflow-visible">
+      <div className="flex flex-wrap items-center gap-3 bg-white px-4 py-2.5 rounded-t-lg border border-gray-200 min-h-[48px] overflow-visible">
         {/* Source Filter Pills */}
         {([
           { key: 'All', label: 'All', icon: null },
@@ -675,26 +690,26 @@ const Dashboard: React.FC = () => {
           <button
             key={key}
             onClick={() => handleSourceFilterChange(key as 'All' | PortfolioSource)}
-            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
               sourceFilter === key
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
             }`}
           >
-            {Icon && <Icon size={10} />}
+            {Icon && <Icon size={12} />}
             {label}
           </button>
         ))}
 
-        <div className="w-px h-5 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-gray-300 mx-1" />
 
         {/* Status Tabs */}
-        <div className="flex bg-gray-100 p-0.5 rounded-md">
+        <div className="flex bg-gray-100 p-0.5 rounded-lg">
           {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
             <button
               key={status}
               onClick={() => handleStatusFilterChange(status)}
-              className={`px-2 py-1 text-xs font-medium rounded transition-all ${
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
                 statusFilter === status
                   ? 'bg-white text-blue-600 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700'
@@ -705,28 +720,28 @@ const Dashboard: React.FC = () => {
           ))}
         </div>
 
-        <div className="w-px h-5 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-gray-300 mx-1" />
 
         {/* Search */}
-        <div className="flex-1 relative min-w-[180px]">
-          <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+        <div className="relative flex-1 min-w-[200px]">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search..."
-            className="w-full pl-7 pr-3 py-1 bg-gray-50 border border-gray-200 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-900"
+            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
         </div>
 
-        <div className="w-px h-5 bg-gray-300 mx-1" />
+        <div className="w-px h-6 bg-gray-300 mx-1" />
 
         {/* Date Filter */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '340px' }}>
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
-          className="border border-gray-200 rounded px-1.5 py-1 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700"
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
         >
           <option value="inceptionDate">Inception</option>
           <option value="expiryDate">Expiry</option>
@@ -748,15 +763,6 @@ const Dashboard: React.FC = () => {
           placeholder="To"
         />
         </div>
-
-        {/* Export */}
-        <button
-          type="button"
-          onClick={handleExport}
-          className="px-3 py-1 text-xs bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded font-medium hover:from-green-600 hover:to-emerald-700 flex items-center gap-1.5 shadow-sm whitespace-nowrap"
-        >
-          <Download size={12} /> Export
-        </button>
       </div>
         {/* Header table — inside sticky group, synced with body scroll */}
         <div ref={headerScrollRef} className="border-x border-gray-200 -mt-px overflow-hidden">

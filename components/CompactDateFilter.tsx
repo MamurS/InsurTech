@@ -25,13 +25,13 @@ interface Props {
 export const CompactDateFilter: React.FC<Props> = ({ value, onChange, placeholder = 'dd.mm.yyyy' }) => {
     const format = getPickerFormat();
     return (
-        <div style={{ width: '110px' }} className="flex-shrink-0">
+        <div style={{ width: '120px' }} className="flex-shrink-0">
             <DatePicker
                 selected={value}
                 onChange={onChange}
                 dateFormat={format}
                 placeholderText={placeholder}
-                className="w-full px-1.5 py-1 text-xs bg-white border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 text-gray-700"
+                className="w-full px-2 py-1.5 text-sm bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
                 showMonthDropdown
                 showYearDropdown
                 dropdownMode="select"

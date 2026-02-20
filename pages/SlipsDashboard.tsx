@@ -12,6 +12,7 @@ import { formatDate } from '../utils/dateUtils';
 import { toISODateString } from '../components/DatePickerInput';
 import { CompactDateFilter } from '../components/CompactDateFilter';
 import { Search, Edit, Trash2, Plus, FileSpreadsheet, ArrowUp, ArrowDown, ArrowUpDown, Download, FileText, CheckCircle, AlertCircle, XCircle, AlertTriangle, MoreVertical, Eye, RefreshCw } from 'lucide-react';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // Detect shifted column data from legacy CSV import:
 // insuredName got a numeric ID, brokerReinsurer got the actual insured name.
@@ -36,6 +37,7 @@ const getDisplaySlipNumber = (slip: ReinsuranceSlip): string => {
 };
 
 const SlipsDashboard: React.FC = () => {
+  const { setHeaderActions } = usePageHeader();
   const [slips, setSlips] = useState<ReinsuranceSlip[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -260,6 +262,19 @@ const SlipsDashboard: React.FC = () => {
     exportToExcel(exportData, `Reinsurance_Slips_${new Date().toISOString().split('T')[0]}`, 'Slips');
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [sortedSlips, setHeaderActions]);
+
   const formatMoney = (amount: number | undefined, currency: string | undefined) => {
     if (amount === undefined || amount === null) return '-';
     try {
@@ -322,14 +337,14 @@ const SlipsDashboard: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
-        <div className="flex flex-wrap items-center gap-3 min-h-[40px] overflow-visible">
+        <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Status Tabs - Compact */}
-          <div className="flex bg-gray-100 p-0.5 rounded-md overflow-x-auto">
+          <div className="flex bg-gray-100 p-0.5 rounded-lg overflow-x-auto">
             {slipStatusTabs.map(tab => (
               <button
                 key={tab.key}
                 onClick={() => setStatusFilter(tab.key)}
-                className={`px-2 py-1 text-xs font-medium rounded transition-all whitespace-nowrap ${
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
                   statusFilter === tab.key
                     ? 'bg-white text-blue-600 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
@@ -340,28 +355,28 @@ const SlipsDashboard: React.FC = () => {
             ))}
           </div>
 
-          <div className="w-px h-5 bg-gray-300" />
+          <div className="w-px h-6 bg-gray-300" />
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search..."
-              className="w-full pl-8 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all text-sm text-gray-900"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="w-px h-5 bg-gray-300" />
+          <div className="w-px h-6 bg-gray-300" />
 
           {/* Date Filter */}
-          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '340px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => { setDateFilterField(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="border border-gray-200 rounded-lg px-2 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
           >
             <option value="date">Slip Date</option>
           </select>
@@ -377,22 +392,13 @@ const SlipsDashboard: React.FC = () => {
           />
           </div>
 
-          <div className="w-px h-5 bg-gray-300" />
-
-          {/* Export Button */}
-          <button
-            type="button"
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap"
-          >
-            <Download size={14} /> Export
-          </button>
+          <div className="w-px h-6 bg-gray-300" />
 
           {/* New Slip Button */}
           <button
             type="button"
             onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-medium transition-all text-sm"
+            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
           >
             <Plus size={16} /> New Slip
           </button>

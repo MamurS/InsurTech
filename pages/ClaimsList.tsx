@@ -9,11 +9,13 @@ import { CompactDateFilter } from '../components/CompactDateFilter';
 import RegisterClaimModal from '../components/RegisterClaimModal';
 import { AlertOctagon, Search, Plus, Filter, Loader2, RefreshCw, Download, MoreVertical, Eye } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 const PAGE_SIZE = 20;
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
+  const { setHeaderActions } = usePageHeader();
   const [showFilters, setShowFilters] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
@@ -125,6 +127,19 @@ const ClaimsList: React.FC = () => {
     exportToExcel(exportData, `Claims_${new Date().toISOString().split('T')[0]}`, 'Claims');
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [claims, setHeaderActions]);
+
   // Format Currency Helper
   const formatMoney = (val: number | undefined) => {
       if (val === undefined || val === null) return '-';
@@ -141,14 +156,14 @@ const ClaimsList: React.FC = () => {
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
-        <div className="flex flex-wrap items-center gap-3 min-h-[40px] overflow-visible">
+        <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Search */}
-          <div className="relative flex-1 min-w-[180px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <div className="relative flex-1 min-w-[200px]">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
             <input
               type="text"
               placeholder="Search..."
-              className="w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
               value={filters.searchTerm}
               onChange={e => handleFilterChange('searchTerm', e.target.value)}
             />
@@ -156,16 +171,16 @@ const ClaimsList: React.FC = () => {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+            className={`flex items-center gap-2 px-3 py-1.5 border rounded-lg text-sm font-medium transition-colors ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
           >
             <Filter size={14}/> Filters
           </button>
           {/* Date Filter */}
-          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '320px' }}>
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '340px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => setDateFilterField(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-2 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
           >
             <option value="lossDate">Loss Date</option>
             <option value="reportDate">Report Date</option>
@@ -186,21 +201,12 @@ const ClaimsList: React.FC = () => {
             <RefreshCw size={14}/>
           </button>
 
-          <div className="w-px h-5 bg-gray-300" />
-
-          {/* Export Button */}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap"
-          >
-            <Download size={14} />
-            Export
-          </button>
+          <div className="w-px h-6 bg-gray-300" />
 
           {/* Register Claim Button */}
           <button
             onClick={() => setShowRegisterModal(true)}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-all text-sm"
+            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
           >
             <Plus size={16} /> Register Claim
           </button>

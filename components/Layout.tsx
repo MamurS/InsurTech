@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 import EnvironmentBadge from './EnvironmentBadge';
+import { PageHeaderProvider, usePageHeader } from '../context/PageHeaderContext';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -57,10 +58,11 @@ const getPageTitle = (pathname: string): string => {
   return '';
 };
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
+const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { headerActions } = usePageHeader();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isInwardReinsuranceOpen, setIsInwardReinsuranceOpen] = useState(
     location.pathname.includes('/inward-reinsurance')
@@ -439,7 +441,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex-1 text-center">
                     <h1 className="text-xl font-bold text-gray-800">{getPageTitle(location.pathname)}</h1>
                 </div>
-                <div className="w-10"></div>
+                <div className="flex items-center gap-2">
+                    {headerActions}
+                </div>
           </header>
 
           {/* Scrollable Page Content */}
@@ -462,5 +466,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
 };
+
+const Layout: React.FC<LayoutProps> = ({ children }) => (
+  <PageHeaderProvider>
+    <LayoutInner>{children}</LayoutInner>
+  </PageHeaderProvider>
+);
 
 export default Layout;
