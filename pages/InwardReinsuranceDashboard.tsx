@@ -348,7 +348,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
         </select>
 
         {/* Date Filter */}
-        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '340px' }}>
+        <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '380px' }}>
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
