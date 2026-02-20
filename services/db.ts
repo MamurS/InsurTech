@@ -1001,6 +1001,7 @@ export const DB = {
       'source': 'source',
       'status': 'status',
       'limit': 'limit',
+      'sumInsuredNational': 'sum_insured_national',
       'installmentCount': 'installment_count',
       'currency': 'currency',
     };

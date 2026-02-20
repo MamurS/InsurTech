@@ -381,6 +381,7 @@ const Dashboard: React.FC = () => {
         territory: row.territory || '',
         currency: row.currency || 'USD',
         limit: Number(row.limit || 0),
+        sumInsuredNational: Number(row.sum_insured_national || 0),
         grossPremium: Number(row.gross_premium || 0),
         netPremium: Number(row.net_premium || 0),
         ourShare: Number(row.our_share || 0),
@@ -420,7 +421,7 @@ const Dashboard: React.FC = () => {
       DB.getOutwardPolicies().then(outwardPolicies => {
         const outwardMap = new Map<string, Policy[]>();
         for (const p of outwardPolicies) {
-          const key = p.policyNumber || p.id;
+          const key = p.secondaryPolicyNumber || p.policyNumber || p.id;
           const existing = outwardMap.get(key);
           if (existing) existing.push(p);
           else outwardMap.set(key, [p]);
@@ -777,7 +778,7 @@ const Dashboard: React.FC = () => {
                     <col style={{ width: '120px' }} />  {/* Broker */}
                     <col style={{ width: '120px' }} />  {/* Class */}
                     <col style={{ width: '100px' }} />  {/* Territory */}
-                    <col style={{ width: '110px' }} />  {/* Limit */}
+                    <col style={{ width: '110px' }} />  {/* Sum Insured */}
                     <col style={{ width: '110px' }} />  {/* Gross Prem */}
                     <col style={{ width: '60px' }} />   {/* Our % */}
                     <col style={{ width: '70px' }} />   {/* Ceded % */}
@@ -794,7 +795,7 @@ const Dashboard: React.FC = () => {
                             <SortableHeader label="Broker" sortKey="brokerName" />
                             <SortableHeader label="Class" sortKey="classOfBusiness" />
                             <SortableHeader label="Territory" sortKey="territory" />
-                            <SortableHeader label="Limit" sortKey="limit" className="text-right" />
+                            <SortableHeader label="Sum Insured" sortKey="sumInsuredNational" className="text-right" />
                             <SortableHeader label="Gross Prem" sortKey="grossPremium" className="text-right" />
                             <SortableHeader label="Our %" sortKey="ourShare" className="text-right" />
                             <th className="px-2 py-3 border-b border-gray-200 font-semibold text-gray-600 text-xs uppercase tracking-wider whitespace-nowrap bg-gray-50 text-right">Ceded %</th>
@@ -826,7 +827,7 @@ const Dashboard: React.FC = () => {
                     <col style={{ width: '120px' }} />  {/* Broker */}
                     <col style={{ width: '120px' }} />  {/* Class */}
                     <col style={{ width: '100px' }} />  {/* Territory */}
-                    <col style={{ width: '110px' }} />  {/* Limit */}
+                    <col style={{ width: '110px' }} />  {/* Sum Insured */}
                     <col style={{ width: '110px' }} />  {/* Gross Prem */}
                     <col style={{ width: '60px' }} />   {/* Our % */}
                     <col style={{ width: '70px' }} />   {/* Ceded % */}
@@ -920,7 +921,7 @@ const Dashboard: React.FC = () => {
                                         {row.territory || '-'}
                                     </td>
                                     <td className="px-2 py-3 text-right font-medium text-gray-700 whitespace-nowrap">
-                                        {formatMoney(row.limit, row.currency)}
+                                        {row.sumInsuredNational ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(row.sumInsuredNational) : '-'}
                                     </td>
                                     <td className="px-2 py-3 text-right font-bold text-gray-900 bg-gray-50/50 whitespace-nowrap">
                                         {formatMoney(row.grossPremium, row.currency)}
