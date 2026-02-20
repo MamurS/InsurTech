@@ -263,19 +263,9 @@ const Dashboard: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  // Sticky offset measurement
-  const filterRef = useRef<HTMLDivElement>(null);
-  const [filterHeight, setFilterHeight] = useState(48);
-
-  useEffect(() => {
-    const el = filterRef.current;
-    if (!el) return;
-    const update = () => setFilterHeight(el.getBoundingClientRect().height);
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // Synchronized scroll refs for split header/body tables
+  const headerScrollRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
 
   // Kebab menu state
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -671,8 +661,8 @@ const Dashboard: React.FC = () => {
 
   return (
     <div>
-      {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30">
+      {/* Sticky group: filter bar + table header */}
+      <div className="sticky top-0 z-30">
       {/* Row 1: All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-2 bg-white px-3 py-2 rounded-t-lg border border-gray-200 min-h-[40px] overflow-visible">
         {/* Source Filter Pills */}
@@ -768,11 +758,9 @@ const Dashboard: React.FC = () => {
           <Download size={12} /> Export
         </button>
       </div>
-      </div>{/* end sticky filter bar */}
-
-      {/* Unified Table — flush against filter bar, no gap */}
-      <div className="bg-white border border-gray-200 border-t-0 rounded-b-xl shadow-sm relative overflow-x-auto -mt-px">
-            <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed', minWidth: '1280px' }}>
+        {/* Header table — inside sticky group, synced with body scroll */}
+        <div ref={headerScrollRef} className="border-x border-gray-200 -mt-px overflow-hidden">
+          <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed', minWidth: '1280px' }}>
                 <colgroup>
                     <col style={{ width: '80px' }} />   {/* STATUS */}
                     <col style={{ width: '90px' }} />   {/* Source */}
@@ -789,7 +777,7 @@ const Dashboard: React.FC = () => {
                     <col style={{ width: '90px' }} />   {/* Expiry */}
                     <col style={{ width: '40px' }} />   {/* Actions */}
                 </colgroup>
-                <thead className="bg-gray-50 sticky z-20 shadow-sm" style={{ top: `${filterHeight}px` }}>
+                <thead className="bg-gray-50 shadow-sm">
                         <tr>
                             <th className="px-2 py-3 border-b border-gray-200 text-center font-semibold text-gray-600 text-xs bg-gray-50">STATUS</th>
                             <SortableHeader label="Source" sortKey="source" />
@@ -807,6 +795,37 @@ const Dashboard: React.FC = () => {
                             <th className="px-1 py-3 border-b border-gray-200 bg-gray-50"></th>
                         </tr>
                 </thead>
+          </table>
+        </div>
+      </div>{/* end sticky group (filter bar + header) */}
+
+      {/* Body table — scrollable, horizontal scroll synced to header */}
+      <div
+        ref={bodyScrollRef}
+        className="bg-white border border-gray-200 border-t-0 rounded-b-xl shadow-sm overflow-x-auto -mt-px"
+        onScroll={() => {
+          if (headerScrollRef.current && bodyScrollRef.current) {
+            headerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft;
+          }
+        }}
+      >
+            <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed', minWidth: '1280px' }}>
+                <colgroup>
+                    <col style={{ width: '80px' }} />   {/* STATUS */}
+                    <col style={{ width: '90px' }} />   {/* Source */}
+                    <col style={{ width: '130px' }} />  {/* Ref No */}
+                    <col style={{ width: '180px' }} />  {/* Insured / Cedant */}
+                    <col style={{ width: '120px' }} />  {/* Broker */}
+                    <col style={{ width: '120px' }} />  {/* Class */}
+                    <col style={{ width: '100px' }} />  {/* Territory */}
+                    <col style={{ width: '110px' }} />  {/* Limit */}
+                    <col style={{ width: '110px' }} />  {/* Gross Prem */}
+                    <col style={{ width: '60px' }} />   {/* Our % */}
+                    <col style={{ width: '70px' }} />   {/* Ceded % */}
+                    <col style={{ width: '90px' }} />   {/* Inception */}
+                    <col style={{ width: '90px' }} />   {/* Expiry */}
+                    <col style={{ width: '40px' }} />   {/* Actions */}
+                </colgroup>
                 <tbody className="divide-y divide-gray-100 text-sm">
                     {paginatedRows.map(row => {
                         const rowClass = row.isDeleted ? 'bg-gray-50 opacity-75' : 'hover:bg-blue-50/30';
