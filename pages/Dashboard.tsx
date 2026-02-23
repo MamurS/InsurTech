@@ -371,6 +371,7 @@ const Dashboard: React.FC = () => {
       const result = await portfolioPromise;
 
       // Map view columns to PortfolioRow format
+      const today = new Date().toISOString().split('T')[0];
       const rows: PortfolioRow[] = result.rows.map((row: any) => ({
         id: row.id,
         source: row.source as PortfolioSource,
@@ -386,7 +387,9 @@ const Dashboard: React.FC = () => {
         ourShare: Number(row.our_share || 0),
         inceptionDate: row.inception_date || '',
         expiryDate: row.expiry_date || '',
-        normalizedStatus: normalizeStatus(row.status),
+        normalizedStatus: (row.status?.toUpperCase()?.includes('ACTIVE') && row.expiry_date && row.expiry_date < today)
+          ? 'Expired' as PortfolioStatus
+          : normalizeStatus(row.status),
         status: row.status || '',
         installmentCount: Number(row.installment_count || 1),
         cedantName: row.cedant_name || '',
@@ -867,6 +870,7 @@ const Dashboard: React.FC = () => {
                                     <td className="px-2 py-3 text-center overflow-hidden">
                                         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                                           row.normalizedStatus === 'Active' ? 'text-green-700 bg-green-100' :
+                                          row.normalizedStatus === 'Expired' ? 'text-orange-700 bg-orange-100' :
                                           row.normalizedStatus === 'Pending' ? 'text-amber-700 bg-amber-100' :
                                           row.normalizedStatus === 'Cancelled' ? 'text-red-700 bg-red-100' :
                                           'text-gray-600 bg-gray-100'

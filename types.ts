@@ -623,7 +623,7 @@ export interface Policy {
 
 export type PortfolioSource = 'direct' | 'inward-foreign' | 'inward-domestic';
 
-export type PortfolioStatus = 'Active' | 'Pending' | 'Cancelled' | 'Deleted';
+export type PortfolioStatus = 'Active' | 'Expired' | 'Pending' | 'Cancelled' | 'Deleted';
 
 export interface PortfolioRow {
   // Common identifiers
