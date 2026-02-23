@@ -936,7 +936,18 @@ export const DB = {
 
     // Status filter
     if (statusFilter && statusFilter !== 'All') {
-      query = query.ilike('status', statusFilter);
+      const today = new Date().toISOString().split('T')[0];
+      if (statusFilter === 'Active') {
+        // Active = status is Active AND expiry_date >= today
+        query = query.ilike('status', 'Active');
+        query = query.gte('expiry_date', today);
+      } else if (statusFilter === 'Expired') {
+        // Expired = status is Active BUT expiry_date < today
+        query = query.ilike('status', 'Active');
+        query = query.lt('expiry_date', today);
+      } else {
+        query = query.ilike('status', statusFilter);
+      }
     }
 
     // Advanced multi-field search with column:value support
