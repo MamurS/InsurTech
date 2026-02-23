@@ -419,12 +419,18 @@ const Dashboard: React.FC = () => {
     if (!outwardLoadedRef.current) {
       DB.getOutwardPolicies().then(outwardPolicies => {
         const outwardMap = new Map<string, Policy[]>();
+        console.log('[Ceded%] Outward policies loaded:', outwardPolicies.length);
+        if (outwardPolicies.length > 0) {
+          const sample = outwardPolicies.slice(0, 3);
+          sample.forEach((p, i) => console.log(`[Ceded%] Sample ${i}: policyNumber=${p.policyNumber}, secondaryPolicyNumber=${p.secondaryPolicyNumber}, channel=${p.channel}, reinsurerName=${p.reinsurerName}, cededShare=${p.cededShare}`));
+        }
         for (const p of outwardPolicies) {
           const key = p.secondaryPolicyNumber || p.policyNumber || p.id;
           const existing = outwardMap.get(key);
           if (existing) existing.push(p);
           else outwardMap.set(key, [p]);
         }
+        console.log('[Ceded%] Outward map size:', outwardMap.size, 'keys sample:', Array.from(outwardMap.keys()).slice(0, 5));
         outwardByPolicyRef.current = outwardMap;
         outwardLoadedRef.current = true;
         setOutwardReady(true);
@@ -840,6 +846,7 @@ const Dashboard: React.FC = () => {
                         // Compute ceded % from outward reinsurance data (matches both direct and inward rows)
                         // Deduplicate: one share per reinsurer (installments repeat the same cededShare)
                         const outwardForRow = outwardByPolicyRef.current.get(row.referenceNumber) || [];
+                        if (outwardForRow.length > 0 && paginatedRows.indexOf(row) < 3) console.log(`[Ceded%] Row ${row.referenceNumber}: found ${outwardForRow.length} outward policies, cededShares:`, outwardForRow.map(op => op.cededShare));
                         const uniqueReinsurers = new Map<string, number>();
                         for (const op of outwardForRow) {
                           const name = op.reinsurerName || op.intermediaryName || op.insuredName || 'Unknown';
