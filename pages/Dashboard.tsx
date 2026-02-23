@@ -380,7 +380,6 @@ const Dashboard: React.FC = () => {
         classOfBusiness: row.class_of_business || '',
         territory: row.territory || '',
         currency: row.currency || 'USD',
-        limit: Number(row.limit || 0),
         sumInsuredNational: Number(row.sum_insured_national || 0),
         grossPremium: Number(row.gross_premium || 0),
         netPremium: Number(row.net_premium || 0),

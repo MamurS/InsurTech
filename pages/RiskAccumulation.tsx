@@ -20,6 +20,7 @@ interface PortfolioRow {
   territory: string | null;
   currency: string | null;
   limit: number | null;
+  sum_insured_national: number | null;
   gross_premium: number | null;
   net_premium: number | null;
   our_share: number | null;
@@ -80,7 +81,7 @@ const RiskAccumulation: React.FC = () => {
       if (!supabase) throw new Error('Supabase not configured');
       const { data, error: err } = await supabase
         .from('v_portfolio')
-        .select('id, reference_number, insured_name, cedant_name, class_of_business, territory, currency, limit, gross_premium, net_premium, our_share, status, source')
+        .select('id, reference_number, insured_name, cedant_name, class_of_business, territory, currency, sum_insured_national, gross_premium, net_premium, our_share, status, source')
         .in('status', ['ACTIVE', 'Active', 'PENDING', 'Pending']);
       if (err) throw err;
       setRows((data as PortfolioRow[]) || []);
@@ -96,8 +97,8 @@ const RiskAccumulation: React.FC = () => {
 
   // ── Aggregation ───────────────────────────────────────────────
 
-  const totalExposure = rows.reduce((s, r) => s + toUSD(r.limit, r.currency), 0);
-  const largestSingleRisk = rows.reduce((m, r) => Math.max(m, toUSD(r.limit, r.currency)), 0);
+  const totalExposure = rows.reduce((s, r) => s + toUSD(r.sum_insured_national, r.currency), 0);
+  const largestSingleRisk = rows.reduce((m, r) => Math.max(m, toUSD(r.sum_insured_national, r.currency)), 0);
   const distinctTerritories = new Set(rows.map(r => r.territory || 'Unknown')).size;
   const distinctClasses = new Set(rows.map(r => r.class_of_business || 'Unknown')).size;
 
@@ -107,7 +108,7 @@ const RiskAccumulation: React.FC = () => {
       const key = keyFn(r) || 'Unknown';
       if (!map[key]) map[key] = { count: 0, totalLimit: 0, totalGwp: 0 };
       map[key].count++;
-      map[key].totalLimit += toUSD(r.limit, r.currency);
+      map[key].totalLimit += toUSD(r.sum_insured_national, r.currency);
       map[key].totalGwp += toUSD(r.gross_premium, r.currency);
     });
     return Object.entries(map)
@@ -129,7 +130,7 @@ const RiskAccumulation: React.FC = () => {
   const byCedant = aggregate(r => r.cedant_name || r.insured_name || 'Unknown');
 
   const topRisks = [...rows]
-    .sort((a, b) => toUSD(b.limit, b.currency) - toUSD(a.limit, a.currency))
+    .sort((a, b) => toUSD(b.sum_insured_national, b.currency) - toUSD(a.sum_insured_national, a.currency))
     .slice(0, 25);
 
   // ── Export ────────────────────────────────────────────────────
@@ -143,7 +144,7 @@ const RiskAccumulation: React.FC = () => {
         'Insured/Cedant': r.cedant_name || r.insured_name || '',
         'Class': r.class_of_business || '',
         'Territory': r.territory || '',
-        'Limit (USD)': toUSD(r.limit, r.currency),
+        'Limit (USD)': toUSD(r.sum_insured_national, r.currency),
         'GWP (USD)': toUSD(r.gross_premium, r.currency),
         'Our Share %': r.our_share || 0,
       }));
@@ -280,7 +281,7 @@ const RiskAccumulation: React.FC = () => {
               <td className="py-2.5 px-4 text-slate-800 max-w-[200px] truncate">{r.cedant_name || r.insured_name || '-'}</td>
               <td className="py-2.5 px-4 text-slate-600 max-w-[150px] truncate">{r.class_of_business || '-'}</td>
               <td className="py-2.5 px-4 text-slate-600">{r.territory || '-'}</td>
-              <td className="py-2.5 px-4 text-right text-slate-800 font-mono font-medium">{formatCurrency(toUSD(r.limit, r.currency))}</td>
+              <td className="py-2.5 px-4 text-right text-slate-800 font-mono font-medium">{formatCurrency(toUSD(r.sum_insured_national, r.currency))}</td>
               <td className="py-2.5 px-4 text-right text-slate-700 font-mono">{formatCurrency(toUSD(r.gross_premium, r.currency))}</td>
               <td className="py-2.5 px-4 text-right text-slate-700 font-mono">{r.our_share ? formatPercent(r.our_share) : '-'}</td>
             </tr>

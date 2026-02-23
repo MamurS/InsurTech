@@ -1000,7 +1000,6 @@ export const DB = {
       'expiryDate': 'expiry_date',
       'source': 'source',
       'status': 'status',
-      'limit': 'limit',
       'sumInsuredNational': 'sum_insured_national',
       'installmentCount': 'installment_count',
       'currency': 'currency',
