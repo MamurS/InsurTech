@@ -283,7 +283,7 @@ const Dashboard: React.FC = () => {
   const [sourceFilter, setSourceFilter] = useState<'All' | PortfolioSource>('All');
 
   // Status Filter State
-  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Expired' | 'Pending' | 'Cancelled' | 'Deleted'>('All');
 
   // Date Filter State
   const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
@@ -594,7 +594,7 @@ const Dashboard: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleStatusFilterChange = (filter: 'All' | 'Active' | 'Pending' | 'Cancelled' | 'Deleted') => {
+  const handleStatusFilterChange = (filter: 'All' | 'Active' | 'Expired' | 'Pending' | 'Cancelled' | 'Deleted') => {
     setStatusFilter(filter);
     setPortfolioData([]);
     setCurrentPage(1);
@@ -713,7 +713,7 @@ const Dashboard: React.FC = () => {
 
         {/* Status Tabs */}
         <div className="flex bg-gray-100 p-0.5 rounded-lg">
-          {(['All', 'Active', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
+          {(['All', 'Active', 'Expired', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
             <button
               key={status}
               onClick={() => handleStatusFilterChange(status)}
