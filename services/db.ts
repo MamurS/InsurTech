@@ -1022,10 +1022,10 @@ export const DB = {
     const from = page * pageSize;
     query = query.range(from, from + pageSize - 1);
 
-    // Aggregation query: same filters, only sum columns, no sort/pagination
+    // Aggregation query: same filters, only USD-converted columns, no sort/pagination
     let aggQuery = supabase!
       .from('v_portfolio')
-      .select('sum_insured_national, gross_premium');
+      .select('sum_insured_usd, gross_premium_usd');
     aggQuery = applyFilters(aggQuery);
 
     // Run both in parallel
@@ -1041,8 +1041,8 @@ export const DB = {
     let totalGWP = 0;
     if (aggResult.data) {
       for (const r of aggResult.data) {
-        totalSumInsured += Number(r.sum_insured_national || 0);
-        totalGWP += Number(r.gross_premium || 0);
+        totalSumInsured += Number(r.sum_insured_usd || 0);
+        totalGWP += Number(r.gross_premium_usd || 0);
       }
     }
 

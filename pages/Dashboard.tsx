@@ -646,15 +646,20 @@ const Dashboard: React.FC = () => {
   // Stats + Export button in page header
   useEffect(() => {
     setHeaderActions(
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-4 text-sm text-gray-500">
-          <span className="flex items-center gap-1">
-            <span className="font-medium text-gray-700">{totalCount.toLocaleString()}</span> policies
-          </span>
-          <span className="text-gray-300">|</span>
-          <span>SI: <span className="font-medium text-gray-700">{formatCompact(totalSumInsured)}</span></span>
-          <span className="text-gray-300">|</span>
-          <span>GWP: <span className="font-medium text-gray-700">{formatCompact(totalGWP)}</span></span>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Policies</span>
+          <span className="text-sm font-bold text-slate-800">{totalCount.toLocaleString()}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-blue-600 font-medium">Sum Insured</span>
+          <span className="text-sm font-bold text-blue-800">{formatCompact(totalSumInsured)}</span>
+          <span className="text-[10px] text-blue-400 font-medium">USD</span>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-emerald-600 font-medium">GWP</span>
+          <span className="text-sm font-bold text-emerald-800">{formatCompact(totalGWP)}</span>
+          <span className="text-[10px] text-emerald-400 font-medium">USD</span>
         </div>
         <button
           onClick={() => ExcelService.exportPortfolio(sortedRows)}
