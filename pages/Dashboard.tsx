@@ -20,6 +20,16 @@ import { Search, Edit, Trash2, Plus, Download, ArrowUpDown, ArrowUp, ArrowDown, 
 import { usePageHeader } from '../context/PageHeaderContext';
 import { parseSearchString } from '../utils/searchParser';
 
+// --- HELPERS ---
+
+const formatCompact = (value: number): string => {
+  if (value >= 1e12) return (value / 1e12).toFixed(1) + 'T';
+  if (value >= 1e9) return (value / 1e9).toFixed(1) + 'B';
+  if (value >= 1e6) return (value / 1e6).toFixed(1) + 'M';
+  if (value >= 1e3) return (value / 1e3).toFixed(1) + 'K';
+  return value.toFixed(0);
+};
+
 // --- MAPPER FUNCTIONS ---
 
 const normalizeStatus = (status: string, isDeleted?: boolean): PortfolioStatus => {
@@ -258,6 +268,8 @@ const consolidateInwardReinsurance = (contracts: InwardReinsurance[]): Portfolio
 const Dashboard: React.FC = () => {
   const [portfolioData, setPortfolioData] = useState<PortfolioRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalSumInsured, setTotalSumInsured] = useState(0);
+  const [totalGWP, setTotalGWP] = useState(0);
   const outwardByPolicyRef = useRef<Map<string, Policy[]>>(new Map());
   const outwardLoadedRef = useRef(false);
   const [, setOutwardReady] = useState(false); // triggers re-render when outward data loads
@@ -407,6 +419,8 @@ const Dashboard: React.FC = () => {
       if (isFirstPage) {
         setPortfolioData(rows);
         setTotalCount(result.totalCount);
+        setTotalSumInsured(result.totalSumInsured);
+        setTotalGWP(result.totalGWP);
       } else {
         // Subsequent pages: append rows
         setPortfolioData(prev => [...prev, ...rows]);
@@ -629,18 +643,29 @@ const Dashboard: React.FC = () => {
     await ExcelService.exportPortfolio(sortedRows);
   };
 
-  // Export button in page header
+  // Stats + Export button in page header
   useEffect(() => {
     setHeaderActions(
-      <button
-        onClick={() => ExcelService.exportPortfolio(sortedRows)}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 text-sm text-gray-500">
+          <span className="flex items-center gap-1">
+            <span className="font-medium text-gray-700">{totalCount.toLocaleString()}</span> policies
+          </span>
+          <span className="text-gray-300">|</span>
+          <span>SI: <span className="font-medium text-gray-700">{formatCompact(totalSumInsured)}</span></span>
+          <span className="text-gray-300">|</span>
+          <span>GWP: <span className="font-medium text-gray-700">{formatCompact(totalGWP)}</span></span>
+        </div>
+        <button
+          onClick={() => ExcelService.exportPortfolio(sortedRows)}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
-  }, [sortedRows, setHeaderActions]);
+  }, [sortedRows, setHeaderActions, totalCount, totalSumInsured, totalGWP]);
 
   const SortableHeader = ({ label, sortKey, className = "", style }: { label: string, sortKey: string, className?: string, style?: React.CSSProperties }) => {
     const isActive = sortConfig.key === sortKey;

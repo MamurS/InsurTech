@@ -916,88 +916,88 @@ export const DB = {
     dateField?: string;     // column name for date filter
     dateFrom?: string;      // YYYY-MM-DD
     dateTo?: string;        // YYYY-MM-DD
-  }): Promise<{ rows: any[]; totalCount: number }> => {
-    if (!isSupabaseEnabled()) return { rows: [], totalCount: 0 };
+  }): Promise<{ rows: any[]; totalCount: number; totalSumInsured: number; totalGWP: number }> => {
+    if (!isSupabaseEnabled()) return { rows: [], totalCount: 0, totalSumInsured: 0, totalGWP: 0 };
 
     const { page, pageSize, sourceFilter, statusFilter, searchTerm, searchFilters, sortField, sortDirection, dateField, dateFrom, dateTo } = params;
 
+    // Helper: apply shared filters to a query
+    const applyFilters = (q: any) => {
+      // Source filter
+      if (sourceFilter && sourceFilter !== 'all') {
+        if (sourceFilter === 'inward') {
+          q = q.in('source', ['inward-foreign', 'inward-domestic']);
+        } else {
+          q = q.eq('source', sourceFilter);
+        }
+      }
+
+      // Status filter
+      if (statusFilter && statusFilter !== 'All') {
+        const today = new Date().toISOString().split('T')[0];
+        if (statusFilter === 'Active') {
+          q = q.ilike('status', 'Active');
+          q = q.gte('expiry_date', today);
+        } else if (statusFilter === 'Expired') {
+          q = q.ilike('status', 'Active');
+          q = q.lt('expiry_date', today);
+        } else {
+          q = q.ilike('status', statusFilter);
+        }
+      }
+
+      // Search filters
+      const broadColumns = [
+        'reference_number', 'insured_name', 'broker_name', 'cedant_name',
+        'class_of_business', 'territory', 'currency', 'status', 'source',
+      ];
+
+      if (searchFilters && searchFilters.length > 0) {
+        for (const filter of searchFilters) {
+          if (filter.field === '_any') {
+            const orClause = broadColumns
+              .map(col => `${col}.ilike.%${filter.value}%`)
+              .join(',');
+            q = q.or(orClause);
+          } else {
+            q = q.ilike(filter.field, `%${filter.value}%`);
+          }
+        }
+      } else if (searchTerm && searchTerm.trim()) {
+        const term = searchTerm.trim();
+        const orClause = broadColumns
+          .map(col => `${col}.ilike.%${term}%`)
+          .join(',');
+        q = q.or(orClause);
+      }
+
+      // Date range filter
+      if (dateField && (dateFrom || dateTo)) {
+        const dateColumnMap: Record<string, string> = {
+          'inceptionDate': 'inception_date',
+          'expiryDate': 'expiry_date',
+          'dateOfSlip': 'date_of_slip',
+          'accountingDate': 'accounting_date',
+          'reinsuranceInceptionDate': 'reinsurance_inception_date',
+          'reinsuranceExpiryDate': 'reinsurance_expiry_date',
+          'premiumPaymentDate': 'premium_payment_date',
+          'actualPaymentDate': 'actual_payment_date',
+        };
+        const dbDateCol = dateColumnMap[dateField] || dateField;
+        if (dateFrom) q = q.gte(dbDateCol, dateFrom);
+        if (dateTo) q = q.lte(dbDateCol, dateTo);
+      }
+
+      return q;
+    };
+
+    // Main query: filtered, sorted, paginated
     let query = supabase!
       .from('v_portfolio')
       .select('*', { count: 'exact' });
+    query = applyFilters(query);
 
-    // Source filter
-    if (sourceFilter && sourceFilter !== 'all') {
-      if (sourceFilter === 'inward') {
-        query = query.in('source', ['inward-foreign', 'inward-domestic']);
-      } else {
-        query = query.eq('source', sourceFilter);
-      }
-    }
-
-    // Status filter
-    if (statusFilter && statusFilter !== 'All') {
-      const today = new Date().toISOString().split('T')[0];
-      if (statusFilter === 'Active') {
-        // Active = status is Active AND expiry_date >= today
-        query = query.ilike('status', 'Active');
-        query = query.gte('expiry_date', today);
-      } else if (statusFilter === 'Expired') {
-        // Expired = status is Active BUT expiry_date < today
-        query = query.ilike('status', 'Active');
-        query = query.lt('expiry_date', today);
-      } else {
-        query = query.ilike('status', statusFilter);
-      }
-    }
-
-    // Advanced multi-field search with column:value support
-    // All text columns in v_portfolio for broad (_any) search
-    const broadColumns = [
-      'reference_number', 'insured_name', 'broker_name', 'cedant_name',
-      'class_of_business', 'territory', 'currency', 'status', 'source',
-    ];
-
-    if (searchFilters && searchFilters.length > 0) {
-      // Structured filters: each filter is AND-ed
-      for (const filter of searchFilters) {
-        if (filter.field === '_any') {
-          // Broad search: OR across all text columns
-          const orClause = broadColumns
-            .map(col => `${col}.ilike.%${filter.value}%`)
-            .join(',');
-          query = query.or(orClause);
-        } else {
-          // Column-specific search
-          query = query.ilike(filter.field, `%${filter.value}%`);
-        }
-      }
-    } else if (searchTerm && searchTerm.trim()) {
-      // Legacy fallback: broad search across all text columns
-      const term = searchTerm.trim();
-      const orClause = broadColumns
-        .map(col => `${col}.ilike.%${term}%`)
-        .join(',');
-      query = query.or(orClause);
-    }
-
-    // Date range filter
-    if (dateField && (dateFrom || dateTo)) {
-      const dateColumnMap: Record<string, string> = {
-        'inceptionDate': 'inception_date',
-        'expiryDate': 'expiry_date',
-        'dateOfSlip': 'date_of_slip',
-        'accountingDate': 'accounting_date',
-        'reinsuranceInceptionDate': 'reinsurance_inception_date',
-        'reinsuranceExpiryDate': 'reinsurance_expiry_date',
-        'premiumPaymentDate': 'premium_payment_date',
-        'actualPaymentDate': 'actual_payment_date',
-      };
-      const dbDateCol = dateColumnMap[dateField] || dateField;
-      if (dateFrom) query = query.gte(dbDateCol, dateFrom);
-      if (dateTo) query = query.lte(dbDateCol, dateTo);
-    }
-
-    // Sort - map camelCase field names to snake_case DB columns
+    // Sort
     const sortMap: Record<string, string> = {
       'referenceNumber': 'reference_number',
       'insuredName': 'insured_name',
@@ -1022,14 +1022,36 @@ export const DB = {
     const from = page * pageSize;
     query = query.range(from, from + pageSize - 1);
 
-    const { data, error, count } = await query;
+    // Aggregation query: same filters, only sum columns, no sort/pagination
+    let aggQuery = supabase!
+      .from('v_portfolio')
+      .select('sum_insured_national, gross_premium');
+    aggQuery = applyFilters(aggQuery);
 
-    if (error) {
-      console.error('Portfolio query error:', error);
-      return { rows: [], totalCount: 0 };
+    // Run both in parallel
+    const [mainResult, aggResult] = await Promise.all([query, aggQuery]);
+
+    if (mainResult.error) {
+      console.error('Portfolio query error:', mainResult.error);
+      return { rows: [], totalCount: 0, totalSumInsured: 0, totalGWP: 0 };
     }
 
-    return { rows: data || [], totalCount: count || 0 };
+    // Sum aggregation results
+    let totalSumInsured = 0;
+    let totalGWP = 0;
+    if (aggResult.data) {
+      for (const r of aggResult.data) {
+        totalSumInsured += Number(r.sum_insured_national || 0);
+        totalGWP += Number(r.gross_premium || 0);
+      }
+    }
+
+    return {
+      rows: mainResult.data || [],
+      totalCount: mainResult.count || 0,
+      totalSumInsured,
+      totalGWP,
+    };
   },
 
   // --- Installments (lazy-load for detail modal) ---
