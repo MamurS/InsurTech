@@ -721,45 +721,31 @@ const Dashboard: React.FC = () => {
       <div className="sticky top-0 z-30">
       {/* Row 1: All Filters in One Row */}
       <div className="flex flex-wrap items-center gap-3 bg-white px-4 py-2.5 rounded-t-lg border border-gray-200 min-h-[48px] overflow-visible">
-        {/* Source Filter Pills */}
-        {([
-          { key: 'All', label: 'All', icon: null },
-          { key: 'direct', label: 'Direct', icon: Briefcase },
-          { key: 'inward-foreign', label: 'In-Foreign', icon: Globe },
-          { key: 'inward-domestic', label: 'In-Domestic', icon: Home },
-        ] as const).map(({ key, label, icon: Icon }) => (
-          <button
-            key={key}
-            onClick={() => handleSourceFilterChange(key as 'All' | PortfolioSource)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-full transition-all ${
-              sourceFilter === key
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {Icon && <Icon size={12} />}
-            {label}
-          </button>
-        ))}
+        {/* Source Filter Dropdown */}
+        <select
+          value={sourceFilter}
+          onChange={(e) => handleSourceFilterChange(e.target.value as any)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 font-medium"
+        >
+          <option value="All">All Sources</option>
+          <option value="direct">Direct</option>
+          <option value="inward-foreign">In-Foreign</option>
+          <option value="inward-domestic">In-Domestic</option>
+        </select>
 
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
-        {/* Status Tabs */}
-        <div className="flex bg-gray-100 p-0.5 rounded-lg">
-          {(['All', 'Active', 'Expired', 'Pending', 'Cancelled', 'Deleted'] as const).map(status => (
-            <button
-              key={status}
-              onClick={() => handleStatusFilterChange(status)}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-                statusFilter === status
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
+        {/* Status Filter Dropdown */}
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusFilterChange(e.target.value as any)}
+          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 font-medium"
+        >
+          <option value="All">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Expired">Expired</option>
+          <option value="Pending">Pending</option>
+          <option value="Cancelled">Cancelled</option>
+          <option value="Deleted">Deleted</option>
+        </select>
 
         <div className="w-px h-6 bg-gray-300 mx-1" />
 
