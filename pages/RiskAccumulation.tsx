@@ -70,6 +70,7 @@ const CHART_COLORS = [
 // ─── Main Component ─────────────────────────────────────────────
 
 const RiskAccumulation: React.FC = () => {
+  const { setHeaderActions } = usePageHeader();
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
