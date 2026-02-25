@@ -201,19 +201,37 @@ const InwardReinsuranceDashboard: React.FC = () => {
     }
   };
 
-  // Export button in page header
+  // Stats badges + Export button in page header
   useEffect(() => {
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        disabled={exporting || contracts.length === 0}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Contracts</span>
+          <span className="text-sm font-bold text-slate-800">{stats.total}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-purple-600 font-medium">🌍 Foreign</span>
+          <span className="text-sm font-bold text-purple-800">{stats.foreign}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-blue-600 font-medium">🏠 Domestic</span>
+          <span className="text-sm font-bold text-blue-800">{stats.domestic}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-emerald-600 font-medium">Active</span>
+          <span className="text-sm font-bold text-emerald-800">{stats.active}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          disabled={exporting || contracts.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
-  }, [contracts, exporting, setHeaderActions]);
+  }, [contracts, exporting, stats, setHeaderActions]);
 
   const formatCurrency = (amount: number, short: boolean = false) => {
     if (short) {
@@ -260,41 +278,6 @@ const InwardReinsuranceDashboard: React.FC = () => {
 
   return (
     <div>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide mb-1">
-            <FileText size={14} />
-            Total Contracts
-          </div>
-          <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-purple-500 text-xs uppercase tracking-wide mb-1">
-            <Globe size={14} />
-            Foreign
-          </div>
-          <p className="text-2xl font-bold text-purple-600">{stats.foreign}</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-blue-500 text-xs uppercase tracking-wide mb-1">
-            <Home size={14} />
-            Domestic
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{stats.domestic}</p>
-        </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-emerald-500 text-xs uppercase tracking-wide mb-1">
-            <TrendingUp size={14} />
-            Active
-          </div>
-          <p className="text-2xl font-bold text-emerald-600">{stats.active}</p>
-        </div>
-      </div>
-
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="flex flex-wrap items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm min-h-[48px] overflow-visible">
