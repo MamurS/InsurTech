@@ -164,18 +164,47 @@ const RiskAccumulation: React.FC = () => {
     exportToExcel(exportRows, `Risk_Accumulation_${activeTab}_${new Date().toISOString().split('T')[0]}`, 'Risk Accumulation');
   };
 
-  // Export button in page header
+  // Stats badges + Export button in page header
   useEffect(() => {
+    const fmtCompact = (v: number): string => {
+      if (v >= 1e12) return '$' + (v / 1e12).toFixed(1) + 'T';
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+      return '$' + v.toFixed(0);
+    };
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Policies</span>
+          <span className="text-sm font-bold text-slate-800">{rows.length}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-blue-600 font-medium">Exposure</span>
+          <span className="text-sm font-bold text-blue-800">{loading ? '…' : fmtCompact(totalExposure)}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-amber-600 font-medium">Largest</span>
+          <span className="text-sm font-bold text-amber-800">{loading ? '…' : fmtCompact(largestSingleRisk)}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-purple-600 font-medium">Territories</span>
+          <span className="text-sm font-bold text-purple-800">{loading ? '…' : distinctTerritories}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-emerald-600 font-medium">Classes</span>
+          <span className="text-sm font-bold text-emerald-800">{loading ? '…' : distinctClasses}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
-  }, [rows, activeTab, setHeaderActions]);
+  }, [rows, loading, activeTab, totalExposure, largestSingleRisk, distinctTerritories, distinctClasses, setHeaderActions]);
 
   // ── Tab Config ────────────────────────────────────────────────
 
@@ -327,50 +356,6 @@ const RiskAccumulation: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Risk Accumulation</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Aggregate exposure monitoring</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Total Exposure</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : formatCurrency(totalExposure)}</p>
-          <p className="text-xs text-slate-400 mt-1">{rows.length} active policies</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Largest Single Risk</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : formatCurrency(largestSingleRisk)}</p>
-          <p className="text-xs text-slate-400 mt-1">
-            {totalExposure > 0 ? formatPercent((largestSingleRisk / totalExposure) * 100) : '0%'} of total
-          </p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Territory Count</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : distinctTerritories}</p>
-          <p className="text-xs text-slate-400 mt-1">Distinct territories</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Class Count</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : distinctClasses}</p>
-          <p className="text-xs text-slate-400 mt-1">Distinct classes</p>
-        </div>
-      </div>
-
       {/* Tab Selector */}
       <div className="flex rounded-lg border border-slate-300 overflow-hidden w-fit">
         {TABS.map((tab) => (
