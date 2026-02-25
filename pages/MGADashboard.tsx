@@ -984,19 +984,43 @@ const MGADashboard: React.FC = () => {
     finally { setExporting(false); }
   };
 
-  // Export button in page header
+  // Stats badges + Export button in page header
   useEffect(() => {
+    const fmtCompact = (v: number): string => {
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+      return '$' + v.toFixed(0);
+    };
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        disabled={exporting || agreements.length === 0}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Agreements</span>
+          <span className="text-sm font-bold text-slate-800">{stats.total}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-emerald-600 font-medium">Active</span>
+          <span className="text-sm font-bold text-emerald-800">{stats.active}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-blue-600 font-medium">EPI</span>
+          <span className="text-sm font-bold text-blue-800">{fmtCompact(stats.totalEpi)}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-purple-600 font-medium">GWP</span>
+          <span className="text-sm font-bold text-purple-800">{fmtCompact(stats.actualGwp)}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          disabled={exporting || agreements.length === 0}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
-  }, [agreements, exporting, setHeaderActions]);
+  }, [agreements, exporting, stats, setHeaderActions]);
 
   // ─── Delete handler ───────────────────────────────────
   const handleDelete = async (id: string) => {
@@ -1046,37 +1070,6 @@ const MGADashboard: React.FC = () => {
 
       {/* Agreements Tab (existing content) */}
       {activePageTab === 'agreements' && (<>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide mb-1">
-            <FileSignature size={14} />
-            Total Agreements
-          </div>
-          <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-emerald-500 text-xs uppercase tracking-wide mb-1">
-            <CheckCircle size={14} />
-            Active
-          </div>
-          <p className="text-2xl font-bold text-emerald-600">{stats.active}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-blue-500 text-xs uppercase tracking-wide mb-1">
-            <TrendingUp size={14} />
-            Total EPI
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(stats.totalEpi, true)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-purple-500 text-xs uppercase tracking-wide mb-1">
-            <DollarSign size={14} />
-            Actual GWP
-          </div>
-          <p className="text-2xl font-bold text-purple-600">{formatCurrency(stats.actualGwp, true)}</p>
-        </div>
-      </div>
 
       {/* Sticky Filter Bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
