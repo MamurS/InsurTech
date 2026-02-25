@@ -374,6 +374,46 @@ const ProductSearch: React.FC<{
   );
 };
 
+// ─── Currency Badge Amount Input (OUTSIDE main component to prevent focus loss) ─
+const CurrencyInput: React.FC<{
+  value: number; onChange: (v: number) => void; currency: string; placeholder?: string;
+  bold?: boolean; bgClass?: string; borderClass?: string;
+}> = React.memo(({ value, onChange, currency, placeholder = '0', bold, bgClass = '', borderClass = 'border-slate-300' }) => {
+  const [localValue, setLocalValue] = useState(value ? fmtNum(value) : '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync from parent only when not focused
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) {
+      setLocalValue(value ? fmtNum(value) : '');
+    }
+  }, [value]);
+
+  return (
+    <div className="relative flex-1 max-w-xs">
+      <input
+        ref={inputRef}
+        type="text" inputMode="numeric"
+        value={localValue}
+        onChange={(e) => {
+          const raw = e.target.value.replace(/[^0-9.]/g, '');
+          setLocalValue(e.target.value);
+          onChange(Number(raw) || 0);
+        }}
+        onBlur={() => setLocalValue(value ? fmtNum(value) : '')}
+        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+        placeholder={placeholder}
+        className={`w-full p-2 pr-16 border rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${bold ? 'font-bold' : ''} ${bgClass} ${borderClass}`}
+      />
+      <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium px-1.5 py-0.5 rounded select-none pointer-events-none ${
+        bold ? 'text-blue-600 bg-blue-100 font-bold' : 'text-slate-500 bg-slate-100'
+      }`}>
+        {currency}
+      </span>
+    </div>
+  );
+});
+
 // ─── Main Component ─────────────────────────────────────────────
 export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel }) => {
   const toast = useToast();
@@ -680,28 +720,6 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     }
   };
 
-  // ─── Currency Badge Amount Input ────────────────────────────
-  const CurrencyInput: React.FC<{
-    value: number; onChange: (v: number) => void; placeholder?: string;
-    bold?: boolean; bgClass?: string; borderClass?: string;
-  }> = ({ value, onChange, placeholder = '0', bold, bgClass = '', borderClass = 'border-slate-300' }) => (
-    <div className="relative flex-1 max-w-xs">
-      <input
-        type="text" inputMode="numeric"
-        value={value ? fmtNum(value) : ''}
-        onChange={(e) => onChange(parseNum(e.target.value))}
-        onWheel={(e) => (e.target as HTMLInputElement).blur()}
-        placeholder={placeholder}
-        className={`w-full p-2 pr-16 border rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${bold ? 'font-bold' : ''} ${bgClass} ${borderClass}`}
-      />
-      <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium px-1.5 py-0.5 rounded select-none pointer-events-none ${
-        bold ? 'text-blue-600 bg-blue-100 font-bold' : 'text-slate-500 bg-slate-100'
-      }`}>
-        {form.currency}
-      </span>
-    </div>
-  );
-
   // ─── Render ─────────────────────────────────────────────────
   const sumInsuredFields = form.coverSections?.sumInsured || [];
 
@@ -795,7 +813,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
               <div key={field.key} className="space-y-2">
                 <div className="flex items-center gap-3">
                   <label className="text-sm text-slate-600 w-48 shrink-0">{field.label}</label>
-                  <CurrencyInput value={form.sumInsuredAmounts[field.key] || 0} onChange={(v) => setAmount(field.key, v)} />
+                  <CurrencyInput currency={form.currency} value={form.sumInsuredAmounts[field.key] || 0} onChange={(v) => setAmount(field.key, v)} />
                 </div>
                 {field.toggles?.map(toggle => (
                   <div key={toggle.key} className="ml-6 space-y-1">
@@ -809,7 +827,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                       <div className="flex items-center gap-3 ml-6">
                         <span className="text-slate-300 text-xs">├</span>
                         <label className="text-sm text-slate-600 w-48 shrink-0">{toggle.label}</label>
-                        <CurrencyInput value={form.sumInsuredAmounts[toggle.key] || 0} onChange={(v) => setAmount(toggle.key, v)} />
+                        <CurrencyInput currency={form.currency} value={form.sumInsuredAmounts[toggle.key] || 0} onChange={(v) => setAmount(toggle.key, v)} />
                       </div>
                     )}
                   </div>
@@ -818,7 +836,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                   <div key={sub.key} className="flex items-center gap-3 ml-6">
                     <span className="text-slate-300 text-xs">├</span>
                     <label className="text-sm text-slate-600 w-48 shrink-0">{sub.label}</label>
-                    <CurrencyInput value={form.sumInsuredAmounts[sub.key] || 0} onChange={(v) => setAmount(sub.key, v)} />
+                    <CurrencyInput currency={form.currency} value={form.sumInsuredAmounts[sub.key] || 0} onChange={(v) => setAmount(sub.key, v)} />
                   </div>
                 ))}
               </div>
@@ -827,13 +845,13 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         ) : (
           <div className="flex items-center gap-3">
             <label className="text-sm text-slate-600 w-48 shrink-0">Sum Insured</label>
-            <CurrencyInput value={form.totalSumInsured} onChange={(v) => updateForm({ totalSumInsured: v, totalSumInsuredManual: true })} />
+            <CurrencyInput currency={form.currency} value={form.totalSumInsured} onChange={(v) => updateForm({ totalSumInsured: v, totalSumInsuredManual: true })} />
           </div>
         )}
 
         <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
           <label className="text-sm font-semibold text-slate-700 w-48 shrink-0">Total Sum Insured</label>
-          <CurrencyInput value={form.totalSumInsured}
+          <CurrencyInput currency={form.currency} value={form.totalSumInsured}
             onChange={(v) => updateForm({ totalSumInsured: v, totalSumInsuredManual: true })}
             bold bgClass="bg-blue-50/50" borderClass="border-2 border-blue-200" />
         </div>
@@ -843,7 +861,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
       <SectionCard number={5} title="Limit of Liability" icon={<Lock size={16} />}>
         <div className="flex items-center gap-3">
           <label className="text-sm text-slate-600 w-48 shrink-0">Limit of Liability</label>
-          <CurrencyInput value={form.limitOfLiability} onChange={(v) => updateForm({ limitOfLiability: v })} />
+          <CurrencyInput currency={form.currency} value={form.limitOfLiability} onChange={(v) => updateForm({ limitOfLiability: v })} />
         </div>
       </SectionCard>
 
@@ -895,7 +913,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                 {/* Amount */}
                 <div>
                   <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
-                  <CurrencyInput value={ded.amount} onChange={(v) => updateDeductible(ded.id, 'amount', v)} />
+                  <CurrencyInput currency={form.currency} value={ded.amount} onChange={(v) => updateDeductible(ded.id, 'amount', v)} />
                 </div>
               </div>
               {/* Remove button */}
@@ -940,7 +958,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                   </div>
                   <span className="text-slate-300 text-xs">=</span>
                   {/* Amount */}
-                  <CurrencyInput value={sub.amount} onChange={(v) => updateSubPremium(sub.key, 'amount', v)} />
+                  <CurrencyInput currency={form.currency} value={sub.amount} onChange={(v) => updateSubPremium(sub.key, 'amount', v)} />
                   {/* Basis hint */}
                   <span className="text-xs text-slate-400 shrink-0 hidden lg:block">
                     of {fmtNum(sub.basis)}
@@ -968,7 +986,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
             <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
           </div>
           <span className="text-slate-300 text-xs">=</span>
-          <CurrencyInput value={form.grossPremium}
+          <CurrencyInput currency={form.currency} value={form.grossPremium}
             onChange={(v) => {
               const basis = form.totalSumInsured || form.limitOfLiability || 0;
               const rate = basis > 0 ? Math.round((v / basis) * 10000) / 100 : 0;
@@ -1065,7 +1083,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                 <div className="flex-1 grid grid-cols-3 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
-                    <CurrencyInput value={inst.amount}
+                    <CurrencyInput currency={form.currency} value={inst.amount}
                       onChange={(v) => updateInstallment(inst.id, 'amount', v)} />
                   </div>
                   <div>
