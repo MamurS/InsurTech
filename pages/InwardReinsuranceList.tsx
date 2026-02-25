@@ -12,11 +12,13 @@ import {
   ChevronLeft, ChevronRight, MoreVertical, Download
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 const InwardReinsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Determine origin from URL path
   const origin: InwardReinsuranceOrigin = location.pathname.includes('/foreign') ? 'FOREIGN' : 'DOMESTIC';
@@ -274,6 +276,19 @@ const InwardReinsuranceList: React.FC = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [contracts, setHeaderActions]);
+
   return (
     <div>
       {/* Sticky filter bar */}
@@ -338,15 +353,6 @@ const InwardReinsuranceList: React.FC = () => {
           </button>
 
           <div className="w-px h-5 bg-gray-300" />
-
-          {/* Export Button */}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-          >
-            <Download size={16} />
-            Export to Excel
-          </button>
 
           {/* New Contract Button */}
           <button
