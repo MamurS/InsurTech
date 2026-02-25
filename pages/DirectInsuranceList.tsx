@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormModal } from '../components/FormModal';
 import { DirectInsuranceFormContent } from '../components/DirectInsuranceFormContent';
+import { NewRequestForm } from '../components/NewRequestForm';
 import { formatDate } from '../utils/dateUtils';
 import { toISODateString } from '../components/DatePickerInput';
 import { CompactDateFilter } from '../components/CompactDateFilter';
@@ -384,7 +385,7 @@ const DirectInsuranceList: React.FC = () => {
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap"
           >
             <Plus size={16} />
-            New Policy
+            New Request
           </button>
         </div>
       </div>
@@ -406,7 +407,7 @@ const DirectInsuranceList: React.FC = () => {
               className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus size={16} className="inline mr-2" />
-              New Policy
+              New Request
             </button>
           </div>
         ) : (
@@ -496,14 +497,21 @@ const DirectInsuranceList: React.FC = () => {
       <FormModal
         isOpen={showFormModal}
         onClose={handleFormCancel}
-        title={editingPolicyId ? 'Edit Policy' : 'New Direct Insurance Policy'}
-        size="xl"
+        title={editingPolicyId ? 'Edit Policy' : 'New Request'}
+        subtitle={editingPolicyId ? undefined : 'Direct Insurance'}
       >
-        <DirectInsuranceFormContent
-          id={editingPolicyId}
-          onSave={handleFormSave}
-          onCancel={handleFormCancel}
-        />
+        {editingPolicyId ? (
+          <DirectInsuranceFormContent
+            id={editingPolicyId}
+            onSave={handleFormSave}
+            onCancel={handleFormCancel}
+          />
+        ) : (
+          <NewRequestForm
+            onSave={handleFormSave}
+            onCancel={handleFormCancel}
+          />
+        )}
       </FormModal>
 
       {/* Delete Confirmation */}
