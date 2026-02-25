@@ -4,6 +4,7 @@ import { useAnalyticsSummary, LossRatioData } from '../hooks/useAnalytics';
 import { DB } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ const formatPercent = (value: number): string => `${value.toFixed(1)}%`;
 const IBNREstimation: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   const [activeTab, setActiveTab] = useState<TabKey>('manual');
   const [ibnrValues, setIbnrValues] = useState<Record<string, number>>({});
@@ -206,6 +208,20 @@ const IBNREstimation: React.FC = () => {
     }
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        disabled={!data}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [data, activeTab, setHeaderActions]);
+
   // ── Error state ──────────────────────────────────────────────
 
   if (error) {
@@ -239,14 +255,6 @@ const IBNREstimation: React.FC = () => {
           <p className="text-sm text-slate-500 mt-0.5">Incurred But Not Reported reserves</p>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleExport}
-            disabled={loading || classData.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Export to Excel
-          </button>
           <button
             onClick={refetch}
             disabled={loading}
