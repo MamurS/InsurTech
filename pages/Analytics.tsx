@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAnalyticsSummary, ChannelType, ChannelMetrics, MGAMetrics } from '../hooks/useAnalytics';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // =============================================
 // HELPER FUNCTIONS
@@ -180,6 +181,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, children, loadin
 
 const Analytics: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
+  const { setHeaderActions } = usePageHeader();
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('total');
 
   // Get the currently selected channel's metrics
@@ -283,6 +285,20 @@ const Analytics: React.FC = () => {
     exportToExcel(rows, `Analytics_Summary_${new Date().toISOString().split('T')[0]}`, 'Analytics');
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        disabled={!data}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [data, setHeaderActions]);
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -305,14 +321,6 @@ const Analytics: React.FC = () => {
     <div className="space-y-6">
       {/* Action Buttons */}
       <div className="flex justify-end gap-3">
-        <button
-          onClick={handleExport}
-          disabled={!data}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={14} />
-          Export to Excel
-        </button>
         <button
           onClick={refetch}
           disabled={loading}
