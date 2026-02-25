@@ -276,18 +276,40 @@ const InwardReinsuranceList: React.FC = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  // Export button in page header
+  // Stats badges + Export button in page header
   useEffect(() => {
+    const activeCount = contracts.filter(c => c.status === 'ACTIVE' || c.status === 'Active').length;
+    const totalGWP = contracts.reduce((sum, c) => sum + (c.grossPremium || 0), 0);
+    const fmtCompact = (v: number): string => {
+      if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+      return v.toFixed(0);
+    };
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Contracts</span>
+          <span className="text-sm font-bold text-slate-800">{totalCount}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-emerald-600 font-medium">Active</span>
+          <span className="text-sm font-bold text-emerald-800">{activeCount}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-blue-600 font-medium">GWP</span>
+          <span className="text-sm font-bold text-blue-800">{fmtCompact(totalGWP)}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
-  }, [contracts, setHeaderActions]);
+  }, [contracts, totalCount, setHeaderActions]);
 
   return (
     <div>
