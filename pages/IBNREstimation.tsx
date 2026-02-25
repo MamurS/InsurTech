@@ -208,19 +208,42 @@ const IBNREstimation: React.FC = () => {
     }
   };
 
-  // Export button in page header
+  // Stats badges + Export button in page header
   useEffect(() => {
+    const fmtCompact = (v: number): string => {
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+      return '$' + v.toFixed(0);
+    };
+    const lrBg = ultimateLossRatio > 80 ? 'bg-red-50 border-red-200' : ultimateLossRatio > 60 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200';
+    const lrLabel = ultimateLossRatio > 80 ? 'text-red-600' : ultimateLossRatio > 60 ? 'text-amber-600' : 'text-emerald-600';
+    const lrValue = ultimateLossRatio > 80 ? 'text-red-800' : ultimateLossRatio > 60 ? 'text-amber-800' : 'text-emerald-800';
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        disabled={!data}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-amber-600 font-medium">IBNR</span>
+          <span className="text-sm font-bold text-amber-800">{loading ? '…' : fmtCompact(totalIbnr)}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Reported</span>
+          <span className="text-sm font-bold text-slate-800">{loading ? '…' : fmtCompact(totalReported)}</span>
+        </div>
+        <div className={`flex items-center gap-2 ${lrBg} border rounded-lg px-3 py-1.5`}>
+          <span className={`text-xs ${lrLabel} font-medium`}>Ult. LR</span>
+          <span className={`text-sm font-bold ${lrValue}`}>{loading ? '…' : formatPercent(ultimateLossRatio)}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          disabled={!data}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
-  }, [data, activeTab, setHeaderActions]);
+  }, [data, loading, activeTab, totalIbnr, totalReported, ultimateLossRatio, setHeaderActions]);
 
   // ── Error state ──────────────────────────────────────────────
 
@@ -248,50 +271,6 @@ const IBNREstimation: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">IBNR Estimation</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Incurred But Not Reported reserves</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={refetch}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Total IBNR Reserve</p>
-          <p className="text-2xl font-bold text-amber-600 mt-1">{loading ? '-' : formatCurrency(totalIbnr)}</p>
-          <p className="text-xs text-slate-400 mt-1">{activeTab === 'manual' ? 'Manual estimate' : 'BF method'}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Total Reported Claims</p>
-          <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : formatCurrency(totalReported)}</p>
-          <p className="text-xs text-slate-400 mt-1">{data?.claims.totalClaims || 0} claims</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Total Incurred (Reported + IBNR)</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">{loading ? '-' : formatCurrency(totalIncAll)}</p>
-          <p className="text-xs text-slate-400 mt-1">Ultimate losses</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <p className="text-sm font-medium text-slate-500">Ultimate Loss Ratio</p>
-          <p className={`text-2xl font-bold mt-1 ${ultimateLossRatio > 80 ? 'text-red-600' : ultimateLossRatio > 60 ? 'text-amber-600' : 'text-emerald-600'}`}>
-            {loading ? '-' : formatPercent(ultimateLossRatio)}
-          </p>
-          <p className="text-xs text-slate-400 mt-1">(Reported + IBNR) / GPE</p>
-        </div>
-      </div>
-
       {/* Tab Selector */}
       <div className="flex rounded-lg border border-slate-300 overflow-hidden w-fit">
         {TABS.map((tab) => (
