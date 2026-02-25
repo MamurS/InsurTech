@@ -6,29 +6,18 @@ import { DatePickerInput, toISODateString, parseDate } from './DatePickerInput';
 import { useToast } from '../context/ToastContext';
 import {
   Search, ChevronDown, Building2, Loader2, Calendar,
-  Shield, Users, Layers, DollarSign, Lock, Clock, Save, X, Globe, Check
+  Shield, Users, Layers, DollarSign, Lock, Clock, Save, X, Globe, Check,
+  Percent, Plus, Trash2, CreditCard, AlertTriangle, FileText
 } from 'lucide-react';
 
 // ─── Insurance Classification (Uzbekistan) ──────────────────────
 const INSURANCE_CLASSES: Record<string, string> = {
-  '1': 'Accident',
-  '2': 'Sickness',
-  '3': 'Land Transport',
-  '4': 'Railway',
-  '5': 'Aviation',
-  '6': 'Marine',
-  '7': 'Goods in Transit',
-  '8': 'Fire & Natural Disasters',
-  '9': 'Property Damage',
-  '10': 'Motor TPL',
-  '11': 'Aviation Liability',
-  '12': 'Marine Liability',
-  '13': 'General Civil Liability',
-  '14': 'Credit',
-  '15': 'Suretyship',
-  '16': 'Financial Risks',
-  '17': 'Legal Expenses',
-  '18': 'Health',
+  '1': 'Accident', '2': 'Sickness', '3': 'Land Transport', '4': 'Railway',
+  '5': 'Aviation', '6': 'Marine', '7': 'Goods in Transit',
+  '8': 'Fire & Natural Disasters', '9': 'Property Damage', '10': 'Motor TPL',
+  '11': 'Aviation Liability', '12': 'Marine Liability',
+  '13': 'General Civil Liability', '14': 'Credit', '15': 'Suretyship',
+  '16': 'Financial Risks', '17': 'Legal Expenses', '18': 'Health',
 };
 
 // ─── Full Country List ──────────────────────────────────────────
@@ -80,6 +69,29 @@ interface SumInsuredField {
   toggles?: { key: string; label: string }[];
 }
 
+interface DeductibleRow {
+  id: string;
+  description: string;
+  percentage: number;
+  amount: number;
+}
+
+interface PremiumSub {
+  key: string;
+  label: string;
+  rate: number;
+  amount: number;
+  basis: number; // the sum insured this rate applies to
+}
+
+interface Installment {
+  id: string;
+  number: number;
+  amount: number;
+  dueDate: string;
+  status: 'Pending' | 'Paid';
+}
+
 interface FormData {
   // Section 1: Insured
   insuredName: string;
@@ -107,12 +119,33 @@ interface FormData {
   // Section 6: Period
   inceptionDate: string;
   expiryDate: string;
+  // Section 7: Deductibles
+  deductibles: DeductibleRow[];
+  // Section 8: Premium
+  premiumRate: number;
+  grossPremium: number;
+  grossPremiumManual: boolean;
+  commissionPercent: number;
+  commissionAmount: number;
+  netPremium: number;
+  subPremiums: PremiumSub[];
+  // Section 9: Payment Terms
+  paymentType: 'lump_sum' | 'installments';
+  lumpSumDueDate: string;
+  installments: Installment[];
 }
 
 interface NewRequestFormProps {
   onSave: () => void;
   onCancel: () => void;
 }
+
+// ─── Helpers ────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).substring(2, 9);
+
+const fmtNum = (v: number) => v ? v.toLocaleString('en-US', { maximumFractionDigits: 2 }) : '';
+
+const parseNum = (s: string) => Number(s.replace(/[^0-9.]/g, '')) || 0;
 
 // ─── Section Card Wrapper ───────────────────────────────────────
 const SectionCard: React.FC<{
@@ -138,8 +171,6 @@ const SectionCard: React.FC<{
 );
 
 // ─── Searchable Dropdown (strict selection only) ────────────────
-// User types to filter, but MUST select from the dropdown list.
-// Free-text is NOT allowed — this ensures data integrity.
 const SearchableDropdown: React.FC<{
   label: string;
   value: string;
@@ -187,8 +218,6 @@ const SearchableDropdown: React.FC<{
       <label className="block text-sm font-medium text-slate-600 mb-1.5">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-
-      {/* Selected value display / click to open */}
       {!isOpen ? (
         <div
           onClick={handleOpen}
@@ -199,10 +228,7 @@ const SearchableDropdown: React.FC<{
           {value ? (
             <div className="flex items-center justify-between w-full">
               <span className="text-slate-900">{value}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onClear(); }}
-                className="text-slate-400 hover:text-slate-600 ml-2"
-              >
+              <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="text-slate-400 hover:text-slate-600 ml-2">
                 <X size={14} />
               </button>
             </div>
@@ -227,18 +253,12 @@ const SearchableDropdown: React.FC<{
           </div>
         </div>
       )}
-
-      {/* Dropdown list */}
       {isOpen && (
         <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
           {filtered.length > 0 ? filtered.map(opt => (
             <li
               key={opt.id}
-              onClick={() => {
-                onSelect(opt.id, opt.label);
-                setIsOpen(false);
-                setSearchTerm('');
-              }}
+              onClick={() => { onSelect(opt.id, opt.label); setIsOpen(false); setSearchTerm(''); }}
               className={`px-3 py-2 text-sm cursor-pointer border-b border-slate-50 last:border-0 flex items-center gap-2 ${
                 opt.label === value ? 'bg-blue-50 text-blue-700' : 'hover:bg-blue-50'
               }`}
@@ -262,7 +282,7 @@ const SearchableDropdown: React.FC<{
   );
 };
 
-// ─── Product Search (strict selection, loads all products) ──────
+// ─── Product Search (strict selection) ──────────────────────────
 const ProductSearch: React.FC<{
   value: string;
   onSelect: (product: InsuranceProduct) => void;
@@ -276,15 +296,10 @@ const ProductSearch: React.FC<{
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load all active products once
   useEffect(() => {
     if (!supabase) return;
     (async () => {
-      const { data } = await supabase
-        .from('insurance_products')
-        .select('*')
-        .eq('is_active', true)
-        .order('name');
+      const { data } = await supabase.from('insurance_products').select('*').eq('is_active', true).order('name');
       setAllProducts((data as InsuranceProduct[]) || []);
       setLoading(false);
     })();
@@ -292,10 +307,7 @@ const ProductSearch: React.FC<{
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setSearchTerm('');
-      }
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) { setIsOpen(false); setSearchTerm(''); }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -304,24 +316,16 @@ const ProductSearch: React.FC<{
   const filtered = useMemo(() => {
     if (!searchTerm) return allProducts;
     const term = searchTerm.toLowerCase();
-    return allProducts.filter(p =>
-      p.name.toLowerCase().includes(term) ||
-      p.code.toLowerCase().includes(term)
-    );
+    return allProducts.filter(p => p.name.toLowerCase().includes(term) || p.code.toLowerCase().includes(term));
   }, [searchTerm, allProducts]);
 
-  const handleOpen = () => {
-    setIsOpen(true);
-    setSearchTerm('');
-    setTimeout(() => inputRef.current?.focus(), 50);
-  };
+  const handleOpen = () => { setIsOpen(true); setSearchTerm(''); setTimeout(() => inputRef.current?.focus(), 50); };
 
   return (
     <div className="relative" ref={wrapperRef}>
       <label className="block text-sm font-medium text-slate-600 mb-1.5">
         Type of Insurance Cover <span className="text-red-500">*</span>
       </label>
-
       {!isOpen ? (
         <div
           onClick={handleOpen}
@@ -332,63 +336,36 @@ const ProductSearch: React.FC<{
           {value ? (
             <div className="flex items-center justify-between w-full">
               <span className="text-slate-900">{value}</span>
-              <button
-                onClick={(e) => { e.stopPropagation(); onClear(); }}
-                className="text-slate-400 hover:text-slate-600 ml-2"
-              >
-                <X size={14} />
-              </button>
+              <button onClick={(e) => { e.stopPropagation(); onClear(); }} className="text-slate-400 hover:text-slate-600 ml-2"><X size={14} /></button>
             </div>
-          ) : (
-            <span className="text-slate-400">Select insurance product...</span>
-          )}
+          ) : (<span className="text-slate-400">Select insurance product...</span>)}
           <ChevronDown size={14} className="text-slate-400 shrink-0 ml-2" />
         </div>
       ) : (
         <div className="relative">
-          <input
-            ref={inputRef}
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Type to filter products..."
-            autoComplete="off"
-            className="w-full p-2.5 bg-white border border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 pr-8"
-          />
+          <input ref={inputRef} type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Type to filter products..." autoComplete="off"
+            className="w-full p-2.5 bg-white border border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 pr-8" />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
             {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
           </div>
         </div>
       )}
-
       {isOpen && (
         <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
           {filtered.length > 0 ? filtered.map(p => (
-            <li
-              key={p.id}
-              onClick={() => {
-                onSelect(p);
-                setIsOpen(false);
-                setSearchTerm('');
-              }}
-              className={`px-3 py-2 text-sm cursor-pointer border-b border-slate-50 last:border-0 ${
-                p.name === value ? 'bg-blue-50' : 'hover:bg-blue-50'
-              }`}
-            >
+            <li key={p.id} onClick={() => { onSelect(p); setIsOpen(false); setSearchTerm(''); }}
+              className={`px-3 py-2 text-sm cursor-pointer border-b border-slate-50 last:border-0 ${p.name === value ? 'bg-blue-50' : 'hover:bg-blue-50'}`}>
               <div className="flex items-center justify-between">
                 <div>
                   <div className="font-medium text-slate-900">{p.name}</div>
-                  <div className="text-xs text-slate-500">
-                    {p.code} · Classes: {(p.class_codes || []).join(', ')}
-                  </div>
+                  <div className="text-xs text-slate-500">{p.code} · Classes: {(p.class_codes || []).join(', ')}</div>
                 </div>
                 {p.name === value && <Check size={14} className="text-blue-600 shrink-0" />}
               </div>
             </li>
           )) : (
-            <li className="px-3 py-3 text-sm text-slate-500 text-center">
-              {loading ? 'Loading products...' : 'No products found'}
-            </li>
+            <li className="px-3 py-3 text-sm text-slate-500 text-center">{loading ? 'Loading products...' : 'No products found'}</li>
           )}
         </ul>
       )}
@@ -404,94 +381,58 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const [form, setForm] = useState<FormData>({
-    insuredName: '',
-    sector: '',
-    insuredCountry: '',
-    productName: '',
-    classCodes: [],
-    coverSections: null,
-    channel: 'Direct',
-    intermediaryName: '',
-    currency: 'USD',
-    exchangeRate: 1,
-    sumInsuredAmounts: {},
-    sumInsuredToggles: {},
-    totalSumInsured: 0,
-    totalSumInsuredManual: false,
+    insuredName: '', sector: '', insuredCountry: '',
+    productName: '', classCodes: [], coverSections: null,
+    channel: 'Direct', intermediaryName: '',
+    currency: 'USD', exchangeRate: 1,
+    sumInsuredAmounts: {}, sumInsuredToggles: {},
+    totalSumInsured: 0, totalSumInsuredManual: false,
     limitOfLiability: 0,
-    inceptionDate: '',
-    expiryDate: '',
+    inceptionDate: '', expiryDate: '',
+    // Part 2
+    deductibles: [{ id: uid(), description: '', percentage: 0, amount: 0 }],
+    premiumRate: 0, grossPremium: 0, grossPremiumManual: false,
+    commissionPercent: 0, commissionAmount: 0, netPremium: 0,
+    subPremiums: [],
+    paymentType: 'lump_sum', lumpSumDueDate: '',
+    installments: [],
   });
 
   const [fxDisplay, setFxDisplay] = useState('');
 
-  // ─── Entity data for dropdowns ──────────────────────────────
+  // ─── Entity data ────────────────────────────────────────────
   const [entities, setEntities] = useState<LegalEntity[]>([]);
   const [entitiesLoading, setEntitiesLoading] = useState(true);
 
   useEffect(() => {
-    DB.getLegalEntities().then(data => {
-      setEntities(data);
-      setEntitiesLoading(false);
-    }).catch(() => setEntitiesLoading(false));
+    DB.getLegalEntities().then(data => { setEntities(data); setEntitiesLoading(false); }).catch(() => setEntitiesLoading(false));
   }, []);
 
-  // Build entity dropdown options
   const insuredOptions = useMemo(() =>
-    entities.map(e => ({
-      id: e.id,
-      label: e.fullName,
-      sublabel: e.shortName || undefined,
-      icon: <Building2 size={14} className="text-slate-400" />,
-    })), [entities]);
+    entities.map(e => ({ id: e.id, label: e.fullName, sublabel: e.shortName || undefined, icon: <Building2 size={14} className="text-slate-400" /> })), [entities]);
 
   const intermediaryOptions = useMemo(() =>
-    entities
-      .filter(e => e.type === form.channel)
-      .map(e => ({
-        id: e.id,
-        label: e.fullName,
-        sublabel: e.shortName || undefined,
-        icon: <Building2 size={14} className="text-slate-400" />,
-      })), [entities, form.channel]);
+    entities.filter(e => e.type === form.channel).map(e => ({ id: e.id, label: e.fullName, sublabel: e.shortName || undefined, icon: <Building2 size={14} className="text-slate-400" /> })), [entities, form.channel]);
 
-  // Country dropdown options
   const countryOptions = useMemo(() =>
-    COUNTRIES.map(c => ({
-      id: c,
-      label: c,
-      icon: <Globe size={14} className="text-slate-400" />,
-    })), []);
+    COUNTRIES.map(c => ({ id: c, label: c, icon: <Globe size={14} className="text-slate-400" /> })), []);
 
-  // Fetch exchange rate when currency changes
+  // ─── FX Rate ────────────────────────────────────────────────
   useEffect(() => {
-    if (!supabase || form.currency === 'UZS') {
-      setForm(f => ({ ...f, exchangeRate: 1 }));
-      setFxDisplay('');
-      return;
-    }
+    if (!supabase || form.currency === 'UZS') { setForm(f => ({ ...f, exchangeRate: 1 })); setFxDisplay(''); return; }
     (async () => {
       try {
-        const { data } = await supabase
-          .from('fx_rates')
-          .select('rate')
-          .eq('currency', form.currency)
-          .order('date', { ascending: false })
-          .limit(1);
+        const { data } = await supabase.from('fx_rates').select('rate').eq('currency', form.currency).order('date', { ascending: false }).limit(1);
         if (data && data.length > 0) {
           const rate = Number(data[0].rate);
           setForm(f => ({ ...f, exchangeRate: rate }));
           setFxDisplay(`1 ${form.currency} = ${rate.toLocaleString('en-US', { maximumFractionDigits: 2 })} UZS`);
-        } else {
-          setFxDisplay('Rate not found');
-        }
-      } catch {
-        setFxDisplay('Rate lookup failed');
-      }
+        } else { setFxDisplay('Rate not found'); }
+      } catch { setFxDisplay('Rate lookup failed'); }
     })();
   }, [form.currency]);
 
-  // Auto-calculate total sum insured
+  // ─── Auto-calculate total SI ────────────────────────────────
   useEffect(() => {
     if (form.totalSumInsuredManual) return;
     const fields = form.coverSections?.sumInsured || [];
@@ -500,14 +441,54 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
       total += form.sumInsuredAmounts[field.key] || 0;
       if (field.toggles) {
         for (const toggle of field.toggles) {
-          if (form.sumInsuredToggles[toggle.key]) {
-            total += form.sumInsuredAmounts[toggle.key] || 0;
-          }
+          if (form.sumInsuredToggles[toggle.key]) total += form.sumInsuredAmounts[toggle.key] || 0;
         }
       }
     }
     setForm(f => ({ ...f, totalSumInsured: total }));
   }, [form.sumInsuredAmounts, form.sumInsuredToggles, form.coverSections, form.totalSumInsuredManual]);
+
+  // ─── Build sub-premiums from cover sections ─────────────────
+  useEffect(() => {
+    const fields = form.coverSections?.sumInsured || [];
+    const subs: PremiumSub[] = [];
+    for (const field of fields) {
+      const basis = form.sumInsuredAmounts[field.key] || 0;
+      if (basis > 0) {
+        subs.push({ key: field.key, label: field.label, rate: 0, amount: 0, basis });
+      }
+      if (field.toggles) {
+        for (const toggle of field.toggles) {
+          if (form.sumInsuredToggles[toggle.key]) {
+            const tBasis = form.sumInsuredAmounts[toggle.key] || 0;
+            if (tBasis > 0) subs.push({ key: toggle.key, label: toggle.label, rate: 0, amount: 0, basis: tBasis });
+          }
+        }
+      }
+    }
+    // Preserve existing rates/amounts if keys match
+    setForm(f => {
+      const merged = subs.map(s => {
+        const existing = f.subPremiums.find(p => p.key === s.key);
+        return existing ? { ...s, rate: existing.rate, amount: existing.amount } : s;
+      });
+      return { ...f, subPremiums: merged };
+    });
+  }, [form.coverSections, form.sumInsuredAmounts, form.sumInsuredToggles]);
+
+  // ─── Auto-calculate gross premium from sub-premiums ─────────
+  useEffect(() => {
+    if (form.grossPremiumManual || form.subPremiums.length === 0) return;
+    const total = form.subPremiums.reduce((sum, s) => sum + s.amount, 0);
+    if (total > 0) setForm(f => ({ ...f, grossPremium: total }));
+  }, [form.subPremiums, form.grossPremiumManual]);
+
+  // ─── Auto-calculate commission & net premium ────────────────
+  useEffect(() => {
+    const commission = form.grossPremium * (form.commissionPercent / 100);
+    const net = form.grossPremium - commission;
+    setForm(f => ({ ...f, commissionAmount: Math.round(commission * 100) / 100, netPremium: Math.round(net * 100) / 100 }));
+  }, [form.grossPremium, form.commissionPercent]);
 
   // Duration calculation
   const durationDays = (() => {
@@ -518,42 +499,109 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     return diff > 0 ? diff : null;
   })();
 
+  // Installment total vs premium check
+  const installmentTotal = form.installments.reduce((s, i) => s + i.amount, 0);
+  const installmentMismatch = form.paymentType === 'installments' && form.installments.length > 0 && form.grossPremium > 0
+    && Math.abs(installmentTotal - form.grossPremium) > 0.01;
+
   const updateForm = (updates: Partial<FormData>) => setForm(f => ({ ...f, ...updates }));
   const setAmount = (key: string, val: number) => setForm(f => ({ ...f, sumInsuredAmounts: { ...f.sumInsuredAmounts, [key]: val } }));
   const setToggle = (key: string, val: boolean) => setForm(f => ({ ...f, sumInsuredToggles: { ...f.sumInsuredToggles, [key]: val } }));
 
-  // ─── Handlers ───────────────────────────────────────────────
+  // ─── Deductible handlers ────────────────────────────────────
+  const addDeductible = () => {
+    setForm(f => ({ ...f, deductibles: [...f.deductibles, { id: uid(), description: '', percentage: 0, amount: 0 }] }));
+  };
+  const removeDeductible = (id: string) => {
+    setForm(f => ({ ...f, deductibles: f.deductibles.filter(d => d.id !== id) }));
+  };
+  const updateDeductible = (id: string, field: keyof DeductibleRow, value: any) => {
+    setForm(f => ({
+      ...f,
+      deductibles: f.deductibles.map(d => {
+        if (d.id !== id) return d;
+        const updated = { ...d, [field]: value };
+        const basis = f.totalSumInsured || f.limitOfLiability || 0;
+        // Bidirectional: % → amount, amount → %
+        if (field === 'percentage' && basis > 0) {
+          updated.amount = Math.round(basis * (Number(value) / 100) * 100) / 100;
+        } else if (field === 'amount' && basis > 0) {
+          updated.percentage = Math.round((Number(value) / basis) * 10000) / 100;
+        }
+        return updated;
+      }),
+    }));
+  };
+
+  // ─── Sub-premium handlers ───────────────────────────────────
+  const updateSubPremium = (key: string, field: 'rate' | 'amount', value: number) => {
+    setForm(f => ({
+      ...f,
+      subPremiums: f.subPremiums.map(s => {
+        if (s.key !== key) return s;
+        const updated = { ...s, [field]: value };
+        if (field === 'rate' && s.basis > 0) {
+          updated.amount = Math.round(s.basis * (value / 100) * 100) / 100;
+        } else if (field === 'amount' && s.basis > 0) {
+          updated.rate = Math.round((value / s.basis) * 10000) / 100;
+        }
+        return updated;
+      }),
+    }));
+  };
+
+  // ─── Installment handlers ───────────────────────────────────
+  const addInstallment = () => {
+    const num = form.installments.length + 1;
+    setForm(f => ({
+      ...f,
+      installments: [...f.installments, { id: uid(), number: num, amount: 0, dueDate: '', status: 'Pending' as const }],
+    }));
+  };
+  const removeInstallment = (id: string) => {
+    setForm(f => ({
+      ...f,
+      installments: f.installments.filter(i => i.id !== id).map((inst, idx) => ({ ...inst, number: idx + 1 })),
+    }));
+  };
+  const updateInstallment = (id: string, field: keyof Installment, value: any) => {
+    setForm(f => ({
+      ...f,
+      installments: f.installments.map(i => i.id === id ? { ...i, [field]: value } : i),
+    }));
+  };
+  const splitEqual = () => {
+    if (form.grossPremium <= 0 || form.installments.length === 0) return;
+    const each = Math.round((form.grossPremium / form.installments.length) * 100) / 100;
+    setForm(f => ({
+      ...f,
+      installments: f.installments.map((inst, idx) => ({
+        ...inst,
+        amount: idx === f.installments.length - 1 ? Math.round((f.grossPremium - each * (f.installments.length - 1)) * 100) / 100 : each,
+      })),
+    }));
+  };
+
+  // ─── Entity handlers ────────────────────────────────────────
   const handleInsuredSelect = (entityId: string, _label: string) => {
     const entity = entities.find(e => e.id === entityId);
     if (!entity) return;
-    updateForm({
-      insuredName: entity.fullName,
-      insuredEntityId: entity.id,
-      sector: entity.lineOfBusiness || '',
-      insuredCountry: entity.country || '',
-    });
+    updateForm({ insuredName: entity.fullName, insuredEntityId: entity.id, sector: entity.lineOfBusiness || '', insuredCountry: entity.country || '' });
   };
 
   const handleProductSelect = (product: InsuranceProduct) => {
     updateForm({
-      productId: product.id,
-      productName: product.name,
-      classCodes: product.class_codes || [],
+      productId: product.id, productName: product.name, classCodes: product.class_codes || [],
       coverSections: product.cover_sections as CoverSections | null,
-      sumInsuredAmounts: {},
-      sumInsuredToggles: {},
-      totalSumInsured: 0,
-      totalSumInsuredManual: false,
+      sumInsuredAmounts: {}, sumInsuredToggles: {}, totalSumInsured: 0, totalSumInsuredManual: false,
+      subPremiums: [], grossPremium: 0, grossPremiumManual: false, premiumRate: 0,
     });
   };
 
   const handleIntermediarySelect = (entityId: string, _label: string) => {
     const entity = entities.find(e => e.id === entityId);
     if (!entity) return;
-    updateForm({
-      intermediaryName: entity.fullName,
-      intermediaryEntityId: entity.id,
-    });
+    updateForm({ intermediaryName: entity.fullName, intermediaryEntityId: entity.id });
   };
 
   // ─── Save ───────────────────────────────────────────────────
@@ -566,16 +614,23 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     if ((form.channel === 'Broker' || form.channel === 'Agent') && !form.intermediaryEntityId) {
       newErrors.intermediaryName = 'Please select from the list';
     }
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); toast.error('Please fill in all required fields'); return; }
     setErrors({});
     setSaving(true);
 
     try {
       if (!supabase) throw new Error('Database not connected');
+
+      // Build deductible text summary
+      const deductibleText = form.deductibles
+        .filter(d => d.description || d.amount > 0)
+        .map(d => `${d.description}: ${d.percentage}% / ${fmtNum(d.amount)} ${form.currency}`)
+        .join('; ');
+
+      // Build installments JSON
+      const installmentsJson = form.paymentType === 'installments'
+        ? form.installments.map(i => ({ number: i.number, amount: i.amount, dueDate: i.dueDate, status: i.status }))
+        : [];
 
       const policyData = {
         insuredName: form.insuredName,
@@ -594,8 +649,19 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         limitNationalCurrency: form.limitOfLiability * form.exchangeRate,
         inceptionDate: form.inceptionDate,
         expiryDate: form.expiryDate,
-        status: PolicyStatus.DRAFT,
+        // Premium fields
+        premiumRate: form.premiumRate,
+        grossPremium: form.grossPremium,
+        premiumNationalCurrency: form.grossPremium * form.exchangeRate,
+        commissionPercent: form.commissionPercent,
+        netPremium: form.netPremium,
+        deductible: deductibleText || null,
+        // Payment
         paymentStatus: PaymentStatus.PENDING,
+        paymentDate: form.paymentType === 'lump_sum' ? form.lumpSumDueDate || null : null,
+        installments: installmentsJson,
+        // Meta
+        status: PolicyStatus.DRAFT,
         recordType: 'Direct',
         ourShare: 100,
         isDeleted: false,
@@ -614,28 +680,25 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     }
   };
 
-  // ─── Amount Input with proper currency badge ────────────────
-  const AmountInput: React.FC<{ label: string; amountKey: string; indent?: boolean }> = ({ label, amountKey, indent }) => (
-    <div className={`flex items-center gap-3 ${indent ? 'ml-6' : ''}`}>
-      {indent && <span className="text-slate-300 text-xs">├</span>}
-      <label className="text-sm text-slate-600 w-48 shrink-0">{label}</label>
-      <div className="relative flex-1 max-w-xs">
-        <input
-          type="text"
-          inputMode="numeric"
-          value={form.sumInsuredAmounts[amountKey] ? Number(form.sumInsuredAmounts[amountKey]).toLocaleString('en-US') : ''}
-          onChange={(e) => {
-            const raw = e.target.value.replace(/[^0-9.]/g, '');
-            setAmount(amountKey, Number(raw) || 0);
-          }}
-          onWheel={(e) => (e.target as HTMLInputElement).blur()}
-          placeholder="0"
-          className="w-full p-2 pr-16 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-        />
-        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
-          {form.currency}
-        </span>
-      </div>
+  // ─── Currency Badge Amount Input ────────────────────────────
+  const CurrencyInput: React.FC<{
+    value: number; onChange: (v: number) => void; placeholder?: string;
+    bold?: boolean; bgClass?: string; borderClass?: string;
+  }> = ({ value, onChange, placeholder = '0', bold, bgClass = '', borderClass = 'border-slate-300' }) => (
+    <div className="relative flex-1 max-w-xs">
+      <input
+        type="text" inputMode="numeric"
+        value={value ? fmtNum(value) : ''}
+        onChange={(e) => onChange(parseNum(e.target.value))}
+        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+        placeholder={placeholder}
+        className={`w-full p-2 pr-16 border rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none ${bold ? 'font-bold' : ''} ${bgClass} ${borderClass}`}
+      />
+      <span className={`absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium px-1.5 py-0.5 rounded select-none pointer-events-none ${
+        bold ? 'text-blue-600 bg-blue-100 font-bold' : 'text-slate-500 bg-slate-100'
+      }`}>
+        {form.currency}
+      </span>
     </div>
   );
 
@@ -644,35 +707,23 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
 
   return (
     <div className="space-y-5 pb-24">
-      {/* Section 1: Insured Party */}
+      {/* ══════ Section 1: Insured Party ══════ */}
       <SectionCard number={1} title="Insured Party" icon={<Users size={16} />}>
         <SearchableDropdown
-          label="Insured Name"
-          value={form.insuredName}
-          options={insuredOptions}
+          label="Insured Name" value={form.insuredName} options={insuredOptions}
           onSelect={handleInsuredSelect}
           onClear={() => updateForm({ insuredName: '', insuredEntityId: undefined, sector: '', insuredCountry: '' })}
-          required
-          placeholder="Search for insured entity..."
-          loading={entitiesLoading}
-          error={errors.insuredName}
+          required placeholder="Search for insured entity..." loading={entitiesLoading} error={errors.insuredName}
         />
-
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Sector / Industry</label>
-            <input
-              type="text"
-              value={form.sector}
-              onChange={(e) => updateForm({ sector: e.target.value })}
+            <input type="text" value={form.sector} onChange={(e) => updateForm({ sector: e.target.value })}
               placeholder="e.g. Oil & Gas, Agriculture..."
-              className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
+              className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
           <SearchableDropdown
-            label="Country"
-            value={form.insuredCountry}
-            options={countryOptions}
+            label="Country" value={form.insuredCountry} options={countryOptions}
             onSelect={(_id, label) => updateForm({ insuredCountry: label })}
             onClear={() => updateForm({ insuredCountry: '' })}
             placeholder="Select country..."
@@ -680,15 +731,11 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         </div>
       </SectionCard>
 
-      {/* Section 2: Insurance Cover */}
+      {/* ══════ Section 2: Insurance Cover ══════ */}
       <SectionCard number={2} title="Insurance Cover" icon={<Shield size={16} />}>
-        <ProductSearch
-          value={form.productName}
-          onSelect={handleProductSelect}
+        <ProductSearch value={form.productName} onSelect={handleProductSelect}
           onClear={() => updateForm({ productName: '', productId: undefined, classCodes: [], coverSections: null })}
-          error={errors.productName}
-        />
-
+          error={errors.productName} />
         {form.classCodes.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Class of Insurance</label>
@@ -703,51 +750,36 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         )}
       </SectionCard>
 
-      {/* Section 3: Channel & Intermediary */}
+      {/* ══════ Section 3: Channel & Intermediary ══════ */}
       <SectionCard number={3} title="Channel & Intermediary" icon={<Layers size={16} />}>
         <div>
-          <label className="block text-sm font-medium text-slate-600 mb-1.5">
-            Channel <span className="text-red-500">*</span>
-          </label>
-          <select
-            value={form.channel}
-            onChange={(e) => updateForm({ channel: e.target.value as any, intermediaryName: '', intermediaryEntityId: undefined })}
-            className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          >
+          <label className="block text-sm font-medium text-slate-600 mb-1.5">Channel <span className="text-red-500">*</span></label>
+          <select value={form.channel} onChange={(e) => updateForm({ channel: e.target.value as any, intermediaryName: '', intermediaryEntityId: undefined })}
+            className="w-full p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
             <option value="Direct">Direct</option>
             <option value="Broker">Broker</option>
             <option value="Agent">Agent</option>
           </select>
         </div>
-
         {(form.channel === 'Broker' || form.channel === 'Agent') && (
           <SearchableDropdown
-            label={`${form.channel} Name`}
-            value={form.intermediaryName}
-            options={intermediaryOptions}
+            label={`${form.channel} Name`} value={form.intermediaryName} options={intermediaryOptions}
             onSelect={handleIntermediarySelect}
             onClear={() => updateForm({ intermediaryName: '', intermediaryEntityId: undefined })}
-            required
-            placeholder={`Search for ${form.channel.toLowerCase()}...`}
-            loading={entitiesLoading}
-            error={errors.intermediaryName}
+            required placeholder={`Search for ${form.channel.toLowerCase()}...`}
+            loading={entitiesLoading} error={errors.intermediaryName}
           />
         )}
       </SectionCard>
 
-      {/* Section 4: Sums Insured */}
+      {/* ══════ Section 4: Sums Insured ══════ */}
       <SectionCard number={4} title="Sums Insured" icon={<DollarSign size={16} />}>
         <div className="flex items-center gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Currency</label>
-            <select
-              value={form.currency}
-              onChange={(e) => updateForm({ currency: e.target.value })}
-              className="p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-[100px]"
-            >
-              {Object.values(Currency).map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+            <select value={form.currency} onChange={(e) => updateForm({ currency: e.target.value })}
+              className="p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-[100px]">
+              {Object.values(Currency).map(c => (<option key={c} value={c}>{c}</option>))}
             </select>
           </div>
           {fxDisplay && (
@@ -761,29 +793,33 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
           <div className="space-y-3 mt-2">
             {sumInsuredFields.map(field => (
               <div key={field.key} className="space-y-2">
-                <AmountInput label={field.label} amountKey={field.key} />
-
-                {/* Toggles (e.g. Business Interruption) */}
+                <div className="flex items-center gap-3">
+                  <label className="text-sm text-slate-600 w-48 shrink-0">{field.label}</label>
+                  <CurrencyInput value={form.sumInsuredAmounts[field.key] || 0} onChange={(v) => setAmount(field.key, v)} />
+                </div>
                 {field.toggles?.map(toggle => (
                   <div key={toggle.key} className="ml-6 space-y-1">
                     <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={form.sumInsuredToggles[toggle.key] || false}
+                      <input type="checkbox" checked={form.sumInsuredToggles[toggle.key] || false}
                         onChange={(e) => setToggle(toggle.key, e.target.checked)}
-                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                      />
+                        className="rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
                       {toggle.label}
                     </label>
                     {form.sumInsuredToggles[toggle.key] && (
-                      <AmountInput label={toggle.label} amountKey={toggle.key} indent />
+                      <div className="flex items-center gap-3 ml-6">
+                        <span className="text-slate-300 text-xs">├</span>
+                        <label className="text-sm text-slate-600 w-48 shrink-0">{toggle.label}</label>
+                        <CurrencyInput value={form.sumInsuredAmounts[toggle.key] || 0} onChange={(v) => setAmount(toggle.key, v)} />
+                      </div>
                     )}
                   </div>
                 ))}
-
-                {/* Sub-limits (e.g. Buildings, Machinery) */}
                 {field.hasSubLimits && field.subLimits?.map(sub => (
-                  <AmountInput key={sub.key} label={sub.label} amountKey={sub.key} indent />
+                  <div key={sub.key} className="flex items-center gap-3 ml-6">
+                    <span className="text-slate-300 text-xs">├</span>
+                    <label className="text-sm text-slate-600 w-48 shrink-0">{sub.label}</label>
+                    <CurrencyInput value={form.sumInsuredAmounts[sub.key] || 0} onChange={(v) => setAmount(sub.key, v)} />
+                  </div>
                 ))}
               </div>
             ))}
@@ -791,88 +827,34 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         ) : (
           <div className="flex items-center gap-3">
             <label className="text-sm text-slate-600 w-48 shrink-0">Sum Insured</label>
-            <div className="relative flex-1 max-w-xs">
-              <input
-                type="text"
-                inputMode="numeric"
-                value={form.totalSumInsured ? Number(form.totalSumInsured).toLocaleString('en-US') : ''}
-                onChange={(e) => {
-                  const raw = e.target.value.replace(/[^0-9.]/g, '');
-                  updateForm({ totalSumInsured: Number(raw) || 0, totalSumInsuredManual: true });
-                }}
-                onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                placeholder="0"
-                className="w-full p-2 pr-16 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
-                {form.currency}
-              </span>
-            </div>
+            <CurrencyInput value={form.totalSumInsured} onChange={(v) => updateForm({ totalSumInsured: v, totalSumInsuredManual: true })} />
           </div>
         )}
 
-        {/* Total */}
         <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
           <label className="text-sm font-semibold text-slate-700 w-48 shrink-0">Total Sum Insured</label>
-          <div className="relative flex-1 max-w-xs">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={form.totalSumInsured ? Number(form.totalSumInsured).toLocaleString('en-US') : ''}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/[^0-9.]/g, '');
-                updateForm({ totalSumInsured: Number(raw) || 0, totalSumInsuredManual: true });
-              }}
-              onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              className="w-full p-2 pr-16 border-2 border-blue-200 bg-blue-50/50 rounded-lg text-sm text-right font-bold text-blue-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
-              {form.currency}
-            </span>
-          </div>
+          <CurrencyInput value={form.totalSumInsured}
+            onChange={(v) => updateForm({ totalSumInsured: v, totalSumInsuredManual: true })}
+            bold bgClass="bg-blue-50/50" borderClass="border-2 border-blue-200" />
         </div>
       </SectionCard>
 
-      {/* Section 5: Limit of Liability */}
+      {/* ══════ Section 5: Limit of Liability ══════ */}
       <SectionCard number={5} title="Limit of Liability" icon={<Lock size={16} />}>
         <div className="flex items-center gap-3">
           <label className="text-sm text-slate-600 w-48 shrink-0">Limit of Liability</label>
-          <div className="relative flex-1 max-w-xs">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={form.limitOfLiability ? Number(form.limitOfLiability).toLocaleString('en-US') : ''}
-              onChange={(e) => {
-                const raw = e.target.value.replace(/[^0-9.]/g, '');
-                updateForm({ limitOfLiability: Number(raw) || 0 });
-              }}
-              onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              placeholder="0"
-              className="w-full p-2 pr-16 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
-              {form.currency}
-            </span>
-          </div>
+          <CurrencyInput value={form.limitOfLiability} onChange={(v) => updateForm({ limitOfLiability: v })} />
         </div>
       </SectionCard>
 
-      {/* Section 6: Insurance Period */}
+      {/* ══════ Section 6: Insurance Period ══════ */}
       <SectionCard number={6} title="Insurance Period" icon={<Clock size={16} />}>
         <div className="grid grid-cols-3 gap-4">
-          <DatePickerInput
-            label="Inception Date"
-            value={parseDate(form.inceptionDate)}
-            onChange={(d) => updateForm({ inceptionDate: toISODateString(d) || '' })}
-            required
-          />
-          <DatePickerInput
-            label="Expiry Date"
-            value={parseDate(form.expiryDate)}
-            onChange={(d) => updateForm({ expiryDate: toISODateString(d) || '' })}
-            required
-            minDate={parseDate(form.inceptionDate) || undefined}
-          />
+          <DatePickerInput label="Inception Date" value={parseDate(form.inceptionDate)}
+            onChange={(d) => updateForm({ inceptionDate: toISODateString(d) || '' })} required />
+          <DatePickerInput label="Expiry Date" value={parseDate(form.expiryDate)}
+            onChange={(d) => updateForm({ expiryDate: toISODateString(d) || '' })} required
+            minDate={parseDate(form.inceptionDate) || undefined} />
           <div>
             <label className="block text-sm font-medium text-slate-600 mb-1.5">Duration</label>
             <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-700 font-medium">
@@ -884,25 +866,273 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         {errors.expiryDate && <p className="text-red-500 text-xs">{errors.expiryDate}</p>}
       </SectionCard>
 
-      {/* Sticky Footer */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg">
-        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
-          <div className="text-xs text-slate-400">
-            {form.productName && <span>Product: {form.productName}</span>}
-            {form.totalSumInsured > 0 && <span className="ml-4">Total SI: {form.totalSumInsured.toLocaleString()} {form.currency}</span>}
+      {/* ══════ Section 7: Deductibles ══════ */}
+      <SectionCard number={7} title="Deductibles" icon={<Percent size={16} />}>
+        <div className="space-y-3">
+          {form.deductibles.map((ded, idx) => (
+            <div key={ded.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="flex-1 grid grid-cols-3 gap-3">
+                {/* Description */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Type / Description</label>
+                  <input type="text" value={ded.description}
+                    onChange={(e) => updateDeductible(ded.id, 'description', e.target.value)}
+                    placeholder="e.g. All Perils, Fire, Flood..."
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                </div>
+                {/* Percentage */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Percentage</label>
+                  <div className="relative">
+                    <input type="text" inputMode="numeric"
+                      value={ded.percentage || ''}
+                      onChange={(e) => updateDeductible(ded.id, 'percentage', parseNum(e.target.value))}
+                      placeholder="0"
+                      className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+                  </div>
+                </div>
+                {/* Amount */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
+                  <CurrencyInput value={ded.amount} onChange={(v) => updateDeductible(ded.id, 'amount', v)} />
+                </div>
+              </div>
+              {/* Remove button */}
+              {form.deductibles.length > 1 && (
+                <button onClick={() => removeDeductible(ded.id)}
+                  className="mt-6 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <button onClick={addDeductible}
+          className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium mt-1">
+          <Plus size={14} /> Add Deductible
+        </button>
+        {(form.totalSumInsured > 0 || form.limitOfLiability > 0) && (
+          <p className="text-xs text-slate-400 mt-1">
+            Auto-calculation basis: {form.totalSumInsured > 0 ? `Total SI ${fmtNum(form.totalSumInsured)}` : `LoL ${fmtNum(form.limitOfLiability)}`} {form.currency}
+          </p>
+        )}
+      </SectionCard>
+
+      {/* ══════ Section 8: Insurance Premium ══════ */}
+      <SectionCard number={8} title="Insurance Premium" icon={<FileText size={16} />}>
+        {/* Sub-premiums (if cover sections have amounts) */}
+        {form.subPremiums.length > 0 && (
+          <div className="space-y-2 mb-4">
+            <label className="block text-sm font-medium text-slate-600">Sub-Premiums</label>
+            <div className="space-y-2">
+              {form.subPremiums.map(sub => (
+                <div key={sub.key} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <label className="text-sm text-slate-600 w-40 shrink-0 truncate" title={sub.label}>{sub.label}</label>
+                  {/* Rate */}
+                  <div className="relative w-28 shrink-0">
+                    <input type="text" inputMode="numeric"
+                      value={sub.rate || ''}
+                      onChange={(e) => updateSubPremium(sub.key, 'rate', parseNum(e.target.value))}
+                      placeholder="Rate"
+                      className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+                  </div>
+                  <span className="text-slate-300 text-xs">=</span>
+                  {/* Amount */}
+                  <CurrencyInput value={sub.amount} onChange={(v) => updateSubPremium(sub.key, 'amount', v)} />
+                  {/* Basis hint */}
+                  <span className="text-xs text-slate-400 shrink-0 hidden lg:block">
+                    of {fmtNum(sub.basis)}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+        )}
+
+        {/* Total Premium Rate + Amount */}
+        <div className="flex items-center gap-3">
+          <label className="text-sm font-semibold text-slate-700 w-40 shrink-0">Gross Premium</label>
+          <div className="relative w-28 shrink-0">
+            <input type="text" inputMode="numeric"
+              value={form.premiumRate || ''}
+              onChange={(e) => {
+                const rate = parseNum(e.target.value);
+                const basis = form.totalSumInsured || form.limitOfLiability || 0;
+                const amount = basis > 0 ? Math.round(basis * (rate / 100) * 100) / 100 : 0;
+                updateForm({ premiumRate: rate, grossPremium: amount, grossPremiumManual: false });
+              }}
+              placeholder="Rate"
+              className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+          </div>
+          <span className="text-slate-300 text-xs">=</span>
+          <CurrencyInput value={form.grossPremium}
+            onChange={(v) => {
+              const basis = form.totalSumInsured || form.limitOfLiability || 0;
+              const rate = basis > 0 ? Math.round((v / basis) * 10000) / 100 : 0;
+              updateForm({ grossPremium: v, premiumRate: rate, grossPremiumManual: true });
+            }}
+            bold bgClass="bg-blue-50/50" borderClass="border-2 border-blue-200" />
+        </div>
+
+        {/* Commission */}
+        <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
+          <label className="text-sm text-slate-600 w-40 shrink-0">Commission</label>
+          <div className="relative w-28 shrink-0">
+            <input type="text" inputMode="numeric"
+              value={form.commissionPercent || ''}
+              onChange={(e) => updateForm({ commissionPercent: parseNum(e.target.value) })}
+              placeholder="0"
+              className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+          </div>
+          <span className="text-slate-300 text-xs">=</span>
+          <div className="relative flex-1 max-w-xs">
+            <div className="w-full p-2 pr-16 border border-slate-200 bg-slate-50 rounded-lg text-sm text-right text-slate-700">
+              {fmtNum(form.commissionAmount) || '0'}
+            </div>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+              {form.currency}
+            </span>
+          </div>
+        </div>
+
+        {/* Net Premium */}
+        <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
+          <label className="text-sm font-semibold text-slate-700 w-40 shrink-0">Net Premium</label>
+          <div className="w-28 shrink-0" /> {/* spacer */}
+          <span className="text-transparent text-xs">=</span>
+          <div className="relative flex-1 max-w-xs">
+            <div className="w-full p-2 pr-16 border-2 border-emerald-200 bg-emerald-50/50 rounded-lg text-sm text-right font-bold text-emerald-800">
+              {fmtNum(form.netPremium) || '0'}
+            </div>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+              {form.currency}
+            </span>
+          </div>
+        </div>
+      </SectionCard>
+
+      {/* ══════ Section 9: Payment Terms ══════ */}
+      <SectionCard number={9} title="Payment Terms" icon={<CreditCard size={16} />}>
+        {/* Payment type toggle */}
+        <div>
+          <label className="block text-sm font-medium text-slate-600 mb-2">Payment Type</label>
+          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
             <button
-              onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+              onClick={() => updateForm({ paymentType: 'lump_sum' })}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                form.paymentType === 'lump_sum' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
             >
-              Cancel
+              Lump Sum
             </button>
             <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors"
+              onClick={() => updateForm({ paymentType: 'installments' })}
+              className={`px-4 py-2 text-sm font-medium transition-colors border-l border-slate-300 ${
+                form.paymentType === 'installments' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
             >
+              Installments
+            </button>
+          </div>
+        </div>
+
+        {form.paymentType === 'lump_sum' ? (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-600 mb-1.5">Amount</label>
+              <div className="relative">
+                <div className="w-full p-2.5 pr-16 border border-slate-200 bg-slate-50 rounded-lg text-sm text-right font-medium text-slate-700">
+                  {fmtNum(form.grossPremium) || '0'}
+                </div>
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+                  {form.currency}
+                </span>
+              </div>
+            </div>
+            <DatePickerInput label="Due Date" value={parseDate(form.lumpSumDueDate)}
+              onChange={(d) => updateForm({ lumpSumDueDate: toISODateString(d) || '' })} />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {/* Installment rows */}
+            {form.installments.map((inst) => (
+              <div key={inst.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <span className="text-xs font-bold text-slate-500 w-6 text-center">#{inst.number}</span>
+                <div className="flex-1 grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
+                    <CurrencyInput value={inst.amount}
+                      onChange={(v) => updateInstallment(inst.id, 'amount', v)} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Due Date</label>
+                    <DatePickerInput label="" value={parseDate(inst.dueDate)}
+                      onChange={(d) => updateInstallment(inst.id, 'dueDate', toISODateString(d) || '')} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
+                    <select value={inst.status}
+                      onChange={(e) => updateInstallment(inst.id, 'status', e.target.value)}
+                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                      <option value="Pending">Pending</option>
+                      <option value="Paid">Paid</option>
+                    </select>
+                  </div>
+                </div>
+                <button onClick={() => removeInstallment(inst.id)}
+                  className="mt-4 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))}
+
+            {/* Actions row */}
+            <div className="flex items-center gap-3">
+              <button onClick={addInstallment}
+                className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-medium">
+                <Plus size={14} /> Add Installment
+              </button>
+              {form.installments.length >= 2 && form.grossPremium > 0 && (
+                <button onClick={splitEqual}
+                  className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-700 font-medium ml-4">
+                  Split Equally
+                </button>
+              )}
+            </div>
+
+            {/* Mismatch warning */}
+            {installmentMismatch && (
+              <div className="flex items-center gap-2 p-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-700">
+                <AlertTriangle size={14} className="shrink-0" />
+                <span>
+                  Installments total <strong>{fmtNum(installmentTotal)} {form.currency}</strong> ≠ Gross Premium <strong>{fmtNum(form.grossPremium)} {form.currency}</strong>
+                  {' '}(difference: {fmtNum(Math.abs(installmentTotal - form.grossPremium))})
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* ══════ Sticky Footer ══════ */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 shadow-lg">
+        <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+          <div className="text-xs text-slate-400 flex items-center gap-4">
+            {form.productName && <span>Product: {form.productName}</span>}
+            {form.totalSumInsured > 0 && <span>SI: {fmtNum(form.totalSumInsured)} {form.currency}</span>}
+            {form.grossPremium > 0 && <span>Premium: {fmtNum(form.grossPremium)} {form.currency}</span>}
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={onCancel}
+              className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors">
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={saving}
+              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-colors">
               {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Save as Draft
             </button>
