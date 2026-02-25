@@ -887,20 +887,24 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
       {/* ══════ Section 7: Deductibles ══════ */}
       <SectionCard number={7} title="Deductibles" icon={<Percent size={16} />}>
         <div className="space-y-3">
-          {form.deductibles.map((ded, idx) => (
-            <div key={ded.id} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex-1 grid grid-cols-3 gap-3">
+          {/* Column headers */}
+          <div className="grid grid-cols-12 gap-3 px-3">
+            <div className="col-span-5 text-xs font-medium text-slate-500">Type / Description</div>
+            <div className="col-span-3 text-xs font-medium text-slate-500">Percentage</div>
+            <div className="col-span-4 text-xs font-medium text-slate-500">Amount</div>
+          </div>
+          {form.deductibles.map((ded) => (
+            <div key={ded.id} className="flex items-center gap-2">
+              <div className="flex-1 grid grid-cols-12 gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                 {/* Description */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Type / Description</label>
+                <div className="col-span-5">
                   <input type="text" value={ded.description}
                     onChange={(e) => updateDeductible(ded.id, 'description', e.target.value)}
                     placeholder="e.g. All Perils, Fire, Flood..."
                     className="w-full p-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
                 </div>
                 {/* Percentage */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Percentage</label>
+                <div className="col-span-3">
                   <div className="relative">
                     <input type="text" inputMode="numeric"
                       value={ded.percentage || ''}
@@ -911,18 +915,17 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                   </div>
                 </div>
                 {/* Amount */}
-                <div>
-                  <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
+                <div className="col-span-4">
                   <CurrencyInput currency={form.currency} value={ded.amount} onChange={(v) => updateDeductible(ded.id, 'amount', v)} />
                 </div>
               </div>
               {/* Remove button */}
-              {form.deductibles.length > 1 && (
+              {form.deductibles.length > 1 ? (
                 <button onClick={() => removeDeductible(ded.id)}
-                  className="mt-6 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                  className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0">
                   <Trash2 size={14} />
                 </button>
-              )}
+              ) : <div className="w-8 shrink-0" />}
             </div>
           ))}
         </div>
@@ -943,24 +946,31 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         {form.subPremiums.length > 0 && (
           <div className="space-y-2 mb-4">
             <label className="block text-sm font-medium text-slate-600">Sub-Premiums</label>
+            {/* Header row */}
+            <div className="grid grid-cols-12 gap-3 px-3">
+              <div className="col-span-4 text-xs font-medium text-slate-500">Cover Section</div>
+              <div className="col-span-2 text-xs font-medium text-slate-500">Rate</div>
+              <div className="col-span-1" />
+              <div className="col-span-4 text-xs font-medium text-slate-500">Premium Amount</div>
+              <div className="col-span-1 text-xs font-medium text-slate-500">Basis</div>
+            </div>
             <div className="space-y-2">
               {form.subPremiums.map(sub => (
-                <div key={sub.key} className="flex items-center gap-3 p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                  <label className="text-sm text-slate-600 w-40 shrink-0 truncate" title={sub.label}>{sub.label}</label>
-                  {/* Rate */}
-                  <div className="relative w-28 shrink-0">
+                <div key={sub.key} className="grid grid-cols-12 gap-3 items-center p-2.5 bg-slate-50 rounded-lg border border-slate-200">
+                  <label className="col-span-4 text-sm text-slate-600 truncate" title={sub.label}>{sub.label}</label>
+                  <div className="col-span-2 relative">
                     <input type="text" inputMode="numeric"
                       value={sub.rate || ''}
                       onChange={(e) => updateSubPremium(sub.key, 'rate', parseNum(e.target.value))}
-                      placeholder="Rate"
-                      className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+                      placeholder="0"
+                      className="w-full p-2 pr-7 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
                   </div>
-                  <span className="text-slate-300 text-xs">=</span>
-                  {/* Amount */}
-                  <CurrencyInput currency={form.currency} value={sub.amount} onChange={(v) => updateSubPremium(sub.key, 'amount', v)} />
-                  {/* Basis hint */}
-                  <span className="text-xs text-slate-400 shrink-0 hidden lg:block">
+                  <span className="col-span-1 text-slate-300 text-xs text-center">=</span>
+                  <div className="col-span-4">
+                    <CurrencyInput currency={form.currency} value={sub.amount} onChange={(v) => updateSubPremium(sub.key, 'amount', v)} />
+                  </div>
+                  <span className="col-span-1 text-xs text-slate-400 truncate" title={`of ${fmtNum(sub.basis)}`}>
                     of {fmtNum(sub.basis)}
                   </span>
                 </div>
@@ -969,10 +979,10 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
           </div>
         )}
 
-        {/* Total Premium Rate + Amount */}
-        <div className="flex items-center gap-3">
-          <label className="text-sm font-semibold text-slate-700 w-40 shrink-0">Gross Premium</label>
-          <div className="relative w-28 shrink-0">
+        {/* Gross Premium */}
+        <div className="grid grid-cols-12 gap-3 items-center">
+          <label className="col-span-4 text-sm font-semibold text-slate-700">Gross Premium</label>
+          <div className="col-span-2 relative">
             <input type="text" inputMode="numeric"
               value={form.premiumRate || ''}
               onChange={(e) => {
@@ -981,33 +991,35 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
                 const amount = basis > 0 ? Math.round(basis * (rate / 100) * 100) / 100 : 0;
                 updateForm({ premiumRate: rate, grossPremium: amount, grossPremiumManual: false });
               }}
-              placeholder="Rate"
-              className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+              placeholder="0"
+              className="w-full p-2 pr-7 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
           </div>
-          <span className="text-slate-300 text-xs">=</span>
-          <CurrencyInput currency={form.currency} value={form.grossPremium}
-            onChange={(v) => {
-              const basis = form.totalSumInsured || form.limitOfLiability || 0;
-              const rate = basis > 0 ? Math.round((v / basis) * 10000) / 100 : 0;
-              updateForm({ grossPremium: v, premiumRate: rate, grossPremiumManual: true });
-            }}
-            bold bgClass="bg-blue-50/50" borderClass="border-2 border-blue-200" />
+          <span className="col-span-1 text-slate-300 text-xs text-center">=</span>
+          <div className="col-span-5">
+            <CurrencyInput currency={form.currency} value={form.grossPremium}
+              onChange={(v) => {
+                const basis = form.totalSumInsured || form.limitOfLiability || 0;
+                const rate = basis > 0 ? Math.round((v / basis) * 10000) / 100 : 0;
+                updateForm({ grossPremium: v, premiumRate: rate, grossPremiumManual: true });
+              }}
+              bold bgClass="bg-blue-50/50" borderClass="border-2 border-blue-200" />
+          </div>
         </div>
 
         {/* Commission */}
-        <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
-          <label className="text-sm text-slate-600 w-40 shrink-0">Commission</label>
-          <div className="relative w-28 shrink-0">
+        <div className="grid grid-cols-12 gap-3 items-center pt-3 border-t border-slate-100">
+          <label className="col-span-4 text-sm text-slate-600">Commission</label>
+          <div className="col-span-2 relative">
             <input type="text" inputMode="numeric"
               value={form.commissionPercent || ''}
               onChange={(e) => updateForm({ commissionPercent: parseNum(e.target.value) })}
               placeholder="0"
-              className="w-full p-2 pr-8 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
+              className="w-full p-2 pr-7 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">%</span>
           </div>
-          <span className="text-slate-300 text-xs">=</span>
-          <div className="relative flex-1 max-w-xs">
+          <span className="col-span-1 text-slate-300 text-xs text-center">=</span>
+          <div className="col-span-5 relative">
             <div className="w-full p-2 pr-16 border border-slate-200 bg-slate-50 rounded-lg text-sm text-right text-slate-700">
               {fmtNum(form.commissionAmount) || '0'}
             </div>
@@ -1018,11 +1030,11 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         </div>
 
         {/* Net Premium */}
-        <div className="flex items-center gap-3 pt-3 border-t border-slate-200">
-          <label className="text-sm font-semibold text-slate-700 w-40 shrink-0">Net Premium</label>
-          <div className="w-28 shrink-0" /> {/* spacer */}
-          <span className="text-transparent text-xs">=</span>
-          <div className="relative flex-1 max-w-xs">
+        <div className="grid grid-cols-12 gap-3 items-center pt-3 border-t border-slate-200">
+          <label className="col-span-4 text-sm font-semibold text-slate-700">Net Premium</label>
+          <div className="col-span-2" />
+          <span className="col-span-1" />
+          <div className="col-span-5 relative">
             <div className="w-full p-2 pr-16 border-2 border-emerald-200 bg-emerald-50/50 rounded-lg text-sm text-right font-bold text-emerald-800">
               {fmtNum(form.netPremium) || '0'}
             </div>
@@ -1040,7 +1052,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
           <label className="block text-sm font-medium text-slate-600 mb-2">Payment Type</label>
           <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
             <button
-              onClick={() => updateForm({ paymentType: 'lump_sum' })}
+              onClick={() => updateForm({ paymentType: 'lump_sum', installments: [] })}
               className={`px-4 py-2 text-sm font-medium transition-colors ${
                 form.paymentType === 'lump_sum' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
               }`}
@@ -1048,7 +1060,20 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
               Lump Sum
             </button>
             <button
-              onClick={() => updateForm({ paymentType: 'installments' })}
+              onClick={() => {
+                if (form.installments.length === 0) {
+                  // Auto-create 2 installment rows
+                  updateForm({
+                    paymentType: 'installments',
+                    installments: [
+                      { id: uid(), number: 1, amount: 0, dueDate: '', status: 'Pending' as const },
+                      { id: uid(), number: 2, amount: 0, dueDate: '', status: 'Pending' as const },
+                    ],
+                  });
+                } else {
+                  updateForm({ paymentType: 'installments' });
+                }
+              }}
               className={`px-4 py-2 text-sm font-medium transition-colors border-l border-slate-300 ${
                 form.paymentType === 'installments' ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
               }`}
@@ -1076,35 +1101,41 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Column headers */}
+            <div className="grid grid-cols-12 gap-3 px-3">
+              <div className="col-span-1" />
+              <div className="col-span-4 text-xs font-medium text-slate-500">Amount</div>
+              <div className="col-span-4 text-xs font-medium text-slate-500">Due Date</div>
+              <div className="col-span-2 text-xs font-medium text-slate-500">Status</div>
+              <div className="col-span-1" />
+            </div>
+
             {/* Installment rows */}
             {form.installments.map((inst) => (
-              <div key={inst.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <span className="text-xs font-bold text-slate-500 w-6 text-center">#{inst.number}</span>
-                <div className="flex-1 grid grid-cols-3 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Amount</label>
-                    <CurrencyInput currency={form.currency} value={inst.amount}
-                      onChange={(v) => updateInstallment(inst.id, 'amount', v)} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Due Date</label>
-                    <DatePickerInput label="" value={parseDate(inst.dueDate)}
-                      onChange={(d) => updateInstallment(inst.id, 'dueDate', toISODateString(d) || '')} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
-                    <select value={inst.status}
-                      onChange={(e) => updateInstallment(inst.id, 'status', e.target.value)}
-                      className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                      <option value="Pending">Pending</option>
-                      <option value="Paid">Paid</option>
-                    </select>
-                  </div>
+              <div key={inst.id} className="grid grid-cols-12 gap-3 items-center p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <span className="col-span-1 text-xs font-bold text-slate-500 text-center">#{inst.number}</span>
+                <div className="col-span-4">
+                  <CurrencyInput currency={form.currency} value={inst.amount}
+                    onChange={(v) => updateInstallment(inst.id, 'amount', v)} />
                 </div>
-                <button onClick={() => removeInstallment(inst.id)}
-                  className="mt-4 p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
-                  <Trash2 size={14} />
-                </button>
+                <div className="col-span-4">
+                  <DatePickerInput value={parseDate(inst.dueDate)}
+                    onChange={(d) => updateInstallment(inst.id, 'dueDate', toISODateString(d) || '')} />
+                </div>
+                <div className="col-span-2">
+                  <select value={inst.status}
+                    onChange={(e) => updateInstallment(inst.id, 'status', e.target.value)}
+                    className="w-full p-2 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <option value="Pending">Pending</option>
+                    <option value="Paid">Paid</option>
+                  </select>
+                </div>
+                <div className="col-span-1 flex justify-center">
+                  <button onClick={() => removeInstallment(inst.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                    <Trash2 size={14} />
+                  </button>
+                </div>
               </div>
             ))}
 
