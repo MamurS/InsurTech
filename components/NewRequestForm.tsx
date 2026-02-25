@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { DB } from '../services/db';
 import { LegalEntity, Currency, PolicyStatus, PaymentStatus } from '../types';
@@ -6,7 +6,7 @@ import { DatePickerInput, toISODateString, parseDate } from './DatePickerInput';
 import { useToast } from '../context/ToastContext';
 import {
   Search, ChevronDown, Building2, Loader2, Calendar,
-  Shield, Users, Layers, DollarSign, Lock, Clock, Save, X
+  Shield, Users, Layers, DollarSign, Lock, Clock, Save, X, Globe, Check
 } from 'lucide-react';
 
 // ─── Insurance Classification (Uzbekistan) ──────────────────────
@@ -30,6 +30,33 @@ const INSURANCE_CLASSES: Record<string, string> = {
   '17': 'Legal Expenses',
   '18': 'Health',
 };
+
+// ─── Full Country List ──────────────────────────────────────────
+const COUNTRIES = [
+  "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia",
+  "Australia","Austria","Azerbaijan","Bahamas","Bahrain","Bangladesh","Barbados","Belarus","Belgium",
+  "Belize","Benin","Bhutan","Bolivia","Bosnia and Herzegovina","Botswana","Brazil","Brunei","Bulgaria",
+  "Burkina Faso","Burundi","Cabo Verde","Cambodia","Cameroon","Canada","Central African Republic","Chad",
+  "Chile","China","Colombia","Comoros","Congo","Costa Rica","Croatia","Cuba","Cyprus","Czech Republic",
+  "Côte d'Ivoire","DR Congo","Denmark","Djibouti","Dominica","Dominican Republic","East Timor","Ecuador",
+  "Egypt","El Salvador","Equatorial Guinea","Eritrea","Estonia","Eswatini","Ethiopia","Fiji","Finland",
+  "France","Gabon","Gambia","Georgia","Germany","Ghana","Greece","Grenada","Guatemala","Guinea",
+  "Guinea-Bissau","Guyana","Haiti","Honduras","Hungary","Iceland","India","Indonesia","Iran","Iraq",
+  "Ireland","Israel","Italy","Jamaica","Japan","Jordan","Kazakhstan","Kenya","Kiribati","Kosovo",
+  "Kuwait","Kyrgyzstan","Laos","Latvia","Lebanon","Lesotho","Liberia","Libya","Liechtenstein","Lithuania",
+  "Luxembourg","Madagascar","Malawi","Malaysia","Maldives","Mali","Malta","Marshall Islands","Mauritania",
+  "Mauritius","Mexico","Micronesia","Moldova","Monaco","Mongolia","Montenegro","Morocco","Mozambique",
+  "Myanmar","Namibia","Nauru","Nepal","Netherlands","New Zealand","Nicaragua","Niger","Nigeria",
+  "North Korea","North Macedonia","Norway","Oman","Pakistan","Palau","Palestine","Panama",
+  "Papua New Guinea","Paraguay","Peru","Philippines","Poland","Portugal","Qatar","Romania","Russia",
+  "Rwanda","Saint Kitts and Nevis","Saint Lucia","Saint Vincent and the Grenadines","Samoa",
+  "San Marino","Sao Tome and Principe","Saudi Arabia","Senegal","Serbia","Seychelles","Sierra Leone",
+  "Singapore","Slovakia","Slovenia","Solomon Islands","Somalia","South Africa","South Korea","South Sudan",
+  "Spain","Sri Lanka","Sudan","Suriname","Sweden","Switzerland","Syria","Tajikistan","Tanzania",
+  "Thailand","Togo","Tonga","Trinidad and Tobago","Tunisia","Turkey","Turkmenistan","Tuvalu","Uganda",
+  "Ukraine","United Arab Emirates","United Kingdom","United States","Uruguay","Uzbekistan","Vanuatu",
+  "Vatican City","Venezuela","Vietnam","Yemen","Zambia","Zimbabwe"
+];
 
 // ─── Types ──────────────────────────────────────────────────────
 interface InsuranceProduct {
@@ -110,136 +137,183 @@ const SectionCard: React.FC<{
   </div>
 );
 
-// ─── Entity Search (with full entity callback) ─────────────────
-const EntitySearch: React.FC<{
+// ─── Searchable Dropdown (strict selection only) ────────────────
+// User types to filter, but MUST select from the dropdown list.
+// Free-text is NOT allowed — this ensures data integrity.
+const SearchableDropdown: React.FC<{
   label: string;
   value: string;
-  onSelect: (entity: LegalEntity) => void;
-  onChange: (value: string) => void;
-  filterType?: string;
+  options: { id: string; label: string; sublabel?: string; icon?: React.ReactNode }[];
+  onSelect: (id: string, label: string) => void;
+  onClear: () => void;
   required?: boolean;
   placeholder?: string;
-}> = ({ label, value, onSelect, onChange, filterType, required, placeholder }) => {
+  loading?: boolean;
+  error?: string;
+}> = ({ label, value, options, onSelect, onClear, required, placeholder, loading, error }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [entities, setEntities] = useState<LegalEntity[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState(value || '');
+  const [searchTerm, setSearchTerm] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    DB.getLegalEntities().then(data => {
-      setEntities(data);
-      setLoading(false);
-    }).catch(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { setSearchTerm(value || ''); }, [value]);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setIsOpen(false);
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const filtered = entities.filter(e => {
+  const filtered = useMemo(() => {
+    if (!searchTerm) return options.slice(0, 50);
     const term = searchTerm.toLowerCase();
-    const matchesSearch = !term ||
-      e.fullName?.toLowerCase().includes(term) ||
-      e.shortName?.toLowerCase().includes(term);
-    const matchesType = !filterType || e.type === filterType;
-    return matchesSearch && matchesType;
-  }).slice(0, 8);
+    return options.filter(o =>
+      o.label.toLowerCase().includes(term) ||
+      (o.sublabel && o.sublabel.toLowerCase().includes(term))
+    ).slice(0, 50);
+  }, [options, searchTerm]);
+
+  const handleOpen = () => {
+    setIsOpen(true);
+    setSearchTerm('');
+    setTimeout(() => inputRef.current?.focus(), 50);
+  };
 
   return (
     <div className="relative" ref={wrapperRef}>
       <label className="block text-sm font-medium text-slate-600 mb-1.5">
         {label} {required && <span className="text-red-500">*</span>}
       </label>
-      <div className="relative">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => { setSearchTerm(e.target.value); onChange(e.target.value); setIsOpen(true); }}
-          onClick={() => setIsOpen(true)}
-          placeholder={placeholder || 'Type to search...'}
-          autoComplete="off"
-          className="w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 pr-8"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <ChevronDown size={14} />}
+
+      {/* Selected value display / click to open */}
+      {!isOpen ? (
+        <div
+          onClick={handleOpen}
+          className={`w-full p-2.5 bg-white border rounded-lg text-sm cursor-pointer flex items-center justify-between min-h-[42px] ${
+            error ? 'border-red-400' : 'border-slate-300 hover:border-slate-400'
+          }`}
+        >
+          {value ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-slate-900">{value}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onClear(); }}
+                className="text-slate-400 hover:text-slate-600 ml-2"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <span className="text-slate-400">{placeholder || 'Select...'}</span>
+          )}
+          <ChevronDown size={14} className="text-slate-400 shrink-0 ml-2" />
         </div>
-      </div>
-      {isOpen && !loading && (
-        <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-          {filtered.length > 0 ? filtered.map(entity => (
+      ) : (
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder={placeholder || 'Type to filter...'}
+            autoComplete="off"
+            className="w-full p-2.5 bg-white border border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 pr-8"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+          </div>
+        </div>
+      )}
+
+      {/* Dropdown list */}
+      {isOpen && (
+        <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+          {filtered.length > 0 ? filtered.map(opt => (
             <li
-              key={entity.id}
-              onClick={() => { setSearchTerm(entity.fullName); onSelect(entity); setIsOpen(false); }}
-              className="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0"
+              key={opt.id}
+              onClick={() => {
+                onSelect(opt.id, opt.label);
+                setIsOpen(false);
+                setSearchTerm('');
+              }}
+              className={`px-3 py-2 text-sm cursor-pointer border-b border-slate-50 last:border-0 flex items-center gap-2 ${
+                opt.label === value ? 'bg-blue-50 text-blue-700' : 'hover:bg-blue-50'
+              }`}
             >
-              <div className="flex items-center gap-2">
-                <Building2 size={14} className="text-slate-400 shrink-0" />
-                <div>
-                  <div className="font-medium text-slate-900">{entity.fullName}</div>
-                  {entity.shortName && <div className="text-xs text-slate-500">{entity.shortName}</div>}
-                </div>
+              {opt.icon && <span className="shrink-0">{opt.icon}</span>}
+              <div className="min-w-0">
+                <div className="font-medium text-slate-900 truncate">{opt.label}</div>
+                {opt.sublabel && <div className="text-xs text-slate-500 truncate">{opt.sublabel}</div>}
               </div>
+              {opt.label === value && <Check size={14} className="text-blue-600 shrink-0 ml-auto" />}
             </li>
           )) : (
-            <li className="px-3 py-3 text-sm text-slate-500 text-center">No entities found</li>
+            <li className="px-3 py-3 text-sm text-slate-500 text-center">
+              {loading ? 'Loading...' : 'No results found'}
+            </li>
           )}
         </ul>
       )}
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
     </div>
   );
 };
 
-// ─── Product Search ─────────────────────────────────────────────
+// ─── Product Search (strict selection, loads all products) ──────
 const ProductSearch: React.FC<{
   value: string;
   onSelect: (product: InsuranceProduct) => void;
-  onChange: (value: string) => void;
-}> = ({ value, onSelect, onChange }) => {
+  onClear: () => void;
+  error?: string;
+}> = ({ value, onSelect, onClear, error }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [results, setResults] = useState<InsuranceProduct[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [searchTerm, setSearchTerm] = useState(value || '');
+  const [allProducts, setAllProducts] = useState<InsuranceProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { setSearchTerm(value || ''); }, [value]);
+  // Load all active products once
+  useEffect(() => {
+    if (!supabase) return;
+    (async () => {
+      const { data } = await supabase
+        .from('insurance_products')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      setAllProducts((data as InsuranceProduct[]) || []);
+      setLoading(false);
+    })();
+  }, []);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setIsOpen(false);
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const doSearch = useCallback(async (term: string) => {
-    if (!supabase || !term.trim()) { setResults([]); return; }
-    setLoading(true);
-    try {
-      const { data } = await supabase
-        .from('insurance_products')
-        .select('*')
-        .ilike('name', `%${term.trim()}%`)
-        .eq('is_active', true)
-        .limit(5);
-      setResults((data as InsuranceProduct[]) || []);
-    } catch { setResults([]); }
-    setLoading(false);
-  }, []);
+  const filtered = useMemo(() => {
+    if (!searchTerm) return allProducts;
+    const term = searchTerm.toLowerCase();
+    return allProducts.filter(p =>
+      p.name.toLowerCase().includes(term) ||
+      p.code.toLowerCase().includes(term)
+    );
+  }, [searchTerm, allProducts]);
 
-  const handleInput = (val: string) => {
-    setSearchTerm(val);
-    onChange(val);
+  const handleOpen = () => {
     setIsOpen(true);
-    clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => doSearch(val), 200);
+    setSearchTerm('');
+    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   return (
@@ -247,38 +321,78 @@ const ProductSearch: React.FC<{
       <label className="block text-sm font-medium text-slate-600 mb-1.5">
         Type of Insurance Cover <span className="text-red-500">*</span>
       </label>
-      <div className="relative">
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={(e) => handleInput(e.target.value)}
-          onClick={() => { setIsOpen(true); if (searchTerm) doSearch(searchTerm); }}
-          placeholder="Type to search insurance products..."
-          autoComplete="off"
-          className="w-full p-2.5 bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-slate-900 pr-8"
-        />
-        <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+
+      {!isOpen ? (
+        <div
+          onClick={handleOpen}
+          className={`w-full p-2.5 bg-white border rounded-lg text-sm cursor-pointer flex items-center justify-between min-h-[42px] ${
+            error ? 'border-red-400' : 'border-slate-300 hover:border-slate-400'
+          }`}
+        >
+          {value ? (
+            <div className="flex items-center justify-between w-full">
+              <span className="text-slate-900">{value}</span>
+              <button
+                onClick={(e) => { e.stopPropagation(); onClear(); }}
+                className="text-slate-400 hover:text-slate-600 ml-2"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ) : (
+            <span className="text-slate-400">Select insurance product...</span>
+          )}
+          <ChevronDown size={14} className="text-slate-400 shrink-0 ml-2" />
         </div>
-      </div>
+      ) : (
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Type to filter products..."
+            autoComplete="off"
+            className="w-full p-2.5 bg-white border border-blue-500 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-slate-900 pr-8"
+          />
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+          </div>
+        </div>
+      )}
+
       {isOpen && (
-        <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-          {results.length > 0 ? results.map(p => (
+        <ul className="absolute z-50 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-52 overflow-y-auto">
+          {filtered.length > 0 ? filtered.map(p => (
             <li
               key={p.id}
-              onClick={() => { setSearchTerm(p.name); onSelect(p); setIsOpen(false); }}
-              className="px-3 py-2 text-sm hover:bg-blue-50 cursor-pointer border-b border-slate-50 last:border-0"
+              onClick={() => {
+                onSelect(p);
+                setIsOpen(false);
+                setSearchTerm('');
+              }}
+              className={`px-3 py-2 text-sm cursor-pointer border-b border-slate-50 last:border-0 ${
+                p.name === value ? 'bg-blue-50' : 'hover:bg-blue-50'
+              }`}
             >
-              <div className="font-medium text-slate-900">{p.name}</div>
-              <div className="text-xs text-slate-500">Code: {p.code} | Classes: {(p.class_codes || []).join(', ')}</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-medium text-slate-900">{p.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {p.code} · Classes: {(p.class_codes || []).join(', ')}
+                  </div>
+                </div>
+                {p.name === value && <Check size={14} className="text-blue-600 shrink-0" />}
+              </div>
             </li>
           )) : (
             <li className="px-3 py-3 text-sm text-slate-500 text-center">
-              {loading ? 'Searching...' : searchTerm ? 'No products found' : 'Type to search'}
+              {loading ? 'Loading products...' : 'No products found'}
             </li>
           )}
         </ul>
       )}
+      {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
     </div>
   );
 };
@@ -310,6 +424,44 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
   });
 
   const [fxDisplay, setFxDisplay] = useState('');
+
+  // ─── Entity data for dropdowns ──────────────────────────────
+  const [entities, setEntities] = useState<LegalEntity[]>([]);
+  const [entitiesLoading, setEntitiesLoading] = useState(true);
+
+  useEffect(() => {
+    DB.getLegalEntities().then(data => {
+      setEntities(data);
+      setEntitiesLoading(false);
+    }).catch(() => setEntitiesLoading(false));
+  }, []);
+
+  // Build entity dropdown options
+  const insuredOptions = useMemo(() =>
+    entities.map(e => ({
+      id: e.id,
+      label: e.fullName,
+      sublabel: e.shortName || undefined,
+      icon: <Building2 size={14} className="text-slate-400" />,
+    })), [entities]);
+
+  const intermediaryOptions = useMemo(() =>
+    entities
+      .filter(e => e.type === form.channel)
+      .map(e => ({
+        id: e.id,
+        label: e.fullName,
+        sublabel: e.shortName || undefined,
+        icon: <Building2 size={14} className="text-slate-400" />,
+      })), [entities, form.channel]);
+
+  // Country dropdown options
+  const countryOptions = useMemo(() =>
+    COUNTRIES.map(c => ({
+      id: c,
+      label: c,
+      icon: <Globe size={14} className="text-slate-400" />,
+    })), []);
 
   // Fetch exchange rate when currency changes
   useEffect(() => {
@@ -371,7 +523,9 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
   const setToggle = (key: string, val: boolean) => setForm(f => ({ ...f, sumInsuredToggles: { ...f.sumInsuredToggles, [key]: val } }));
 
   // ─── Handlers ───────────────────────────────────────────────
-  const handleInsuredSelect = (entity: LegalEntity) => {
+  const handleInsuredSelect = (entityId: string, _label: string) => {
+    const entity = entities.find(e => e.id === entityId);
+    if (!entity) return;
     updateForm({
       insuredName: entity.fullName,
       insuredEntityId: entity.id,
@@ -393,7 +547,9 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     });
   };
 
-  const handleIntermediarySelect = (entity: LegalEntity) => {
+  const handleIntermediarySelect = (entityId: string, _label: string) => {
+    const entity = entities.find(e => e.id === entityId);
+    if (!entity) return;
     updateForm({
       intermediaryName: entity.fullName,
       intermediaryEntityId: entity.id,
@@ -403,12 +559,12 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
   // ─── Save ───────────────────────────────────────────────────
   const handleSave = async () => {
     const newErrors: Record<string, string> = {};
-    if (!form.insuredName) newErrors.insuredName = 'Required';
-    if (!form.productName) newErrors.productName = 'Required';
+    if (!form.insuredEntityId) newErrors.insuredName = 'Please select an insured from the list';
+    if (!form.productId) newErrors.productName = 'Please select a product from the list';
     if (!form.inceptionDate) newErrors.inceptionDate = 'Required';
     if (!form.expiryDate) newErrors.expiryDate = 'Required';
-    if ((form.channel === 'Broker' || form.channel === 'Agent') && !form.intermediaryName) {
-      newErrors.intermediaryName = 'Required when channel is Broker or Agent';
+    if ((form.channel === 'Broker' || form.channel === 'Agent') && !form.intermediaryEntityId) {
+      newErrors.intermediaryName = 'Please select from the list';
     }
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -458,23 +614,27 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     }
   };
 
-  // ─── Number formatter for amount fields ─────────────────────
-  const formatNum = (v: number) => v ? v.toLocaleString('en-US', { maximumFractionDigits: 0 }) : '';
-
+  // ─── Amount Input with proper currency badge ────────────────
   const AmountInput: React.FC<{ label: string; amountKey: string; indent?: boolean }> = ({ label, amountKey, indent }) => (
     <div className={`flex items-center gap-3 ${indent ? 'ml-6' : ''}`}>
       {indent && <span className="text-slate-300 text-xs">├</span>}
       <label className="text-sm text-slate-600 w-48 shrink-0">{label}</label>
       <div className="relative flex-1 max-w-xs">
         <input
-          type="number"
-          value={form.sumInsuredAmounts[amountKey] || ''}
-          onChange={(e) => setAmount(amountKey, Number(e.target.value) || 0)}
+          type="text"
+          inputMode="numeric"
+          value={form.sumInsuredAmounts[amountKey] ? Number(form.sumInsuredAmounts[amountKey]).toLocaleString('en-US') : ''}
+          onChange={(e) => {
+            const raw = e.target.value.replace(/[^0-9.]/g, '');
+            setAmount(amountKey, Number(raw) || 0);
+          }}
           onWheel={(e) => (e.target as HTMLInputElement).blur()}
           placeholder="0"
-          className="w-full p-2 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+          className="w-full p-2 pr-16 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
         />
-        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">{form.currency}</span>
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+          {form.currency}
+        </span>
       </div>
     </div>
   );
@@ -486,15 +646,17 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
     <div className="space-y-5 pb-24">
       {/* Section 1: Insured Party */}
       <SectionCard number={1} title="Insured Party" icon={<Users size={16} />}>
-        <EntitySearch
+        <SearchableDropdown
           label="Insured Name"
           value={form.insuredName}
+          options={insuredOptions}
           onSelect={handleInsuredSelect}
-          onChange={(v) => updateForm({ insuredName: v, insuredEntityId: undefined })}
+          onClear={() => updateForm({ insuredName: '', insuredEntityId: undefined, sector: '', insuredCountry: '' })}
           required
           placeholder="Search for insured entity..."
+          loading={entitiesLoading}
+          error={errors.insuredName}
         />
-        {errors.insuredName && <p className="text-red-500 text-xs -mt-2">{errors.insuredName}</p>}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -507,16 +669,14 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
               className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-600 mb-1.5">Country</label>
-            <input
-              type="text"
-              value={form.insuredCountry}
-              onChange={(e) => updateForm({ insuredCountry: e.target.value })}
-              placeholder="e.g. Uzbekistan"
-              className="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-          </div>
+          <SearchableDropdown
+            label="Country"
+            value={form.insuredCountry}
+            options={countryOptions}
+            onSelect={(_id, label) => updateForm({ insuredCountry: label })}
+            onClear={() => updateForm({ insuredCountry: '' })}
+            placeholder="Select country..."
+          />
         </div>
       </SectionCard>
 
@@ -525,9 +685,9 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         <ProductSearch
           value={form.productName}
           onSelect={handleProductSelect}
-          onChange={(v) => updateForm({ productName: v, productId: undefined, classCodes: [], coverSections: null })}
+          onClear={() => updateForm({ productName: '', productId: undefined, classCodes: [], coverSections: null })}
+          error={errors.productName}
         />
-        {errors.productName && <p className="text-red-500 text-xs -mt-2">{errors.productName}</p>}
 
         {form.classCodes.length > 0 && (
           <div>
@@ -561,18 +721,17 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
         </div>
 
         {(form.channel === 'Broker' || form.channel === 'Agent') && (
-          <>
-            <EntitySearch
-              label={`${form.channel} Name`}
-              value={form.intermediaryName}
-              onSelect={handleIntermediarySelect}
-              onChange={(v) => updateForm({ intermediaryName: v, intermediaryEntityId: undefined })}
-              filterType={form.channel}
-              required
-              placeholder={`Search for ${form.channel.toLowerCase()}...`}
-            />
-            {errors.intermediaryName && <p className="text-red-500 text-xs -mt-2">{errors.intermediaryName}</p>}
-          </>
+          <SearchableDropdown
+            label={`${form.channel} Name`}
+            value={form.intermediaryName}
+            options={intermediaryOptions}
+            onSelect={handleIntermediarySelect}
+            onClear={() => updateForm({ intermediaryName: '', intermediaryEntityId: undefined })}
+            required
+            placeholder={`Search for ${form.channel.toLowerCase()}...`}
+            loading={entitiesLoading}
+            error={errors.intermediaryName}
+          />
         )}
       </SectionCard>
 
@@ -584,7 +743,7 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
             <select
               value={form.currency}
               onChange={(e) => updateForm({ currency: e.target.value })}
-              className="p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="p-2.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-[100px]"
             >
               {Object.values(Currency).map(c => (
                 <option key={c} value={c}>{c}</option>
@@ -634,14 +793,20 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
             <label className="text-sm text-slate-600 w-48 shrink-0">Sum Insured</label>
             <div className="relative flex-1 max-w-xs">
               <input
-                type="number"
-                value={form.totalSumInsured || ''}
-                onChange={(e) => updateForm({ totalSumInsured: Number(e.target.value) || 0, totalSumInsuredManual: true })}
+                type="text"
+                inputMode="numeric"
+                value={form.totalSumInsured ? Number(form.totalSumInsured).toLocaleString('en-US') : ''}
+                onChange={(e) => {
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  updateForm({ totalSumInsured: Number(raw) || 0, totalSumInsuredManual: true });
+                }}
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 placeholder="0"
-                className="w-full p-2 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="w-full p-2 pr-16 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
               />
-              <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">{form.currency}</span>
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+                {form.currency}
+              </span>
             </div>
           </div>
         )}
@@ -651,13 +816,19 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
           <label className="text-sm font-semibold text-slate-700 w-48 shrink-0">Total Sum Insured</label>
           <div className="relative flex-1 max-w-xs">
             <input
-              type="number"
-              value={form.totalSumInsured || ''}
-              onChange={(e) => updateForm({ totalSumInsured: Number(e.target.value) || 0, totalSumInsuredManual: true })}
+              type="text"
+              inputMode="numeric"
+              value={form.totalSumInsured ? Number(form.totalSumInsured).toLocaleString('en-US') : ''}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9.]/g, '');
+                updateForm({ totalSumInsured: Number(raw) || 0, totalSumInsuredManual: true });
+              }}
               onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              className="w-full p-2 border-2 border-blue-200 bg-blue-50/50 rounded-lg text-sm text-right font-bold text-blue-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full p-2 pr-16 border-2 border-blue-200 bg-blue-50/50 rounded-lg text-sm text-right font-bold text-blue-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-blue-400 pointer-events-none font-medium">{form.currency}</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-blue-600 bg-blue-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+              {form.currency}
+            </span>
           </div>
         </div>
       </SectionCard>
@@ -668,14 +839,20 @@ export const NewRequestForm: React.FC<NewRequestFormProps> = ({ onSave, onCancel
           <label className="text-sm text-slate-600 w-48 shrink-0">Limit of Liability</label>
           <div className="relative flex-1 max-w-xs">
             <input
-              type="number"
-              value={form.limitOfLiability || ''}
-              onChange={(e) => updateForm({ limitOfLiability: Number(e.target.value) || 0 })}
+              type="text"
+              inputMode="numeric"
+              value={form.limitOfLiability ? Number(form.limitOfLiability).toLocaleString('en-US') : ''}
+              onChange={(e) => {
+                const raw = e.target.value.replace(/[^0-9.]/g, '');
+                updateForm({ limitOfLiability: Number(raw) || 0 });
+              }}
               onWheel={(e) => (e.target as HTMLInputElement).blur()}
               placeholder="0"
-              className="w-full p-2 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full p-2 pr-16 border border-slate-300 rounded-lg text-sm text-right focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
-            <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none">{form.currency}</span>
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded select-none pointer-events-none">
+              {form.currency}
+            </span>
           </div>
         </div>
       </SectionCard>
