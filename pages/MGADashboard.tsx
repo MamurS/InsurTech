@@ -14,6 +14,7 @@ import {
   Star, Minus
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -773,6 +774,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ agreements, bdxGwpMap, 
 
 const MGADashboard: React.FC = () => {
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Page-level tab
   const [activePageTab, setActivePageTab] = useState<'agreements' | 'performance'>('agreements');
@@ -982,6 +984,20 @@ const MGADashboard: React.FC = () => {
     finally { setExporting(false); }
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        disabled={exporting || agreements.length === 0}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [agreements, exporting, setHeaderActions]);
+
   // ─── Delete handler ───────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this agreement? This cannot be undone.')) return;
@@ -1098,12 +1114,7 @@ const MGADashboard: React.FC = () => {
             <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
           </button>
 
-          {/* Export */}
-          <button onClick={handleExport} disabled={exporting || filteredAgreements.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
-            <Download size={14} />
-            Export
-          </button>
+          <div className="w-px h-5 bg-gray-300" />
 
           {/* New Agreement */}
           <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
