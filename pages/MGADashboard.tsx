@@ -1107,7 +1107,7 @@ const MGADashboard: React.FC = () => {
 
           {/* New Agreement */}
           <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm">
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">
             <Plus size={14} />
             New Agreement
           </button>
