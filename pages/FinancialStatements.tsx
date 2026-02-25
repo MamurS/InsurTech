@@ -3,6 +3,7 @@ import { RefreshCw, Download, AlertCircle } from 'lucide-react';
 import { useAnalyticsSummary } from '../hooks/useAnalytics';
 import { DB } from '../services/db';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -68,6 +69,7 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 
 const FinancialStatements: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
+  const { setHeaderActions } = usePageHeader();
   const [period, setPeriod] = useState('all');
   const [ibnrTotal, setIbnrTotal] = useState(0);
 
@@ -161,6 +163,20 @@ const FinancialStatements: React.FC = () => {
     exportToExcel(rows, `Technical_Account_PL_${new Date().toISOString().split('T')[0]}`, 'Technical Account');
   };
 
+  // Export button in page header
+  useEffect(() => {
+    setHeaderActions(
+      <button
+        onClick={handleExport}
+        disabled={!data}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => setHeaderActions(null);
+  }, [data, setHeaderActions]);
+
   return (
     <div className="max-w-3xl mx-auto">
       {/* Header */}
@@ -179,14 +195,6 @@ const FinancialStatements: React.FC = () => {
             <option value="last_12">Last 12 Months</option>
             <option value="all">All Time</option>
           </select>
-          <button
-            onClick={handleExport}
-            disabled={!data}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Export to Excel
-          </button>
           <button
             onClick={refetch}
             disabled={loading}
