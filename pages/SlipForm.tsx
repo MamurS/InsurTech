@@ -8,6 +8,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EntitySearchInput } from '../components/EntitySearchInput';
+import { formatSICDisplay } from '../data/sicCodes';
 import { Save, ArrowLeft, FileSpreadsheet, Building, Hash, Activity, Plus, Trash2, DollarSign, Send, FileText, CheckCircle, XCircle, Archive, RefreshCw, Settings } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
@@ -388,9 +389,24 @@ const SlipForm: React.FC = () => {
                             label="Insured Name (Legal Entity)"
                             value={formData.insuredName}
                             onChange={(name, entityId) => setFormData(prev => ({ ...prev, insuredName: name, insuredEntityId: entityId }))}
+                            onEntitySelect={(entity) => {
+                              setFormData(prev => ({
+                                ...prev,
+                                insuredName: entity.fullName,
+                                insuredEntityId: entity.id,
+                                insuredSicCode: entity.sicCode || '',
+                                insuredSicSection: entity.sicSection || ''
+                              }));
+                            }}
                             placeholder="Search for legal entity..."
                             required
                         />
+                        {formData.insuredSicCode && (
+                          <div className="mt-1.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
+                            <span className="text-gray-400">Industry:</span>
+                            <span className="text-gray-600">{formatSICDisplay(formData.insuredSicCode)}</span>
+                          </div>
+                        )}
                     </div>
 
                     {/* Financials Section */}

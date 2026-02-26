@@ -8,6 +8,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { DatePickerInput, parseDate, toISODateString } from './DatePickerInput';
 import { EntitySearchInput } from './EntitySearchInput';
+import { formatSICDisplay } from '../data/sicCodes';
 import { ContextBar } from './ContextBar';
 
 interface RegisterClaimModalProps {
@@ -346,6 +347,10 @@ const RegisterClaimModal: React.FC<RegisterClaimModalProps> = ({ isOpen, onClose
                                 label="Claimant Name"
                                 value={claimantName}
                                 onChange={(name) => setClaimantName(name)}
+                                onEntitySelect={(entity) => {
+                                  setClaimantName(entity.fullName);
+                                  if (entity.country) setLocationCountry(entity.country);
+                                }}
                                 placeholder="If different from insured (search legal entities)"
                             />
                         </div>

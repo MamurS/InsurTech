@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FormModal } from '../components/FormModal';
 import { EntityFormContent } from '../components/EntityFormContent';
 import { Plus, Search, Building2, MapPin, Eye, Edit, Trash2 } from 'lucide-react';
+import { getSectionForCode } from '../data/sicCodes';
 
 const EntityManager: React.FC = () => {
   const [entities, setEntities] = useState<LegalEntity[]>([]);
@@ -86,6 +87,7 @@ const EntityManager: React.FC = () => {
                         <th className="px-6 py-4">Entity Name</th>
                         <th className="px-6 py-4">Type</th>
                         <th className="px-6 py-4">Reg Code (INN)</th>
+                        <th className="px-6 py-4">Industry</th>
                         <th className="px-6 py-4">Country</th>
                         <th className="px-6 py-4">City</th>
                         <th className="px-6 py-4 text-center">Actions</th>
@@ -104,6 +106,15 @@ const EntityManager: React.FC = () => {
                             <td className="px-6 py-4 font-mono text-gray-600">
                                 {entity.regCodeValue}
                             </td>
+                            <td className="px-6 py-4">
+                                {entity.sicCode ? (
+                                    <span className="px-2 py-0.5 bg-blue-50 border border-blue-200 rounded text-xs font-medium text-blue-700 whitespace-nowrap">
+                                        {getSectionForCode(entity.sicCode)?.title || entity.sicSection || '-'}
+                                    </span>
+                                ) : (
+                                    <span className="text-gray-300 text-xs">—</span>
+                                )}
+                            </td>
                             <td className="px-6 py-4 text-gray-600">
                                 <div className="flex items-center gap-1"><MapPin size={12}/> {entity.country}</div>
                             </td>
@@ -121,7 +132,7 @@ const EntityManager: React.FC = () => {
                     ))}
                     {filteredEntities.length === 0 && (
                         <tr>
-                            <td colSpan={6} className="py-12 text-center text-gray-400">
+                            <td colSpan={7} className="py-12 text-center text-gray-400">
                                 <Building2 size={48} className="mx-auto mb-4 opacity-20"/>
                                 No entities found.
                             </td>
