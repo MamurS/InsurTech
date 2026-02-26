@@ -75,7 +75,6 @@ const RiskAccumulation: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>('territory');
-  const { setHeaderActions } = usePageHeader();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
