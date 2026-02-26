@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { InwardReinsurance, InwardReinsuranceOrigin, Currency } from '../types';
@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
 import { usePageHeader } from '../context/PageHeaderContext';
+import { CompactDateFilter } from '../components/CompactDateFilter';
+import { toISODateString } from '../components/DatePickerInput';
 
 const InwardReinsuranceList: React.FC = () => {
   const navigate = useNavigate();
@@ -42,6 +44,11 @@ const InwardReinsuranceList: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'FAC' | 'TREATY'>('ALL');
   const [structureFilter, setStructureFilter] = useState<'ALL' | 'PROPORTIONAL' | 'NON_PROPORTIONAL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Date filter state
+  const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 20;
@@ -86,6 +93,19 @@ const InwardReinsuranceList: React.FC = () => {
         }
         if (searchTerm) {
           query = query.or(`contract_number.ilike.%${searchTerm}%,cedant_name.ilike.%${searchTerm}%,broker_name.ilike.%${searchTerm}%`);
+        }
+
+        // Date range filter
+        if (dateFrom || dateTo) {
+          const dateColumnMap: Record<string, string> = {
+            'inceptionDate': 'inception_date', 'expiryDate': 'expiry_date',
+            'dateOfSlip': 'date_of_slip', 'accountingDate': 'accounting_date',
+            'reinsuranceInceptionDate': 'reinsurance_inception_date', 'reinsuranceExpiryDate': 'reinsurance_expiry_date',
+            'premiumPaymentDate': 'premium_payment_date', 'actualPaymentDate': 'actual_payment_date',
+          };
+          const dbDateCol = dateColumnMap[dateFilterField] || 'inception_date';
+          if (dateFrom) query = query.gte(dbDateCol, toISODateString(dateFrom) || '');
+          if (dateTo) query = query.lte(dbDateCol, toISODateString(dateTo) || '');
         }
 
         const from = (page - 1) * pageSize;
@@ -174,7 +194,7 @@ const InwardReinsuranceList: React.FC = () => {
 
   useEffect(() => {
     fetchContracts();
-  }, [origin, typeFilter, structureFilter, statusFilter, searchTerm, page]);
+  }, [origin, typeFilter, structureFilter, statusFilter, searchTerm, page, dateFilterField, dateFrom, dateTo]);
 
   // Handle delete
   const handleDelete = async () => {
@@ -364,6 +384,34 @@ const InwardReinsuranceList: React.FC = () => {
             <option value="EXPIRED">Expired</option>
             <option value="CANCELLED">Cancelled</option>
           </select>
+
+          {/* Date Filter */}
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '380px' }}>
+          <select
+            value={dateFilterField}
+            onChange={(e) => { setDateFilterField(e.target.value); setPage(1); }}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+          >
+            <option value="inceptionDate">Inception</option>
+            <option value="expiryDate">Expiry</option>
+            <option value="dateOfSlip">Date of Slip</option>
+            <option value="accountingDate">Accounting</option>
+            <option value="reinsuranceInceptionDate">RI Inception</option>
+            <option value="reinsuranceExpiryDate">RI Expiry</option>
+            <option value="premiumPaymentDate">Prem. Payment</option>
+            <option value="actualPaymentDate">Actual Payment</option>
+          </select>
+          <CompactDateFilter
+            value={dateFrom}
+            onChange={(d) => { setDateFrom(d); setPage(1); }}
+            placeholder="From"
+          />
+          <CompactDateFilter
+            value={dateTo}
+            onChange={(d) => { setDateTo(d); setPage(1); }}
+            placeholder="To"
+          />
+          </div>
 
           {/* Refresh */}
           <button
