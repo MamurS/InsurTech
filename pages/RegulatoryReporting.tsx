@@ -303,26 +303,26 @@ const RegulatoryReporting: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
           <div className="flex flex-wrap items-center gap-3">
             <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white font-medium">
               <option value="form1">Form 1: Business Summary</option>
               <option value="form2">Form 2: Solvency</option>
               <option value="form3">Form 3: Reserves</option>
               <option value="form4">Form 4: Reinsurance</option>
             </select>
-            <div className="w-px h-6 bg-gray-300" />
+            <div className="w-px h-5 bg-gray-300" />
             <select value={quarter} onChange={(e) => setQuarter(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
               {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
             </select>
             <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
               {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
-            <div className="w-px h-6 bg-gray-300" />
+            <div className="w-px h-5 bg-gray-300" />
             <div className="flex items-center gap-1 text-sm">
               <span className="text-slate-500">UZS/USD:</span>
               <input type="number" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value) || 12800)}
-                className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                className="w-20 border border-gray-300 rounded-lg px-2 py-2 text-sm text-right font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
             </div>
           </div>
         </div>

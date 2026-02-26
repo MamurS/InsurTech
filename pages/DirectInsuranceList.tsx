@@ -305,17 +305,17 @@ const DirectInsuranceList: React.FC = () => {
     <div>
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
-      <div className="bg-white rounded-xl border border-slate-200 p-3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search..."
               value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             />
           </div>
 
@@ -323,7 +323,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={countryFilter}
             onChange={(e) => handleCountryFilterChange(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
             <option value="all">All Countries</option>
             <option value="uzbekistan">Uzbekistan</option>
@@ -334,7 +334,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={statusFilter}
             onChange={(e) => handleStatusFilterChange(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
             <option value="all">All Statuses</option>
             <option value="Draft">Draft</option>
@@ -348,7 +348,7 @@ const DirectInsuranceList: React.FC = () => {
           <select
             value={dateFilterField}
             onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
             <option value="inceptionDate">Inception</option>
             <option value="expiryDate">Expiry</option>
@@ -372,18 +372,18 @@ const DirectInsuranceList: React.FC = () => {
           {/* Refresh */}
           <button
             onClick={() => { fetchData(); loadStats(); }}
-            className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
             title="Refresh"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
           </button>
 
-          <div className="w-px h-6 bg-slate-300" />
+          <div className="w-px h-5 bg-gray-300" />
 
           {/* New Policy Button */}
           <button
             onClick={handleNewPolicy}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
           >
             <Plus size={16} />
             New Request

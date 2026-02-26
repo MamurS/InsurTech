@@ -1030,22 +1030,22 @@ const MGADashboard: React.FC = () => {
         <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
           {/* Tab Selector */}
           <select value={activePageTab} onChange={(e) => setActivePageTab(e.target.value as 'agreements' | 'performance')}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white font-medium">
             <option value="agreements">Agreements</option>
             <option value="performance">Performance</option>
           </select>
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[120px]">
-            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input type="text" placeholder="Search agreements..." value={searchInput}
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
           </div>
 
           {/* Status */}
           <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-36 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
             <option value="all">All Statuses</option>
             <option value="DRAFT">Draft</option>
             <option value="ACTIVE">Active</option>
@@ -1056,7 +1056,7 @@ const MGADashboard: React.FC = () => {
 
           {/* Type */}
           <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
             <option value="all">All Types</option>
             <option value="BINDING_AUTHORITY">Binding Authority</option>
             <option value="LINESLIP">Lineslip</option>
@@ -1070,8 +1070,8 @@ const MGADashboard: React.FC = () => {
 
           {/* New Agreement */}
           <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">
-            <Plus size={14} />
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+            <Plus size={16} />
             New Agreement
           </button>
         </div>

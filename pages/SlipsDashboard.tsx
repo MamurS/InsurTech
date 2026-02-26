@@ -335,7 +335,7 @@ const SlipsDashboard: React.FC = () => {
     <div>
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
-      <div className="bg-white p-3 rounded-xl border border-slate-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Status Tabs - Compact */}
           <div className="flex bg-gray-100 p-0.5 rounded-lg overflow-x-auto">
@@ -354,28 +354,28 @@ const SlipsDashboard: React.FC = () => {
             ))}
           </div>
 
-          <div className="w-px h-6 bg-slate-300" />
+          <div className="w-px h-5 bg-gray-300" />
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="w-px h-6 bg-slate-300" />
+          <div className="w-px h-5 bg-gray-300" />
 
           {/* Date Filter */}
           <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '380px' }}>
           <select
             value={dateFilterField}
             onChange={(e) => { setDateFilterField(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
             <option value="date">Slip Date</option>
           </select>
@@ -394,19 +394,19 @@ const SlipsDashboard: React.FC = () => {
           {/* Refresh */}
           <button
             onClick={() => fetchData()}
-            className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
             title="Refresh"
           >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
           </button>
 
-          <div className="w-px h-6 bg-slate-300" />
+          <div className="w-px h-5 bg-gray-300" />
 
           {/* New Slip Button */}
           <button
             type="button"
             onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm"
           >
             <Plus size={16} /> New Slip
           </button>
