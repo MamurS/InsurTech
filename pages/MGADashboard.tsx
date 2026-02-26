@@ -984,7 +984,14 @@ const MGADashboard: React.FC = () => {
     finally { setExporting(false); }
   };
 
-  // Stats badges + Export button in page header
+  // Stats badges + Export button in page header (computed from filtered data)
+  const filteredStats = {
+    total: filteredAgreements.length,
+    active: filteredAgreements.filter(a => a.status === 'ACTIVE').length,
+    totalEpi: filteredAgreements.reduce((s, a) => s + (a.epi || 0), 0),
+    actualGwp: filteredAgreements.reduce((s, a) => s + (gwpByAgreement[a.id] || 0), 0),
+  };
+
   useEffect(() => {
     const fmtCompact = (v: number): string => {
       if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
@@ -996,23 +1003,23 @@ const MGADashboard: React.FC = () => {
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-slate-500 font-medium">Agreements</span>
-          <span className="text-sm font-bold text-slate-800">{stats.total}</span>
+          <span className="text-sm font-bold text-slate-800">{filteredStats.total}</span>
         </div>
         <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-emerald-600 font-medium">Active</span>
-          <span className="text-sm font-bold text-emerald-800">{stats.active}</span>
+          <span className="text-sm font-bold text-emerald-800">{filteredStats.active}</span>
         </div>
         <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-blue-600 font-medium">EPI</span>
-          <span className="text-sm font-bold text-blue-800">{fmtCompact(stats.totalEpi)}</span>
+          <span className="text-sm font-bold text-blue-800">{fmtCompact(filteredStats.totalEpi)}</span>
         </div>
         <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-purple-600 font-medium">GWP</span>
-          <span className="text-sm font-bold text-purple-800">{fmtCompact(stats.actualGwp)}</span>
+          <span className="text-sm font-bold text-purple-800">{fmtCompact(filteredStats.actualGwp)}</span>
         </div>
         <button
           onClick={() => handleExport()}
-          disabled={exporting || agreements.length === 0}
+          disabled={exporting || filteredAgreements.length === 0}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download size={16} /> Export
@@ -1020,7 +1027,7 @@ const MGADashboard: React.FC = () => {
       </div>
     );
     return () => setHeaderActions(null);
-  }, [agreements, exporting, stats, setHeaderActions]);
+  }, [filteredAgreements, exporting, filteredStats.total, filteredStats.active, filteredStats.totalEpi, filteredStats.actualGwp, setHeaderActions]);
 
   // ─── Delete handler ───────────────────────────────────
   const handleDelete = async (id: string) => {
