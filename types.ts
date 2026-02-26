@@ -304,6 +304,8 @@ export interface LegalEntity {
   bankAccount?: string;
   bankMFO?: string;
   bankAddress?: string;
+  sicCode?: string;
+  sicSection?: string;
   isDeleted?: boolean;
   createdAt: string;
   updatedAt: string;

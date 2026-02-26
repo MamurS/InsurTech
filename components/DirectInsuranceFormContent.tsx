@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { ContextBar } from './ContextBar';
 import { DatePickerInput } from './DatePickerInput';
 import { EntitySearchInput } from './EntitySearchInput';
+import { formatSICDisplay } from '../data/sicCodes';
 import {
   Save, FileText, Building2, DollarSign,
   Globe, MapPin, Loader2, AlertCircle
@@ -376,17 +377,28 @@ export const DirectInsuranceFormContent: React.FC<DirectInsuranceFormContentProp
                 Insured Name <span className="text-red-500">*</span>
               </label>
               <EntitySearchInput
+                label="Insured Name"
                 value={formData.insuredName || ''}
                 onChange={(value) => handleChange('insuredName', value)}
-                onSelect={(entity) => {
-                  handleChange('insuredName', entity.name);
+                onEntitySelect={(entity) => {
+                  handleChange('insuredName', entity.fullName);
                   if (entity.country) handleCountryChange(entity.country);
                   if (entity.regCodeValue) handleChange('insuredINN', entity.regCodeValue);
                   if (entity.address) handleChange('insuredLegalAddress', entity.address);
+                  if (entity.sicCode) {
+                    handleChange('insuredSicCode', entity.sicCode);
+                    handleChange('insuredSicSection', entity.sicSection || '');
+                  }
                 }}
                 placeholder="Search or enter insured name..."
-                error={errors.insuredName}
+                required
               />
+              {formData.insuredSicCode && (
+                <div className="mt-1.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
+                  <span className="text-gray-400">Industry:</span>
+                  <span className="text-gray-600">{formatSICDisplay(formData.insuredSicCode)}</span>
+                </div>
+              )}
             </div>
 
             {/* Country of Registration */}

@@ -7,6 +7,7 @@ import { formatDate } from '../utils/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EntitySearchInput } from '../components/EntitySearchInput';
+import { formatSICDisplay } from '../data/sicCodes';
 import { Save, ArrowLeft, Building2, FileText, DollarSign, ShieldCheck, ArrowRightLeft, Upload, CheckCircle, XCircle, AlertCircle, Loader2, ChevronDown, Search, Users, Briefcase, Globe, Plus, Trash2, RefreshCw, CreditCard, Calendar } from 'lucide-react';
 import { DatePickerInput, parseDate, toISODateString } from '../components/DatePickerInput';
 
@@ -636,9 +637,27 @@ const PolicyForm: React.FC = () => {
                                 label="Original Insured Name (Legal Entity)"
                                 value={formData.insuredName || ''}
                                 onChange={(name, entityId) => setFormData(prev => ({ ...prev, insuredName: name, insuredEntityId: entityId }))}
+                                onEntitySelect={(entity) => {
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    insuredName: entity.fullName,
+                                    insuredEntityId: entity.id,
+                                    insuredSicCode: entity.sicCode || '',
+                                    insuredSicSection: entity.sicSection || '',
+                                    ...(entity.regCodeValue ? { insuredINN: entity.regCodeValue } : {}),
+                                    ...(entity.country ? { territory: entity.country } : {}),
+                                    ...(entity.city ? { city: entity.city } : {})
+                                  }));
+                                }}
                                 placeholder="Search for legal entity..."
                                 required
                             />
+                            {formData.insuredSicCode && (
+                              <div className="mt-1.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
+                                <span className="text-gray-400">Industry:</span>
+                                <span className="text-gray-600">{formatSICDisplay(formData.insuredSicCode)}</span>
+                              </div>
+                            )}
                         </div>
 
                         <SearchableInput 

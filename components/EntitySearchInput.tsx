@@ -2,11 +2,13 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DB } from '../services/db';
 import { LegalEntity } from '../types';
 import { Search, ChevronDown, Building2, Loader2 } from 'lucide-react';
+import { formatSICDisplay } from '../data/sicCodes';
 
 interface EntitySearchInputProps {
     label: string;
     value: string;
     onChange: (entityName: string, entityId?: string) => void;
+    onEntitySelect?: (entity: LegalEntity) => void;
     placeholder?: string;
     required?: boolean;
     className?: string;
@@ -16,6 +18,7 @@ export const EntitySearchInput: React.FC<EntitySearchInputProps> = ({
     label,
     value,
     onChange,
+    onEntitySelect,
     placeholder = "Type to search legal entities...",
     required = false,
     className = ""
@@ -64,14 +67,14 @@ export const EntitySearchInput: React.FC<EntitySearchInputProps> = ({
         return (
             entity.fullName?.toLowerCase().includes(term) ||
             entity.shortName?.toLowerCase().includes(term) ||
-            entity.inn?.toLowerCase().includes(term) ||
-            entity.registrationNumber?.toLowerCase().includes(term)
+            entity.regCodeValue?.toLowerCase().includes(term)
         );
     });
 
     const handleSelect = (entity: LegalEntity) => {
         setSearchTerm(entity.fullName);
         onChange(entity.fullName, entity.id);
+        onEntitySelect?.(entity);
         setIsOpen(false);
     };
 
@@ -126,11 +129,16 @@ export const EntitySearchInput: React.FC<EntitySearchInputProps> = ({
                                         <div className="font-medium text-gray-900 truncate">
                                             {entity.fullName}
                                         </div>
-                                        {(entity.shortName || entity.inn) && (
+                                        {(entity.shortName || entity.regCodeValue || entity.sicCode) && (
                                             <div className="text-xs text-gray-500 truncate">
                                                 {entity.shortName && <span>{entity.shortName}</span>}
-                                                {entity.shortName && entity.inn && <span> | </span>}
-                                                {entity.inn && <span>INN: {entity.inn}</span>}
+                                                {entity.shortName && entity.regCodeValue && <span> | </span>}
+                                                {entity.regCodeValue && <span>INN: {entity.regCodeValue}</span>}
+                                                {entity.sicCode && (
+                                                    <span className="ml-1 text-blue-500">
+                                                        &bull; {formatSICDisplay(entity.sicCode)}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
                                     </div>

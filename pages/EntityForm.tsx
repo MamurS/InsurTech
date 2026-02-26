@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { LegalEntity } from '../types';
 import { Save, ArrowLeft, Building2, Landmark, MapPin, Users } from 'lucide-react';
+import { SICCodePicker } from '../components/SICCodePicker';
 
 const EntityForm: React.FC = () => {
   const { id } = useParams();
@@ -27,6 +28,8 @@ const EntityForm: React.FC = () => {
     website: '',
     shareholders: '',
     lineOfBusiness: '',
+    sicCode: '',
+    sicSection: '',
     directorName: '',
     bankName: '',
     bankAccount: '',
@@ -193,8 +196,23 @@ const EntityForm: React.FC = () => {
                         <input type="text" name="directorName" value={formData.directorName} onChange={handleChange} className={inputClass}/>
                     </div>
                     <div>
+                        <label className={labelClass}>Industry Classification (SIC 2007)</label>
+                        <SICCodePicker
+                          sicCode={formData.sicCode || ''}
+                          sicSection={formData.sicSection || ''}
+                          onChange={(code, section) => setFormData(prev => ({
+                            ...prev,
+                            sicCode: code,
+                            sicSection: section
+                          }))}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          UK Standard Industrial Classification — <a href="https://resources.companieshouse.gov.uk/sic/" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline">reference</a>
+                        </p>
+                    </div>
+                    <div>
                         <label className={labelClass}>Line of Business</label>
-                        <input type="text" name="lineOfBusiness" value={formData.lineOfBusiness} onChange={handleChange} className={inputClass}/>
+                        <input type="text" name="lineOfBusiness" value={formData.lineOfBusiness} onChange={handleChange} className={inputClass} placeholder="Additional business description..."/>
                     </div>
                     <div>
                         <label className={labelClass}>Shareholders (Text Description)</label>

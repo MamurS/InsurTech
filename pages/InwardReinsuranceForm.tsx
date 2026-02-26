@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { useToast } from '../context/ToastContext';
 import { EntitySearchInput } from '../components/EntitySearchInput';
+import { formatSICDisplay } from '../data/sicCodes';
 import { DatePickerInput, toISODateString } from '../components/DatePickerInput';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { ContextBar } from '../components/ContextBar';
@@ -837,10 +838,27 @@ const InwardReinsuranceForm: React.FC = () => {
                     setSaveState('unsaved');
                     clearError('cedantName');
                   }}
+                  onEntitySelect={(entity) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      cedantName: entity.fullName,
+                      cedantEntityId: entity.id,
+                      cedantSicCode: entity.sicCode || '',
+                      cedantSicSection: entity.sicSection || ''
+                    }));
+                    setSaveState('unsaved');
+                    clearError('cedantName');
+                  }}
                   placeholder="Insurance company name"
                   required
                   className={errors.cedantName ? 'has-error' : ''}
                 />
+                {formData.cedantSicCode && (
+                  <div className="mt-1.5 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5 text-xs">
+                    <span className="text-gray-400">Industry:</span>
+                    <span className="text-gray-600">{formatSICDisplay(formData.cedantSicCode)}</span>
+                  </div>
+                )}
                 <FieldError error={errors.cedantName} />
               </div>
               <EntitySearchInput
