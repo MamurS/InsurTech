@@ -16,7 +16,8 @@ import {
 import { exportToExcel } from '../services/excelExport';
 import { usePageHeader } from '../context/PageHeaderContext';
 import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
-import { usePageHeader } from '../context/PageHeaderContext';
+import { CompactDateFilter } from '../components/CompactDateFilter';
+import { toISODateString } from '../components/DatePickerInput';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine
@@ -799,6 +800,9 @@ const MGADashboard: React.FC = () => {
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
 
   // Sticky bar height
   const filterRef = useRef<HTMLDivElement>(null);
@@ -887,6 +891,15 @@ const MGADashboard: React.FC = () => {
         !(a.brokerName || '').toLowerCase().includes(q)
       ) return false;
     }
+    // Date filter
+    if (dateFrom || dateTo) {
+      const fromStr = toISODateString(dateFrom) || '';
+      const toStr = toISODateString(dateTo) || '';
+      const val = dateFilterField === 'expiryDate' ? (a as any).expiryDate : (a as any).inceptionDate;
+      const dateStr = typeof val === 'string' ? val.slice(0, 10) : '';
+      if (fromStr && dateStr < fromStr) return false;
+      if (toStr && dateStr > toStr) return false;
+    }
     return true;
   });
 
@@ -897,7 +910,7 @@ const MGADashboard: React.FC = () => {
   // Reset visibleCount on filter changes
   useEffect(() => {
     setVisibleCount(VISIBLE_INCREMENT);
-  }, [searchTerm, statusFilter, typeFilter]);
+  }, [searchTerm, statusFilter, typeFilter, dateFrom, dateTo, dateFilterField]);
 
   // IntersectionObserver for infinite scroll
   useEffect(() => {
@@ -1012,6 +1025,99 @@ const MGADashboard: React.FC = () => {
   // ─── Render ───────────────────────────────────────────
   return (
     <div>
+      {/* Sticky Filter Bar — ALWAYS visible */}
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+          <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
+            {/* Page Tab Toggle */}
+            <div className="flex bg-gray-100 p-0.5 rounded-lg">
+              <button
+                onClick={() => setActivePageTab('agreements')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                  activePageTab === 'agreements' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Agreements
+              </button>
+              <button
+                onClick={() => setActivePageTab('performance')}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                  activePageTab === 'performance' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                Performance
+              </button>
+            </div>
+
+            <div className="w-px h-5 bg-gray-300" />
+
+            {/* Search */}
+            <div className="relative flex-1 min-w-[180px]">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input type="text" placeholder="Search agreements..." value={searchInput}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+            </div>
+
+            {/* Status */}
+            <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+              <option value="all">All Statuses</option>
+              <option value="DRAFT">Draft</option>
+              <option value="ACTIVE">Active</option>
+              <option value="EXPIRED">Expired</option>
+              <option value="TERMINATED">Terminated</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+
+            {/* Type */}
+            <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+              <option value="all">All Types</option>
+              <option value="BINDING_AUTHORITY">Binding Authority</option>
+              <option value="LINESLIP">Lineslip</option>
+              <option value="TREATY">Treaty</option>
+            </select>
+
+            {/* Date Filter */}
+            <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '280px' }}>
+              <select
+                value={dateFilterField}
+                onChange={(e) => setDateFilterField(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+              >
+                <option value="inceptionDate">Inception</option>
+                <option value="expiryDate">Expiry</option>
+              </select>
+              <CompactDateFilter
+                value={dateFrom}
+                onChange={(d) => { setDateFrom(d); setVisibleCount(VISIBLE_INCREMENT); }}
+                placeholder="From"
+              />
+              <CompactDateFilter
+                value={dateTo}
+                onChange={(d) => { setDateTo(d); setVisibleCount(VISIBLE_INCREMENT); }}
+                placeholder="To"
+              />
+            </div>
+
+            {/* Refresh */}
+            <button onClick={loadData} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Refresh">
+              <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+            </button>
+
+            <div className="w-px h-5 bg-gray-300" />
+
+            {/* New Agreement */}
+            <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
+              <Plus size={16} />
+              New Agreement
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Performance Tab */}
       {activePageTab === 'performance' && (
         <PerformanceTab
@@ -1022,62 +1128,8 @@ const MGADashboard: React.FC = () => {
         />
       )}
 
-      {/* Agreements Tab (existing content) */}
-      {activePageTab === 'agreements' && (<>
-
-      {/* Sticky Filter Bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
-        <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
-          {/* Tab Selector */}
-          <select value={activePageTab} onChange={(e) => setActivePageTab(e.target.value as 'agreements' | 'performance')}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white font-medium">
-            <option value="agreements">Agreements</option>
-            <option value="performance">Performance</option>
-          </select>
-
-          {/* Search */}
-          <div className="relative flex-1 min-w-[180px]">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Search agreements..." value={searchInput}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
-          </div>
-
-          {/* Status */}
-          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
-            <option value="all">All Statuses</option>
-            <option value="DRAFT">Draft</option>
-            <option value="ACTIVE">Active</option>
-            <option value="EXPIRED">Expired</option>
-            <option value="TERMINATED">Terminated</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-
-          {/* Type */}
-          <select value={typeFilter} onChange={(e) => { setTypeFilter(e.target.value); setVisibleCount(VISIBLE_INCREMENT); }}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
-            <option value="all">All Types</option>
-            <option value="BINDING_AUTHORITY">Binding Authority</option>
-            <option value="LINESLIP">Lineslip</option>
-            <option value="TREATY">Treaty</option>
-          </select>
-
-          {/* Refresh */}
-          <button onClick={loadData} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Refresh">
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
-          </button>
-
-          {/* New Agreement */}
-          <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium text-sm">
-            <Plus size={16} />
-            New Agreement
-          </button>
-        </div>
-      </div>
-
-      {/* Agreements Table */}
+      {/* Agreements Tab */}
+      {activePageTab === 'agreements' && (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm mt-1">
         {loading ? (
           <div className="flex items-center justify-center h-64">
@@ -1180,7 +1232,7 @@ const MGADashboard: React.FC = () => {
           </>
         )}
       </div>
-      </>)}
+      )}
 
       {/* Form Modal */}
       <FormModal
