@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -720,35 +719,8 @@ const Dashboard: React.FC = () => {
       {/* Sticky group: filter bar + table header */}
       <div className="sticky top-0 z-30">
       {/* Row 1: All Filters in One Row */}
-      <div className="flex flex-wrap items-center gap-3 bg-white px-4 py-2.5 rounded-t-lg border border-gray-200 min-h-[48px] overflow-visible">
-        {/* Source Filter Dropdown */}
-        <select
-          value={sourceFilter}
-          onChange={(e) => handleSourceFilterChange(e.target.value as any)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 font-medium"
-        >
-          <option value="All">All Sources</option>
-          <option value="direct">Direct</option>
-          <option value="inward-foreign">In-Foreign</option>
-          <option value="inward-domestic">In-Domestic</option>
-        </select>
-
-        {/* Status Filter Dropdown */}
-        <select
-          value={statusFilter}
-          onChange={(e) => handleStatusFilterChange(e.target.value as any)}
-          className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700 font-medium"
-        >
-          <option value="All">All Statuses</option>
-          <option value="Active">Active</option>
-          <option value="Expired">Expired</option>
-          <option value="Pending">Pending</option>
-          <option value="Cancelled">Cancelled</option>
-          <option value="Deleted">Deleted</option>
-        </select>
-
-        <div className="w-px h-6 bg-gray-300 mx-1" />
-
+      <div className="bg-white rounded-xl border border-slate-200 p-3">
+      <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -761,7 +733,31 @@ const Dashboard: React.FC = () => {
           />
         </div>
 
-        <div className="w-px h-6 bg-gray-300 mx-1" />
+        {/* Source Filter Dropdown */}
+        <select
+          value={sourceFilter}
+          onChange={(e) => handleSourceFilterChange(e.target.value as any)}
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+        >
+          <option value="All">All Sources</option>
+          <option value="direct">Direct</option>
+          <option value="inward-foreign">In-Foreign</option>
+          <option value="inward-domestic">In-Domestic</option>
+        </select>
+
+        {/* Status Filter Dropdown */}
+        <select
+          value={statusFilter}
+          onChange={(e) => handleStatusFilterChange(e.target.value as any)}
+          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+        >
+          <option value="All">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Expired">Expired</option>
+          <option value="Pending">Pending</option>
+          <option value="Cancelled">Cancelled</option>
+          <option value="Deleted">Deleted</option>
+        </select>
 
         {/* Date Filter */}
         <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '380px' }}>
@@ -790,9 +786,19 @@ const Dashboard: React.FC = () => {
           placeholder="To"
         />
         </div>
+
+        {/* Refresh */}
+        <button
+          onClick={() => fetchData()}
+          className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+          title="Refresh"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+        </button>
+      </div>
       </div>
         {/* Header table — inside sticky group, synced with body scroll */}
-        <div ref={headerScrollRef} className="border-x border-gray-200 -mt-px overflow-hidden">
+        <div ref={headerScrollRef} className="border-x border-t border-gray-200 mt-1 overflow-hidden rounded-t-lg">
           <table className="w-full text-left border-collapse" style={{ tableLayout: 'fixed', minWidth: '1280px' }}>
                 <colgroup>
                     <col style={{ width: '80px' }} />   {/* STATUS */}
