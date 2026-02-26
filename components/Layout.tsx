@@ -46,7 +46,10 @@ const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith('/inward-reinsurance')) return 'Inward Reinsurance';
   if (pathname.startsWith('/mga')) return 'MGA / Binders';
   if (pathname.startsWith('/analytics')) return 'Analytics';
-  if (pathname.startsWith('/regulatory')) return 'Regulatory Reports';
+  if (pathname.startsWith('/financial')) return 'Technical Account';
+  if (pathname.startsWith('/risk-accumulation')) return 'Risk Accumulation';
+  if (pathname.startsWith('/ibnr')) return 'IBNR Estimation';
+  if (pathname.startsWith('/regulatory')) return 'Regulatory Reporting';
   if (pathname.startsWith('/slips') || pathname.startsWith('/slip')) return 'Slips';
   if (pathname.startsWith('/claims') || pathname.startsWith('/claim')) return 'Claims';
   if (pathname.startsWith('/entities')) return 'Legal Entities';

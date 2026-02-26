@@ -162,7 +162,7 @@ const IBNREstimation: React.FC = () => {
 
   // ── Export ────────────────────────────────────────────────────
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (activeTab === 'manual') {
       const rows = manualRows.map(r => ({
         'Class': r.class,
@@ -206,7 +206,23 @@ const IBNREstimation: React.FC = () => {
       });
       exportToExcel(rows, `IBNR_BF_${new Date().toISOString().split('T')[0]}`, 'IBNR BF Method');
     }
-  };
+  }, [activeTab, manualRows, bfRows, totalIbnrManual, totalIbnrBF, ultimateLossRatio]);
+
+  useEffect(() => {
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <button onClick={handleExport} disabled={loading || classData.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm disabled:opacity-50">
+          <Download size={14} /> Export
+        </button>
+        <button onClick={refetch} disabled={loading}
+          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50" title="Refresh">
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [loading, classData.length, setHeaderActions]);
 
   // Stats badges + Export button in page header
   useEffect(() => {
@@ -271,21 +287,43 @@ const IBNREstimation: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Tab Selector */}
-      <div className="flex rounded-lg border border-slate-300 overflow-hidden w-fit">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2 text-sm font-medium transition-colors border-r last:border-r-0 border-slate-300 ${
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Total IBNR Reserve</p>
+          <p className="text-2xl font-bold text-amber-600 mt-1">{loading ? '-' : formatCurrency(totalIbnr)}</p>
+          <p className="text-xs text-slate-400 mt-1">{activeTab === 'manual' ? 'Manual estimate' : 'BF method'}</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Total Reported Claims</p>
+          <p className="text-2xl font-bold text-slate-900 mt-1">{loading ? '-' : formatCurrency(totalReported)}</p>
+          <p className="text-xs text-slate-400 mt-1">{data?.claims.totalClaims || 0} claims</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Total Incurred (Reported + IBNR)</p>
+          <p className="text-2xl font-bold text-red-600 mt-1">{loading ? '-' : formatCurrency(totalIncAll)}</p>
+          <p className="text-xs text-slate-400 mt-1">Ultimate losses</p>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
+          <p className="text-sm font-medium text-slate-500">Ultimate Loss Ratio</p>
+          <p className={`text-2xl font-bold mt-1 ${ultimateLossRatio > 80 ? 'text-red-600' : ultimateLossRatio > 60 ? 'text-amber-600' : 'text-emerald-600'}`}>
+            {loading ? '-' : formatPercent(ultimateLossRatio)}
+          </p>
+          <p className="text-xs text-slate-400 mt-1">(Reported + IBNR) / GPE</p>
+        </div>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="sticky top-0 z-30 bg-gray-50">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+          <div className="flex items-center gap-3">
+            <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+              <option value="manual">Manual Entry</option>
+              <option value="bf">BF Method</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Loading */}

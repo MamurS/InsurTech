@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
@@ -14,11 +14,13 @@ import {
     AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight
 } from 'lucide-react';
 import { TaskStatus, AgendaTask, ReinsuranceSlip } from '../types';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 const Agenda: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const { setHeaderActions } = usePageHeader();
     
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('PENDING');
     const [searchTerm, setSearchTerm] = useState('');
@@ -80,29 +82,26 @@ const Agenda: React.FC = () => {
     const pendingCount = tasks?.filter(t => t.status === 'PENDING').length || 0;
     const overdueCount = tasks?.filter(t => t.isOverdue).length || 0;
 
+    // Header actions
+    useEffect(() => {
+        setHeaderActions(
+            <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 bg-red-50 text-red-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-100">
+                    <AlertCircle size={16}/> {overdueCount} Overdue
+                </div>
+                <button
+                    onClick={() => setShowCreateModal(true)}
+                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all text-sm"
+                >
+                    <Plus size={16}/> New Task
+                </button>
+            </div>
+        );
+        return () => setHeaderActions(null);
+    }, [overdueCount, setHeaderActions]);
+
     return (
         <div className="space-y-6 pb-20">
-            {/* Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        <ClipboardList className="text-blue-600"/> My Agenda
-                    </h2>
-                    <p className="text-gray-500 text-sm">Track your assigned cases and to-dos.</p>
-                </div>
-                <div className="flex gap-3">
-                    <div className="flex items-center gap-2 bg-red-50 text-red-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-100">
-                        <AlertCircle size={16}/> {overdueCount} Overdue
-                    </div>
-                    <button 
-                        onClick={() => setShowCreateModal(true)}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all text-sm"
-                    >
-                        <Plus size={16}/> New Task
-                    </button>
-                </div>
-            </div>
-
             {/* Filters */}
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
                 <div className="flex bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto">

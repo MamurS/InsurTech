@@ -4,6 +4,7 @@ import { useAnalyticsSummary } from '../hooks/useAnalytics';
 import { DB } from '../services/db';
 import { exportToExcel } from '../services/excelExport';
 import { useToast } from '../context/ToastContext';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ interface ReinsuranceData {
 const RegulatoryReporting: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const { showToast } = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   const [activeTab, setActiveTab] = useState<TabKey>('form1');
   const [quarter, setQuarter] = useState<string>(QUARTERS[Math.floor((new Date().getMonth()) / 3)]);
@@ -258,6 +260,26 @@ const RegulatoryReporting: React.FC = () => {
 
   const handlePrint = () => window.print();
 
+  useEffect(() => {
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <button onClick={handleExport} disabled={!data}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm disabled:opacity-50">
+          <Download size={14} /> Export
+        </button>
+        <button onClick={handlePrint}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200">
+          <Printer size={14} /> Print
+        </button>
+        <button onClick={refetch} disabled={loading}
+          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50" title="Refresh">
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [data, loading, setHeaderActions]);
+
   // ── Error state ──
   if (error) {
     return (
@@ -274,90 +296,36 @@ const RegulatoryReporting: React.FC = () => {
     );
   }
 
-  const tabs: { key: TabKey; label: string }[] = [
-    { key: 'form1', label: 'Form 1: Business Summary' },
-    { key: 'form2', label: 'Form 2: Solvency' },
-    { key: 'form3', label: 'Form 3: Reserves' },
-    { key: 'form4', label: 'Form 4: Reinsurance' },
-  ];
-
   return (
     <div className="max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Regulatory Reporting</h1>
-          <p className="text-sm text-slate-500 mt-0.5">NAPP / Insurance Regulator Reports</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Period selector */}
-          <select
-            value={quarter}
-            onChange={(e) => setQuarter(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
-          </select>
-          <select
-            value={year}
-            onChange={(e) => setYear(Number(e.target.value))}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-
-          {/* Exchange rate */}
-          <div className="flex items-center gap-1 text-sm">
-            <span className="text-slate-500">UZS/USD:</span>
-            <input
-              type="number"
-              value={exchangeRate}
-              onChange={(e) => setExchangeRate(Number(e.target.value) || 12800)}
-              className="w-20 border border-slate-300 rounded-lg px-2 py-1.5 text-sm text-right font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-            />
+      {/* Filter Bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+              <option value="form1">Form 1: Business Summary</option>
+              <option value="form2">Form 2: Solvency</option>
+              <option value="form3">Form 3: Reserves</option>
+              <option value="form4">Form 4: Reinsurance</option>
+            </select>
+            <div className="w-px h-6 bg-gray-300" />
+            <select value={quarter} onChange={(e) => setQuarter(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              {QUARTERS.map(q => <option key={q} value={q}>{q}</option>)}
+            </select>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none">
+              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+            <div className="w-px h-6 bg-gray-300" />
+            <div className="flex items-center gap-1 text-sm">
+              <span className="text-slate-500">UZS/USD:</span>
+              <input type="number" value={exchangeRate} onChange={(e) => setExchangeRate(Number(e.target.value) || 12800)}
+                className="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-right font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+            </div>
           </div>
-
-          <button
-            onClick={handleExport}
-            disabled={!data}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Export
-          </button>
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 text-sm font-semibold rounded-lg hover:bg-slate-200"
-          >
-            <Printer size={14} />
-            Print
-          </button>
-          <button
-            onClick={refetch}
-            disabled={loading}
-            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
-          </button>
         </div>
-      </div>
-
-      {/* Tab selector */}
-      <div className="flex border border-slate-300 rounded-lg overflow-hidden mb-6">
-        {tabs.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium transition-colors ${
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
       </div>
 
       {loading && !data ? (

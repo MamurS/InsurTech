@@ -16,6 +16,7 @@ import {
 import { exportToExcel } from '../services/excelExport';
 import { usePageHeader } from '../context/PageHeaderContext';
 import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
+import { usePageHeader } from '../context/PageHeaderContext';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine
@@ -984,50 +985,18 @@ const MGADashboard: React.FC = () => {
     finally { setExporting(false); }
   };
 
-  // Stats badges + Export button in page header (computed from filtered data)
-  const filteredStats = {
-    total: filteredAgreements.length,
-    active: filteredAgreements.filter(a => a.status === 'ACTIVE').length,
-    totalEpi: filteredAgreements.reduce((s, a) => s + (a.epi || 0), 0),
-    actualGwp: filteredAgreements.reduce((s, a) => s + (gwpByAgreement[a.id] || 0), 0),
-  };
-
   useEffect(() => {
-    const fmtCompact = (v: number): string => {
-      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
-      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
-      if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
-      return '$' + v.toFixed(0);
-    };
     setHeaderActions(
       <div className="flex items-center gap-2">
-        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
-          <span className="text-xs text-slate-500 font-medium">Agreements</span>
-          <span className="text-sm font-bold text-slate-800">{filteredStats.total}</span>
-        </div>
-        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
-          <span className="text-xs text-emerald-600 font-medium">Active</span>
-          <span className="text-sm font-bold text-emerald-800">{filteredStats.active}</span>
-        </div>
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
-          <span className="text-xs text-blue-600 font-medium">EPI</span>
-          <span className="text-sm font-bold text-blue-800">{fmtCompact(filteredStats.totalEpi)}</span>
-        </div>
-        <div className="flex items-center gap-2 bg-purple-50 border border-purple-200 rounded-lg px-3 py-1.5">
-          <span className="text-xs text-purple-600 font-medium">GWP</span>
-          <span className="text-sm font-bold text-purple-800">{fmtCompact(filteredStats.actualGwp)}</span>
-        </div>
-        <button
-          onClick={() => handleExport()}
-          disabled={exporting || filteredAgreements.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={16} /> Export
+        <button onClick={handleExport} disabled={exporting || filteredAgreements.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+          <Download size={14} />
+          Export
         </button>
       </div>
     );
     return () => setHeaderActions(null);
-  }, [filteredAgreements, exporting, filteredStats.total, filteredStats.active, filteredStats.totalEpi, filteredStats.actualGwp, setHeaderActions]);
+  }, [exporting, filteredAgreements.length, setHeaderActions]);
 
   // ─── Delete handler ───────────────────────────────────
   const handleDelete = async (id: string) => {
@@ -1043,28 +1012,6 @@ const MGADashboard: React.FC = () => {
   // ─── Render ───────────────────────────────────────────
   return (
     <div>
-      {/* Page-level Tab Selector */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
-          <button
-            onClick={() => setActivePageTab('agreements')}
-            className={`px-5 py-2 text-sm font-medium transition-colors border-r border-slate-300 ${
-              activePageTab === 'agreements' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            Agreements
-          </button>
-          <button
-            onClick={() => setActivePageTab('performance')}
-            className={`px-5 py-2 text-sm font-medium transition-colors ${
-              activePageTab === 'performance' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            Performance
-          </button>
-        </div>
-      </div>
-
       {/* Performance Tab */}
       {activePageTab === 'performance' && (
         <PerformanceTab
@@ -1081,6 +1028,13 @@ const MGADashboard: React.FC = () => {
       {/* Sticky Filter Bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
         <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+          {/* Tab Selector */}
+          <select value={activePageTab} onChange={(e) => setActivePageTab(e.target.value as 'agreements' | 'performance')}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+            <option value="agreements">Agreements</option>
+            <option value="performance">Performance</option>
+          </select>
+
           {/* Search */}
           <div className="relative flex-1 min-w-[120px]">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1113,8 +1067,6 @@ const MGADashboard: React.FC = () => {
           <button onClick={loadData} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Refresh">
             <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
           </button>
-
-          <div className="w-px h-5 bg-gray-300" />
 
           {/* New Agreement */}
           <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
