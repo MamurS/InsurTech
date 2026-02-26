@@ -431,7 +431,7 @@ const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
       <div className="flex-1 flex flex-col h-full min-w-0">
 
           {/* Global Header (Fixed at top of content area) */}
-          <header className="bg-white border-b border-gray-200 px-4 py-2 flex items-center shadow-sm z-20 flex-shrink-0">
+          <header className="bg-white border-b border-gray-200 px-4 py-2 flex items-center shadow-sm z-20 flex-shrink-0 relative">
                 <div className="flex items-center">
                     <button
                         onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -447,6 +447,9 @@ const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
                 <div className="flex items-center gap-2">
                     {headerActions}
                 </div>
+                {/* Blur fade strip below header */}
+                <div className="absolute left-0 right-0 top-full h-6 pointer-events-none z-10"
+                     style={{ backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)', background: 'linear-gradient(to bottom, rgba(249,250,251,0.85), rgba(249,250,251,0))' }} />
           </header>
 
           {/* Scrollable Page Content */}

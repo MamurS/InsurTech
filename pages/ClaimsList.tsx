@@ -162,7 +162,7 @@ const ClaimsList: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Search */}

@@ -299,7 +299,7 @@ const RegulatoryReporting: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto">
       {/* Filter Bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 mb-6">
+      <div className="sticky top-0 z-30 bg-gray-50 mb-6 sticky-filter-blur">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
           <div className="flex flex-wrap items-center gap-3">
             <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}

@@ -357,7 +357,7 @@ const RiskAccumulation: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="sticky top-0 z-30 bg-gray-50">
+      <div className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
           <div className="flex items-center gap-3">
             <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}
