@@ -72,7 +72,6 @@ const FinancialStatements: React.FC = () => {
   const { setHeaderActions } = usePageHeader();
   const [period, setPeriod] = useState('all');
   const [ibnrTotal, setIbnrTotal] = useState(0);
-  const { setHeaderActions } = usePageHeader();
 
   useEffect(() => {
     DB.getSetting('ibnr_estimates').then(raw => {
