@@ -78,15 +78,22 @@ const DirectInsuranceList: React.FC = () => {
     show: false, id: '', number: ''
   });
 
-  // Load stats (separate from data fetch)
+  // Load stats (filter-aware count queries)
   const loadStats = useCallback(async () => {
     try {
-      const s = await DB.getDirectPoliciesStats();
+      const s = await DB.getDirectPoliciesStats({
+        countryFilter,
+        statusFilter,
+        searchTerm,
+        dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
+        dateFrom: dateFrom ? toISODateString(dateFrom) || undefined : undefined,
+        dateTo: dateTo ? toISODateString(dateTo) || undefined : undefined,
+      });
       setStats(s);
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
-  }, []);
+  }, [countryFilter, statusFilter, searchTerm, dateFilterField, dateFrom, dateTo]);
 
   // Fetch paginated data from view
   const fetchData = useCallback(async () => {
