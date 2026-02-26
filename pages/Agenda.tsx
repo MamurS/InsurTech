@@ -134,17 +134,17 @@ const Agenda: React.FC = () => {
         <div className="pb-20">
             {/* Sticky filter bar */}
             <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
-            <div className="bg-white rounded-xl border border-slate-200 p-3">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
                 <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
                     {/* Search */}
-                    <div className="relative flex-1 min-w-[200px]">
-                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <div className="relative flex-1 min-w-[180px]">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
+                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
                         />
                     </div>
 
@@ -152,7 +152,7 @@ const Agenda: React.FC = () => {
                     <select
                         value={statusFilter}
                         onChange={(e) => handleStatusFilterChange(e.target.value as any)}
-                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
                     >
                         <option value="ALL">All Statuses</option>
                         <option value="PENDING">Pending</option>
@@ -164,7 +164,7 @@ const Agenda: React.FC = () => {
                     <select
                         value={priorityFilter}
                         onChange={(e) => setPriorityFilter(e.target.value)}
-                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
                     >
                         <option value="all">All Priorities</option>
                         <option value="URGENT">Urgent</option>
@@ -175,7 +175,9 @@ const Agenda: React.FC = () => {
 
                     {/* Date Filter */}
                     <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '280px' }}>
-                        <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Due Date</span>
+                        <select disabled className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
+                            <option>Due Date</option>
+                        </select>
                         <CompactDateFilter
                             value={dateFrom}
                             onChange={(d) => setDateFrom(d)}
@@ -191,10 +193,10 @@ const Agenda: React.FC = () => {
                     {/* Refresh */}
                     <button
                         onClick={() => refetch()}
-                        className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
                         title="Refresh"
                     >
-                        <RefreshCw size={16} className={isLoading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+                        <RefreshCw size={16} className={isLoading ? 'animate-spin text-blue-600' : ''} />
                     </button>
                 </div>
             </div>

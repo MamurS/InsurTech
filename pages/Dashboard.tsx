@@ -719,15 +719,15 @@ const Dashboard: React.FC = () => {
       {/* Sticky group: filter bar + table header */}
       <div className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
       {/* Row 1: All Filters in One Row */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
       <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
             placeholder="Search... (try broker:Howden or class:Fire)"
-            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
+            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
           />
@@ -737,7 +737,7 @@ const Dashboard: React.FC = () => {
         <select
           value={sourceFilter}
           onChange={(e) => handleSourceFilterChange(e.target.value as any)}
-          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
         >
           <option value="All">All Sources</option>
           <option value="direct">Direct</option>
@@ -749,7 +749,7 @@ const Dashboard: React.FC = () => {
         <select
           value={statusFilter}
           onChange={(e) => handleStatusFilterChange(e.target.value as any)}
-          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
         >
           <option value="All">All Statuses</option>
           <option value="Active">Active</option>
@@ -764,7 +764,7 @@ const Dashboard: React.FC = () => {
         <select
           value={dateFilterField}
           onChange={(e) => handleDateFilterChange(e.target.value, dateFrom, dateTo)}
-          className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+          className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
         >
           <option value="inceptionDate">Inception</option>
           <option value="expiryDate">Expiry</option>
@@ -790,10 +790,10 @@ const Dashboard: React.FC = () => {
         {/* Refresh */}
         <button
           onClick={() => fetchData()}
-          className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+          className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
           title="Refresh"
         >
-          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
         </button>
       </div>
       </div>

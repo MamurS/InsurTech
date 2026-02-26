@@ -390,7 +390,7 @@ const InwardReinsuranceList: React.FC = () => {
           <select
             value={dateFilterField}
             onChange={(e) => { setDateFilterField(e.target.value); setPage(1); }}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
             <option value="inceptionDate">Inception</option>
             <option value="expiryDate">Expiry</option>

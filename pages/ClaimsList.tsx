@@ -166,12 +166,12 @@ const ClaimsList: React.FC = () => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
         <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px]">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+          <div className="relative flex-1 min-w-[180px]">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
             <input
               type="text"
               placeholder="Search..."
-              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               value={filters.searchTerm}
               onChange={e => handleFilterChange('searchTerm', e.target.value)}
             />
@@ -188,7 +188,7 @@ const ClaimsList: React.FC = () => {
           <select
             value={dateFilterField}
             onChange={(e) => setDateFilterField(e.target.value)}
-            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
           >
             <option value="lossDate">Loss Date</option>
             <option value="reportDate">Report Date</option>
@@ -205,8 +205,8 @@ const ClaimsList: React.FC = () => {
           />
           </div>
 
-          <button onClick={() => refetch()} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600">
-            <RefreshCw size={14}/>
+          <button onClick={() => refetch()} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
+            <RefreshCw size={16}/>
           </button>
 
         </div>

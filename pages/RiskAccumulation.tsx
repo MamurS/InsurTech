@@ -361,7 +361,7 @@ const RiskAccumulation: React.FC = () => {
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
           <div className="flex items-center gap-3">
             <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}
-              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white font-medium">
               {TABS.map((tab) => (
                 <option key={tab.key} value={tab.key}>{tab.label}</option>
               ))}
