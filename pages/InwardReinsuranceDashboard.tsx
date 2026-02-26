@@ -287,7 +287,7 @@ const InwardReinsuranceDashboard: React.FC = () => {
   return (
     <div>
       {/* Sticky filter bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
       <div className="flex flex-wrap items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl shadow-sm min-h-[48px] overflow-visible">
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">

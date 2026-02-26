@@ -1026,7 +1026,7 @@ const MGADashboard: React.FC = () => {
       {activePageTab === 'agreements' && (<>
 
       {/* Sticky Filter Bar */}
-      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
+      <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
         <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
           {/* Tab Selector */}
           <select value={activePageTab} onChange={(e) => setActivePageTab(e.target.value as 'agreements' | 'performance')}

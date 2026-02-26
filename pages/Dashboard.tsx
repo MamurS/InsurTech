@@ -717,7 +717,7 @@ const Dashboard: React.FC = () => {
   return (
     <div>
       {/* Sticky group: filter bar + table header */}
-      <div className="sticky top-0 z-30">
+      <div className="sticky top-0 z-30 bg-gray-50 sticky-filter-blur">
       {/* Row 1: All Filters in One Row */}
       <div className="bg-white rounded-xl border border-slate-200 p-3">
       <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
