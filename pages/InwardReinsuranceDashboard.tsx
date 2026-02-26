@@ -18,7 +18,7 @@ import { usePageHeader } from '../context/PageHeaderContext';
 
 const InwardReinsuranceDashboard: React.FC = () => {
   const toast = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
 
   // Server-side pagination state
   const [contracts, setContracts] = useState<any[]>([]);
@@ -209,10 +209,10 @@ const InwardReinsuranceDashboard: React.FC = () => {
     }
   };
 
-  // Stats badges + Export button in page header
+  // Stats badges in header left, Export button in header right
   useEffect(() => {
-    setHeaderActions(
-      <div className="flex items-center gap-2">
+    setHeaderLeft(
+      <>
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-slate-500 font-medium">Contracts</span>
           <span className="text-sm font-bold text-slate-800">{stats.total}</span>
@@ -229,17 +229,19 @@ const InwardReinsuranceDashboard: React.FC = () => {
           <span className="text-xs text-emerald-600 font-medium">Active</span>
           <span className="text-sm font-bold text-emerald-800">{stats.active}</span>
         </div>
-        <button
-          onClick={() => handleExport()}
-          disabled={exporting || contracts.length === 0}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={16} /> Export
-        </button>
-      </div>
+      </>
     );
-    return () => setHeaderActions(null);
-  }, [contracts, exporting, stats, setHeaderActions]);
+    setHeaderActions(
+      <button
+        onClick={() => handleExport()}
+        disabled={exporting || contracts.length === 0}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [contracts, exporting, stats, setHeaderActions, setHeaderLeft]);
 
   const formatCurrency = (amount: number, short: boolean = false) => {
     if (short) {

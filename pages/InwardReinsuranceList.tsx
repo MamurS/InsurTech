@@ -20,7 +20,7 @@ const InwardReinsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
 
   // Determine origin from URL path
   const origin: InwardReinsuranceOrigin = location.pathname.includes('/foreign') ? 'FOREIGN' : 'DOMESTIC';
@@ -296,7 +296,7 @@ const InwardReinsuranceList: React.FC = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
-  // Stats badges + Export button in page header
+  // Stats badges in header left, Export button in header right
   useEffect(() => {
     const activeCount = contracts.filter(c => c.status === 'ACTIVE' || c.status === 'Active').length;
     const totalGWP = contracts.reduce((sum, c) => sum + (c.grossPremium || 0), 0);
@@ -306,8 +306,8 @@ const InwardReinsuranceList: React.FC = () => {
       if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
       return v.toFixed(0);
     };
-    setHeaderActions(
-      <div className="flex items-center gap-2">
+    setHeaderLeft(
+      <>
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-slate-500 font-medium">Contracts</span>
           <span className="text-sm font-bold text-slate-800">{totalCount}</span>
@@ -320,16 +320,18 @@ const InwardReinsuranceList: React.FC = () => {
           <span className="text-xs text-blue-600 font-medium">GWP</span>
           <span className="text-sm font-bold text-blue-800">{fmtCompact(totalGWP)}</span>
         </div>
-        <button
-          onClick={() => handleExport()}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-        >
-          <Download size={16} /> Export
-        </button>
-      </div>
+      </>
     );
-    return () => setHeaderActions(null);
-  }, [contracts, totalCount, setHeaderActions]);
+    setHeaderActions(
+      <button
+        onClick={() => handleExport()}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [contracts, totalCount, setHeaderActions, setHeaderLeft]);
 
   return (
     <div>

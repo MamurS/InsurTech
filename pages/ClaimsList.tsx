@@ -15,7 +15,7 @@ const PAGE_SIZE = 20;
 
 const ClaimsList: React.FC = () => {
   const navigate = useNavigate();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
   const [showFilters, setShowFilters] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
@@ -145,8 +145,8 @@ const ClaimsList: React.FC = () => {
         </button>
       </div>
     );
-    return () => setHeaderActions(null);
-  }, [claims, setHeaderActions]);
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [claims, setHeaderActions, setHeaderLeft]);
 
   // Format Currency Helper
   const formatMoney = (val: number | undefined) => {

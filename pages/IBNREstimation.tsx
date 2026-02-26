@@ -48,7 +48,7 @@ const formatPercent = (value: number): string => `${value.toFixed(1)}%`;
 const IBNREstimation: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const toast = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
   const location = useLocation();
 
   const activeTab: TabKey = location.pathname.includes('/bf-method') ? 'bf' : 'manual';
@@ -210,7 +210,7 @@ const IBNREstimation: React.FC = () => {
     }
   };
 
-  // Stats badges + Export button in page header
+  // Stats badges in header left, Export button in header right
   useEffect(() => {
     const fmtCompact = (v: number): string => {
       if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
@@ -221,8 +221,8 @@ const IBNREstimation: React.FC = () => {
     const lrBg = ultimateLossRatio > 80 ? 'bg-red-50 border-red-200' : ultimateLossRatio > 60 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200';
     const lrLabel = ultimateLossRatio > 80 ? 'text-red-600' : ultimateLossRatio > 60 ? 'text-amber-600' : 'text-emerald-600';
     const lrValue = ultimateLossRatio > 80 ? 'text-red-800' : ultimateLossRatio > 60 ? 'text-amber-800' : 'text-emerald-800';
-    setHeaderActions(
-      <div className="flex items-center gap-2">
+    setHeaderLeft(
+      <>
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-amber-600 font-medium">IBNR</span>
           <span className="text-sm font-bold text-amber-800">{loading ? '…' : fmtCompact(totalIbnr)}</span>
@@ -239,17 +239,19 @@ const IBNREstimation: React.FC = () => {
           <span className={`text-xs ${lrLabel} font-medium`}>Ult. LR</span>
           <span className={`text-sm font-bold ${lrValue}`}>{loading ? '…' : formatPercent(ultimateLossRatio)}</span>
         </div>
-        <button
-          onClick={() => handleExport()}
-          disabled={!data}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={16} /> Export
-        </button>
-      </div>
+      </>
     );
-    return () => setHeaderActions(null);
-  }, [data, loading, totalIbnr, totalReported, totalIncAll, ultimateLossRatio, setHeaderActions]);
+    setHeaderActions(
+      <button
+        onClick={() => handleExport()}
+        disabled={!data}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [data, loading, totalIbnr, totalReported, totalIncAll, ultimateLossRatio, setHeaderActions, setHeaderLeft]);
 
   // ── Error state ──────────────────────────────────────────────
 

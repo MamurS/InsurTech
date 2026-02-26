@@ -67,7 +67,7 @@ const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const { headerActions } = usePageHeader();
+  const { headerActions, headerLeft } = usePageHeader();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isInwardReinsuranceOpen, setIsInwardReinsuranceOpen] = useState(
     location.pathname.includes('/inward-reinsurance')
@@ -502,6 +502,11 @@ const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
                         {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
                     </button>
                 </div>
+                {headerLeft && (
+                    <div className="hidden md:flex items-center gap-2 ml-2">
+                        {headerLeft}
+                    </div>
+                )}
                 <div className="flex-1 text-center">
                     <h1 className="text-xl font-bold text-gray-800">{getPageTitle(location.pathname)}</h1>
                 </div>

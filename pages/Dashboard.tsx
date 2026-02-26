@@ -326,7 +326,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const toast = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
 
   // Create Entity Confirmation State
   const [createEntityConfirm, setCreateEntityConfirm] = useState<{ isOpen: boolean; name: string }>({ isOpen: false, name: '' });
@@ -642,10 +642,10 @@ const Dashboard: React.FC = () => {
     await ExcelService.exportPortfolio(sortedRows);
   };
 
-  // Stats + Export button in page header
+  // Stats badges in header left, Export button in header right
   useEffect(() => {
-    setHeaderActions(
-      <div className="flex items-center gap-3">
+    setHeaderLeft(
+      <>
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-slate-500 font-medium">Policies</span>
           <span className="text-sm font-bold text-slate-800">{totalCount.toLocaleString()}</span>
@@ -660,16 +660,18 @@ const Dashboard: React.FC = () => {
           <span className="text-sm font-bold text-emerald-800">{formatCompact(totalGWP)}</span>
           <span className="text-[10px] text-emerald-400 font-medium">USD</span>
         </div>
-        <button
-          onClick={() => ExcelService.exportPortfolio(sortedRows)}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-        >
-          <Download size={16} /> Export
-        </button>
-      </div>
+      </>
     );
-    return () => setHeaderActions(null);
-  }, [sortedRows, setHeaderActions, totalCount, totalSumInsured, totalGWP]);
+    setHeaderActions(
+      <button
+        onClick={() => ExcelService.exportPortfolio(sortedRows)}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [sortedRows, setHeaderActions, setHeaderLeft, totalCount, totalSumInsured, totalGWP]);
 
   const SortableHeader = ({ label, sortKey, className = "", style }: { label: string, sortKey: string, className?: string, style?: React.CSSProperties }) => {
     const isActive = sortConfig.key === sortKey;

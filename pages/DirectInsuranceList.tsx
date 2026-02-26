@@ -20,7 +20,7 @@ import { usePageHeader } from '../context/PageHeaderContext';
 const DirectInsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const toast = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
 
   // Infinite scroll state
   const PAGE_SIZE = 20;
@@ -257,10 +257,10 @@ const DirectInsuranceList: React.FC = () => {
     exportToExcel(exportData, `Direct_Insurance_${new Date().toISOString().split('T')[0]}`, 'Direct Insurance');
   };
 
-  // Stats badges + Export button in page header
+  // Stats badges in header left, Export button in header right
   useEffect(() => {
-    setHeaderActions(
-      <div className="flex items-center gap-2">
+    setHeaderLeft(
+      <>
         <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-slate-500 font-medium">Total</span>
           <span className="text-sm font-bold text-slate-800">{stats.total}</span>
@@ -281,16 +281,18 @@ const DirectInsuranceList: React.FC = () => {
           <span className="text-xs text-slate-400 font-medium">Draft</span>
           <span className="text-sm font-bold text-slate-500">{stats.draft}</span>
         </div>
-        <button
-          onClick={() => handleExport()}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-        >
-          <Download size={16} /> Export
-        </button>
-      </div>
+      </>
     );
-    return () => setHeaderActions(null);
-  }, [policies, stats, setHeaderActions]);
+    setHeaderActions(
+      <button
+        onClick={() => handleExport()}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
+    );
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [policies, stats, setHeaderActions, setHeaderLeft]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

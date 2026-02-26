@@ -41,7 +41,7 @@ interface ReinsuranceData {
 const RegulatoryReporting: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const { showToast } = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
 
   const [activeTab, setActiveTab] = useState<TabKey>('form1');
   const [quarter, setQuarter] = useState<string>(QUARTERS[Math.floor((new Date().getMonth()) / 3)]);
@@ -277,8 +277,8 @@ const RegulatoryReporting: React.FC = () => {
         </button>
       </div>
     );
-    return () => setHeaderActions(null);
-  }, [data, loading, setHeaderActions]);
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [data, loading, setHeaderActions, setHeaderLeft]);
 
   // ── Error state ──
   if (error) {
