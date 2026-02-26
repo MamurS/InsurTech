@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DB } from '../services/db';
@@ -262,23 +261,15 @@ const SlipsDashboard: React.FC = () => {
     exportToExcel(exportData, `Reinsurance_Slips_${new Date().toISOString().split('T')[0]}`, 'Slips');
   };
 
-  // Header actions: Export + New Slip
+  // Export button in page header
   useEffect(() => {
     setHeaderActions(
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-        >
-          <Download size={16} /> Export
-        </button>
-        <button
-          onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
-          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
-        >
-          <Plus size={16} /> New Slip
-        </button>
-      </div>
+      <button
+        onClick={handleExport}
+        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+      >
+        <Download size={16} /> Export
+      </button>
     );
     return () => setHeaderActions(null);
   }, [sortedSlips, setHeaderActions]);
@@ -344,20 +335,26 @@ const SlipsDashboard: React.FC = () => {
     <div>
       {/* Sticky filter bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
-      <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white p-3 rounded-xl border border-slate-200">
         <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
-          {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
-          >
+          {/* Status Tabs - Compact */}
+          <div className="flex bg-gray-100 p-0.5 rounded-lg overflow-x-auto">
             {slipStatusTabs.map(tab => (
-              <option key={tab.key} value={tab.key}>{tab.label}</option>
+              <button
+                key={tab.key}
+                onClick={() => setStatusFilter(tab.key)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap ${
+                  statusFilter === tab.key
+                    ? 'bg-white text-blue-600 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </button>
             ))}
-          </select>
+          </div>
 
-          <div className="w-px h-6 bg-gray-300" />
+          <div className="w-px h-6 bg-slate-300" />
 
           {/* Search */}
           <div className="relative flex-1 min-w-[200px]">
@@ -371,7 +368,7 @@ const SlipsDashboard: React.FC = () => {
             />
           </div>
 
-          <div className="w-px h-6 bg-gray-300" />
+          <div className="w-px h-6 bg-slate-300" />
 
           {/* Date Filter */}
           <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '380px' }}>
@@ -394,6 +391,25 @@ const SlipsDashboard: React.FC = () => {
           />
           </div>
 
+          {/* Refresh */}
+          <button
+            onClick={() => fetchData()}
+            className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+          </button>
+
+          <div className="w-px h-6 bg-slate-300" />
+
+          {/* New Slip Button */}
+          <button
+            type="button"
+            onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
+          >
+            <Plus size={16} /> New Slip
+          </button>
         </div>
       </div>
       </div>{/* end sticky filter bar */}
