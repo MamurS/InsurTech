@@ -80,12 +80,20 @@ const InwardReinsuranceDashboard: React.FC = () => {
   // Load stats (separate lightweight queries)
   const loadStats = useCallback(async () => {
     try {
-      const s = await DB.getInwardReinsuranceStats();
+      const s = await DB.getInwardReinsuranceStats({
+        typeFilter,
+        statusFilter,
+        classFilter,
+        searchTerm,
+        dateField: (dateFrom || dateTo) ? dateFilterField : undefined,
+        dateFrom: dateFrom ? toISODateString(dateFrom) || undefined : undefined,
+        dateTo: dateTo ? toISODateString(dateTo) || undefined : undefined,
+      });
       setStats(s);
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
-  }, []);
+  }, [typeFilter, statusFilter, classFilter, searchTerm, dateFilterField, dateFrom, dateTo]);
 
   // Load unique classes for filter
   const loadClasses = useCallback(async () => {
