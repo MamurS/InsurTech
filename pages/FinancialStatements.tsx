@@ -69,6 +69,7 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 
 const FinancialStatements: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
+  const { setHeaderActions } = usePageHeader();
   const [period, setPeriod] = useState('all');
   const [ibnrTotal, setIbnrTotal] = useState(0);
   const { setHeaderActions } = usePageHeader();

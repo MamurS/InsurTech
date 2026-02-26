@@ -224,6 +224,43 @@ const IBNREstimation: React.FC = () => {
     return () => setHeaderActions(null);
   }, [loading, classData.length, setHeaderActions]);
 
+  // Stats badges + Export button in page header
+  useEffect(() => {
+    const fmtCompact = (v: number): string => {
+      if (v >= 1e9) return '$' + (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+      return '$' + v.toFixed(0);
+    };
+    const lrBg = ultimateLossRatio > 80 ? 'bg-red-50 border-red-200' : ultimateLossRatio > 60 ? 'bg-amber-50 border-amber-200' : 'bg-emerald-50 border-emerald-200';
+    const lrLabel = ultimateLossRatio > 80 ? 'text-red-600' : ultimateLossRatio > 60 ? 'text-amber-600' : 'text-emerald-600';
+    const lrValue = ultimateLossRatio > 80 ? 'text-red-800' : ultimateLossRatio > 60 ? 'text-amber-800' : 'text-emerald-800';
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-amber-600 font-medium">IBNR</span>
+          <span className="text-sm font-bold text-amber-800">{loading ? '…' : fmtCompact(totalIbnr)}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Reported</span>
+          <span className="text-sm font-bold text-slate-800">{loading ? '…' : fmtCompact(totalReported)}</span>
+        </div>
+        <div className={`flex items-center gap-2 ${lrBg} border rounded-lg px-3 py-1.5`}>
+          <span className={`text-xs ${lrLabel} font-medium`}>Ult. LR</span>
+          <span className={`text-sm font-bold ${lrValue}`}>{loading ? '…' : formatPercent(ultimateLossRatio)}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          disabled={!data}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [data, loading, activeTab, totalIbnr, totalReported, ultimateLossRatio, setHeaderActions]);
+
   // ── Error state ──────────────────────────────────────────────
 
   if (error) {

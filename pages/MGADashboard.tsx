@@ -14,6 +14,7 @@ import {
   Star, Minus
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
 import { usePageHeader } from '../context/PageHeaderContext';
 import {
@@ -1023,37 +1024,6 @@ const MGADashboard: React.FC = () => {
 
       {/* Agreements Tab (existing content) */}
       {activePageTab === 'agreements' && (<>
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-500 text-xs uppercase tracking-wide mb-1">
-            <FileSignature size={14} />
-            Total Agreements
-          </div>
-          <p className="text-2xl font-bold text-slate-800">{stats.total}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-emerald-500 text-xs uppercase tracking-wide mb-1">
-            <CheckCircle size={14} />
-            Active
-          </div>
-          <p className="text-2xl font-bold text-emerald-600">{stats.active}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-blue-500 text-xs uppercase tracking-wide mb-1">
-            <TrendingUp size={14} />
-            Total EPI
-          </div>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(stats.totalEpi, true)}</p>
-        </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-purple-500 text-xs uppercase tracking-wide mb-1">
-            <DollarSign size={14} />
-            Actual GWP
-          </div>
-          <p className="text-2xl font-bold text-purple-600">{formatCurrency(stats.actualGwp, true)}</p>
-        </div>
-      </div>
 
       {/* Sticky Filter Bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
@@ -1100,7 +1070,7 @@ const MGADashboard: React.FC = () => {
 
           {/* New Agreement */}
           <button onClick={() => { setEditingId(null); setShowFormModal(true); }}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm">
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">
             <Plus size={14} />
             New Agreement
           </button>

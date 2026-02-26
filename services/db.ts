@@ -1198,18 +1198,100 @@ export const DB = {
   },
 
   // Stats for Direct Policies (lightweight head:true count queries)
-  getDirectPoliciesStats: async (): Promise<{
+  getDirectPoliciesStats: async (filters?: {
+    countryFilter?: string;
+    statusFilter?: string;
+    searchTerm?: string;
+    dateField?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
     total: number; uzbekistan: number; foreign: number;
     active: number; draft: number;
   }> => {
     if (!isSupabaseEnabled()) return { total: 0, uzbekistan: 0, foreign: 0, active: 0, draft: 0 };
 
+    // Helper to build a base query with shared filters
+    const buildBase = () => {
+      let q = supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true });
+      if (filters?.countryFilter && filters.countryFilter !== 'all') {
+        if (filters.countryFilter === 'uzbekistan') q = q.eq('territory', 'Uzbekistan');
+        else if (filters.countryFilter === 'foreign') q = q.neq('territory', 'Uzbekistan');
+      }
+      if (filters?.statusFilter && filters.statusFilter !== 'all') {
+        q = q.eq('status', filters.statusFilter);
+      }
+      if (filters?.searchTerm && filters.searchTerm.trim()) {
+        const term = filters.searchTerm.trim();
+        q = q.or(`policy_number.ilike.%${term}%,insured_name.ilike.%${term}%`);
+      }
+      if (filters?.dateField && (filters?.dateFrom || filters?.dateTo)) {
+        const dateColumnMap: Record<string, string> = {
+          'inceptionDate': 'inception_date', 'expiryDate': 'expiry_date',
+          'dateOfSlip': 'date_of_slip', 'accountingDate': 'accounting_date',
+          'premiumPaymentDate': 'premium_payment_date', 'actualPaymentDate': 'actual_payment_date',
+        };
+        const dbDateCol = dateColumnMap[filters.dateField] || filters.dateField;
+        if (filters.dateFrom) q = q.gte(dbDateCol, filters.dateFrom);
+        if (filters.dateTo) q = q.lte(dbDateCol, filters.dateTo);
+      }
+      return q;
+    };
+
+    // Build sub-queries that further narrow by country/status on top of shared filters
+    const buildCountry = (territory: 'uzbekistan' | 'foreign') => {
+      let q = supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true });
+      // Apply shared filters except country (we override)
+      if (filters?.statusFilter && filters.statusFilter !== 'all') q = q.eq('status', filters.statusFilter);
+      if (filters?.searchTerm && filters.searchTerm.trim()) {
+        const term = filters.searchTerm.trim();
+        q = q.or(`policy_number.ilike.%${term}%,insured_name.ilike.%${term}%`);
+      }
+      if (filters?.dateField && (filters?.dateFrom || filters?.dateTo)) {
+        const dateColumnMap: Record<string, string> = {
+          'inceptionDate': 'inception_date', 'expiryDate': 'expiry_date',
+          'dateOfSlip': 'date_of_slip', 'accountingDate': 'accounting_date',
+          'premiumPaymentDate': 'premium_payment_date', 'actualPaymentDate': 'actual_payment_date',
+        };
+        const dbDateCol = dateColumnMap[filters.dateField] || filters.dateField;
+        if (filters.dateFrom) q = q.gte(dbDateCol, filters.dateFrom);
+        if (filters.dateTo) q = q.lte(dbDateCol, filters.dateTo);
+      }
+      if (territory === 'uzbekistan') q = q.eq('territory', 'Uzbekistan');
+      else q = q.neq('territory', 'Uzbekistan');
+      return q;
+    };
+
+    const buildStatus = (status: string) => {
+      let q = supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true });
+      if (filters?.countryFilter && filters.countryFilter !== 'all') {
+        if (filters.countryFilter === 'uzbekistan') q = q.eq('territory', 'Uzbekistan');
+        else if (filters.countryFilter === 'foreign') q = q.neq('territory', 'Uzbekistan');
+      }
+      if (filters?.searchTerm && filters.searchTerm.trim()) {
+        const term = filters.searchTerm.trim();
+        q = q.or(`policy_number.ilike.%${term}%,insured_name.ilike.%${term}%`);
+      }
+      if (filters?.dateField && (filters?.dateFrom || filters?.dateTo)) {
+        const dateColumnMap: Record<string, string> = {
+          'inceptionDate': 'inception_date', 'expiryDate': 'expiry_date',
+          'dateOfSlip': 'date_of_slip', 'accountingDate': 'accounting_date',
+          'premiumPaymentDate': 'premium_payment_date', 'actualPaymentDate': 'actual_payment_date',
+        };
+        const dbDateCol = dateColumnMap[filters.dateField] || filters.dateField;
+        if (filters.dateFrom) q = q.gte(dbDateCol, filters.dateFrom);
+        if (filters.dateTo) q = q.lte(dbDateCol, filters.dateTo);
+      }
+      q = q.eq('status', status);
+      return q;
+    };
+
     const [totalRes, uzbekRes, foreignRes, activeRes, draftRes] = await Promise.all([
-      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }),
-      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).eq('territory', 'Uzbekistan'),
-      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).neq('territory', 'Uzbekistan'),
-      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).eq('status', 'Active'),
-      supabase!.from('v_direct_policies_consolidated').select('*', { count: 'exact', head: true }).eq('status', 'Draft'),
+      buildBase(),
+      buildCountry('uzbekistan'),
+      buildCountry('foreign'),
+      buildStatus('Active'),
+      buildStatus('Draft'),
     ]);
 
     return {
@@ -1315,16 +1397,66 @@ export const DB = {
   },
 
   // Stats for Inward Reinsurance (lightweight head:true count queries)
-  getInwardReinsuranceStats: async (): Promise<{
+  getInwardReinsuranceStats: async (filters?: {
+    typeFilter?: string;
+    statusFilter?: string;
+    classFilter?: string;
+    searchTerm?: string;
+    dateField?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<{
     total: number; foreign: number; domestic: number; active: number;
   }> => {
     if (!isSupabaseEnabled()) return { total: 0, foreign: 0, domestic: 0, active: 0 };
 
+    const applySharedFilters = (q: any, skipType = false, skipStatus = false) => {
+      if (!skipType && filters?.typeFilter && filters.typeFilter !== 'all') {
+        q = q.eq('source', filters.typeFilter === 'foreign' ? 'inward-foreign' : 'inward-domestic');
+      }
+      if (!skipStatus && filters?.statusFilter && filters.statusFilter !== 'all') {
+        q = q.eq('status', filters.statusFilter);
+      }
+      if (filters?.classFilter && filters.classFilter !== 'all') {
+        q = q.eq('class_of_cover', filters.classFilter);
+      }
+      if (filters?.searchTerm && filters.searchTerm.trim()) {
+        const term = filters.searchTerm.trim();
+        q = q.or(`contract_number.ilike.%${term}%,cedant_name.ilike.%${term}%,broker_name.ilike.%${term}%,original_insured_name.ilike.%${term}%`);
+      }
+      if (filters?.dateField && (filters?.dateFrom || filters?.dateTo)) {
+        const dateColumnMap: Record<string, string> = {
+          'inceptionDate': 'inception_date', 'expiryDate': 'expiry_date',
+          'dateOfSlip': 'date_of_slip', 'accountingDate': 'accounting_date',
+          'reinsuranceInceptionDate': 'reinsurance_inception_date', 'reinsuranceExpiryDate': 'reinsurance_expiry_date',
+          'premiumPaymentDate': 'premium_payment_date', 'actualPaymentDate': 'actual_payment_date',
+        };
+        const dbDateCol = dateColumnMap[filters.dateField] || filters.dateField;
+        if (filters.dateFrom) q = q.gte(dbDateCol, filters.dateFrom);
+        if (filters.dateTo) q = q.lte(dbDateCol, filters.dateTo);
+      }
+      return q;
+    };
+
+    const buildQuery = () => applySharedFilters(
+      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true })
+    );
+    const buildType = (source: string) => {
+      let q = supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true });
+      q = applySharedFilters(q, true); // skip type filter
+      return q.eq('source', source);
+    };
+    const buildActive = () => {
+      let q = supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true });
+      q = applySharedFilters(q, false, true); // skip status filter
+      return q.eq('status', 'ACTIVE');
+    };
+
     const [totalRes, foreignRes, domesticRes, activeRes] = await Promise.all([
-      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }),
-      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }).eq('source', 'inward-foreign'),
-      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }).eq('source', 'inward-domestic'),
-      supabase!.from('v_inward_consolidated').select('*', { count: 'exact', head: true }).eq('status', 'ACTIVE'),
+      buildQuery(),
+      buildType('inward-foreign'),
+      buildType('inward-domestic'),
+      buildActive(),
     ]);
 
     return {

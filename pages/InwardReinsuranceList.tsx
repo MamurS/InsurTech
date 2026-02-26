@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../services/supabase';
 import { InwardReinsurance, InwardReinsuranceOrigin, Currency } from '../types';
@@ -13,11 +12,15 @@ import {
   ChevronLeft, ChevronRight, MoreVertical, Download
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
+import { CompactDateFilter } from '../components/CompactDateFilter';
+import { toISODateString } from '../components/DatePickerInput';
 
 const InwardReinsuranceList: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Determine origin from URL path
   const origin: InwardReinsuranceOrigin = location.pathname.includes('/foreign') ? 'FOREIGN' : 'DOMESTIC';
@@ -41,6 +44,11 @@ const InwardReinsuranceList: React.FC = () => {
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'FAC' | 'TREATY'>('ALL');
   const [structureFilter, setStructureFilter] = useState<'ALL' | 'PROPORTIONAL' | 'NON_PROPORTIONAL'>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+
+  // Date filter state
+  const [dateFilterField, setDateFilterField] = useState<string>('inceptionDate');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const pageSize = 20;
@@ -85,6 +93,19 @@ const InwardReinsuranceList: React.FC = () => {
         }
         if (searchTerm) {
           query = query.or(`contract_number.ilike.%${searchTerm}%,cedant_name.ilike.%${searchTerm}%,broker_name.ilike.%${searchTerm}%`);
+        }
+
+        // Date range filter
+        if (dateFrom || dateTo) {
+          const dateColumnMap: Record<string, string> = {
+            'inceptionDate': 'inception_date', 'expiryDate': 'expiry_date',
+            'dateOfSlip': 'date_of_slip', 'accountingDate': 'accounting_date',
+            'reinsuranceInceptionDate': 'reinsurance_inception_date', 'reinsuranceExpiryDate': 'reinsurance_expiry_date',
+            'premiumPaymentDate': 'premium_payment_date', 'actualPaymentDate': 'actual_payment_date',
+          };
+          const dbDateCol = dateColumnMap[dateFilterField] || 'inception_date';
+          if (dateFrom) query = query.gte(dbDateCol, toISODateString(dateFrom) || '');
+          if (dateTo) query = query.lte(dbDateCol, toISODateString(dateTo) || '');
         }
 
         const from = (page - 1) * pageSize;
@@ -173,7 +194,7 @@ const InwardReinsuranceList: React.FC = () => {
 
   useEffect(() => {
     fetchContracts();
-  }, [origin, typeFilter, structureFilter, statusFilter, searchTerm, page]);
+  }, [origin, typeFilter, structureFilter, statusFilter, searchTerm, page, dateFilterField, dateFrom, dateTo]);
 
   // Handle delete
   const handleDelete = async () => {
@@ -275,6 +296,41 @@ const InwardReinsuranceList: React.FC = () => {
 
   const totalPages = Math.ceil(totalCount / pageSize);
 
+  // Stats badges + Export button in page header
+  useEffect(() => {
+    const activeCount = contracts.filter(c => c.status === 'ACTIVE' || c.status === 'Active').length;
+    const totalGWP = contracts.reduce((sum, c) => sum + (c.grossPremium || 0), 0);
+    const fmtCompact = (v: number): string => {
+      if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B';
+      if (v >= 1e6) return (v / 1e6).toFixed(1) + 'M';
+      if (v >= 1e3) return (v / 1e3).toFixed(1) + 'K';
+      return v.toFixed(0);
+    };
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-slate-500 font-medium">Contracts</span>
+          <span className="text-sm font-bold text-slate-800">{totalCount}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-emerald-600 font-medium">Active</span>
+          <span className="text-sm font-bold text-emerald-800">{activeCount}</span>
+        </div>
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+          <span className="text-xs text-blue-600 font-medium">GWP</span>
+          <span className="text-sm font-bold text-blue-800">{fmtCompact(totalGWP)}</span>
+        </div>
+        <button
+          onClick={() => handleExport()}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+        >
+          <Download size={16} /> Export
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [contracts, totalCount, setHeaderActions]);
+
   return (
     <div>
       {/* Sticky filter bar */}
@@ -329,6 +385,34 @@ const InwardReinsuranceList: React.FC = () => {
             <option value="CANCELLED">Cancelled</option>
           </select>
 
+          {/* Date Filter */}
+          <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '380px' }}>
+          <select
+            value={dateFilterField}
+            onChange={(e) => { setDateFilterField(e.target.value); setPage(1); }}
+            className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+          >
+            <option value="inceptionDate">Inception</option>
+            <option value="expiryDate">Expiry</option>
+            <option value="dateOfSlip">Date of Slip</option>
+            <option value="accountingDate">Accounting</option>
+            <option value="reinsuranceInceptionDate">RI Inception</option>
+            <option value="reinsuranceExpiryDate">RI Expiry</option>
+            <option value="premiumPaymentDate">Prem. Payment</option>
+            <option value="actualPaymentDate">Actual Payment</option>
+          </select>
+          <CompactDateFilter
+            value={dateFrom}
+            onChange={(d) => { setDateFrom(d); setPage(1); }}
+            placeholder="From"
+          />
+          <CompactDateFilter
+            value={dateTo}
+            onChange={(d) => { setDateTo(d); setPage(1); }}
+            placeholder="To"
+          />
+          </div>
+
           {/* Refresh */}
           <button
             onClick={fetchContracts}
@@ -339,15 +423,6 @@ const InwardReinsuranceList: React.FC = () => {
           </button>
 
           <div className="w-px h-5 bg-gray-300" />
-
-          {/* Export Button */}
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm"
-          >
-            <Download size={14} />
-            Export to Excel
-          </button>
 
           {/* New Contract Button */}
           <button
