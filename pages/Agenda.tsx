@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
@@ -9,21 +9,27 @@ import { formatDate } from '../utils/dateUtils';
 import AssignTaskModal from '../components/AssignTaskModal';
 import TaskDetailModal from '../components/TaskDetailModal';
 import { DetailModal } from '../components/DetailModal';
+import { usePageHeader } from '../context/PageHeaderContext';
+import { CompactDateFilter } from '../components/CompactDateFilter';
+import { toISODateString } from '../components/DatePickerInput';
 import { 
     ClipboardList, Filter, Search, CheckCircle, Clock, 
-    AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight
+    AlertCircle, Briefcase, Plus, MoreHorizontal, ArrowRight, RefreshCw
 } from 'lucide-react';
 import { TaskStatus, AgendaTask, ReinsuranceSlip } from '../types';
-import { usePageHeader } from '../context/PageHeaderContext';
 
 const Agenda: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const queryClient = useQueryClient();
     const { setHeaderActions } = usePageHeader();
+    const filterRef = useRef<HTMLDivElement>(null);
     
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('PENDING');
+    const [priorityFilter, setPriorityFilter] = useState<string>('all');
     const [searchTerm, setSearchTerm] = useState('');
+    const [dateFrom, setDateFrom] = useState<Date | null>(null);
+    const [dateTo, setDateTo] = useState<Date | null>(null);
     const [showCreateModal, setShowCreateModal] = useState(false);
     
     // Task Detail Modal State
@@ -86,55 +92,119 @@ const Agenda: React.FC = () => {
     useEffect(() => {
         setHeaderActions(
             <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 bg-red-50 text-red-700 px-3 py-1.5 rounded-lg text-sm font-medium border border-red-100">
-                    <AlertCircle size={16}/> {overdueCount} Overdue
+                {overdueCount > 0 && (
+                    <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+                        <span className="text-xs text-red-600 font-medium">Overdue</span>
+                        <span className="text-sm font-bold text-red-800">{overdueCount}</span>
+                    </div>
+                )}
+                <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5">
+                    <span className="text-xs text-blue-600 font-medium">Pending</span>
+                    <span className="text-sm font-bold text-blue-800">{pendingCount}</span>
                 </div>
                 <button
                     onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all text-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap"
                 >
-                    <Plus size={16}/> New Task
+                    <Plus size={16} /> New Task
                 </button>
             </div>
         );
         return () => setHeaderActions(null);
-    }, [overdueCount, setHeaderActions]);
+    }, [overdueCount, pendingCount, setHeaderActions]);
+
+    // Filtered tasks with date filter
+    const displayTasks = (tasks || [])
+        .filter(t => {
+            if (searchTerm) {
+                const s = searchTerm.toLowerCase();
+                if (!t.title.toLowerCase().includes(s) && !(t.policyNumber || '').toLowerCase().includes(s)) return false;
+            }
+            if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
+            // Date filter on dueDate
+            if (dateFrom || dateTo) {
+                const due = t.dueDate ? t.dueDate.slice(0, 10) : '';
+                if (dateFrom && due < toISODateString(dateFrom)!) return false;
+                if (dateTo && due > toISODateString(dateTo)!) return false;
+            }
+            return true;
+        });
 
     return (
-        <div className="space-y-6 pb-20">
-            {/* Filters */}
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="flex bg-gray-100 p-1 rounded-lg shrink-0 overflow-x-auto">
-                    {(['ALL', 'PENDING', 'IN_PROGRESS', 'COMPLETED'] as const).map(status => (
-                        <button
-                            key={status}
-                            onClick={() => handleStatusFilterChange(status)}
-                            className={`px-4 py-1.5 text-xs font-bold uppercase rounded-md transition-all whitespace-nowrap ${
-                                statusFilter === status ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                        >
-                            {status.replace('_', ' ')}
-                        </button>
-                    ))}
-                </div>
-                
-                <div className="relative w-full md:w-64">
-                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <input 
-                        type="text" 
-                        placeholder="Search tasks..." 
-                        className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        value={searchTerm}
-                        onChange={e => setSearchTerm(e.target.value)}
-                    />
+        <div className="pb-20">
+            {/* Sticky filter bar */}
+            <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
+            <div className="bg-white rounded-xl border border-slate-200 p-3">
+                <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[200px]">
+                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent focus:bg-white text-gray-900 placeholder-gray-400 shadow-sm transition-all hover:shadow-md"
+                        />
+                    </div>
+
+                    {/* Status Filter */}
+                    <select
+                        value={statusFilter}
+                        onChange={(e) => handleStatusFilterChange(e.target.value as any)}
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                    >
+                        <option value="ALL">All Statuses</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="IN_PROGRESS">In Progress</option>
+                        <option value="COMPLETED">Completed</option>
+                    </select>
+
+                    {/* Priority Filter */}
+                    <select
+                        value={priorityFilter}
+                        onChange={(e) => setPriorityFilter(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-700"
+                    >
+                        <option value="all">All Priorities</option>
+                        <option value="URGENT">Urgent</option>
+                        <option value="HIGH">High</option>
+                        <option value="MEDIUM">Medium</option>
+                        <option value="LOW">Low</option>
+                    </select>
+
+                    {/* Date Filter */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0" style={{ width: '280px' }}>
+                        <span className="text-xs text-gray-500 font-medium whitespace-nowrap">Due Date</span>
+                        <CompactDateFilter
+                            value={dateFrom}
+                            onChange={(d) => setDateFrom(d)}
+                            placeholder="From"
+                        />
+                        <CompactDateFilter
+                            value={dateTo}
+                            onChange={(d) => setDateTo(d)}
+                            placeholder="To"
+                        />
+                    </div>
+
+                    {/* Refresh */}
+                    <button
+                        onClick={() => refetch()}
+                        className="p-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors"
+                        title="Refresh"
+                    >
+                        <RefreshCw size={16} className={isLoading ? 'animate-spin text-blue-600' : 'text-slate-600'} />
+                    </button>
                 </div>
             </div>
+            </div>{/* end sticky filter bar */}
 
             {/* Task List */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden mt-4">
                 {isLoading ? (
                     <div className="p-12 text-center text-gray-500">Loading agenda...</div>
-                ) : tasks?.length === 0 ? (
+                ) : displayTasks.length === 0 ? (
                     <div className="p-12 text-center text-gray-400 flex flex-col items-center">
                         <CheckCircle size={48} className="mb-4 text-green-100"/>
                         <p className="text-lg font-medium text-gray-600">All caught up!</p>
@@ -142,7 +212,7 @@ const Agenda: React.FC = () => {
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100">
-                        {tasks?.filter(t => t.title.toLowerCase().includes(searchTerm.toLowerCase())).map(task => (
+                        {displayTasks.map(task => (
                             <div 
                                 key={task.id}
                                 onClick={() => handleTaskClick(task)}
