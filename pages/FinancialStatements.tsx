@@ -163,40 +163,41 @@ const FinancialStatements: React.FC = () => {
     exportToExcel(rows, `Technical_Account_PL_${new Date().toISOString().split('T')[0]}`, 'Technical Account');
   };
 
+  // Period selector + Export + Refresh in page header
   useEffect(() => {
     setHeaderActions(
       <div className="flex items-center gap-2">
-        <button onClick={handleExport} disabled={loading || !data}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm disabled:opacity-50">
-          <Download size={14} /> Export
-        </button>
-        <button onClick={refetch} disabled={loading}
-          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50" title="Refresh">
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value)}
+          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+        >
+          <option value="current_year">Current Year</option>
+          <option value="last_12">Last 12 Months</option>
+          <option value="all">All Time</option>
+        </select>
+        <button
+          onClick={() => refetch()}
+          disabled={loading}
+          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50"
+          title="Refresh"
+        >
           <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+        <button
+          onClick={handleExport}
+          disabled={!data}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={16} /> Export
         </button>
       </div>
     );
     return () => setHeaderActions(null);
-  }, [loading, data, setHeaderActions]);
+  }, [data, loading, period, setHeaderActions]);
 
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Filter Bar */}
-      <div className="sticky top-0 z-30 bg-gray-50 mb-4">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
-          <div className="flex items-center gap-3">
-            <select
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-            >
-              <option value="current_year">Current Year</option>
-              <option value="last_12">Last 12 Months</option>
-              <option value="all">All Time</option>
-            </select>
-          </div>
-        </div>
-      </div>
 
       {loading && !data ? (
         <div className="flex items-center justify-center h-64">
