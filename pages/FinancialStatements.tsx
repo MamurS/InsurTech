@@ -69,7 +69,7 @@ const SectionHeader: React.FC<{ title: string }> = ({ title }) => (
 
 const FinancialStatements: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
   const [period, setPeriod] = useState('all');
   const [ibnrTotal, setIbnrTotal] = useState(0);
 
@@ -193,8 +193,8 @@ const FinancialStatements: React.FC = () => {
         </button>
       </div>
     );
-    return () => setHeaderActions(null);
-  }, [data, loading, period, setHeaderActions]);
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [data, loading, period, setHeaderActions, setHeaderLeft]);
 
   return (
     <div className="max-w-3xl mx-auto">

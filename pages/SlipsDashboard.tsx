@@ -36,7 +36,7 @@ const getDisplaySlipNumber = (slip: ReinsuranceSlip): string => {
 };
 
 const SlipsDashboard: React.FC = () => {
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
   const [slips, setSlips] = useState<ReinsuranceSlip[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
@@ -271,8 +271,8 @@ const SlipsDashboard: React.FC = () => {
         <Download size={16} /> Export
       </button>
     );
-    return () => setHeaderActions(null);
-  }, [sortedSlips, setHeaderActions]);
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [sortedSlips, setHeaderActions, setHeaderLeft]);
 
   const formatMoney = (amount: number | undefined, currency: string | undefined) => {
     if (amount === undefined || amount === null) return '-';

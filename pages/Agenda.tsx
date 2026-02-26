@@ -22,7 +22,7 @@ const Agenda: React.FC = () => {
     const navigate = useNavigate();
     const { user } = useAuth();
     const queryClient = useQueryClient();
-    const { setHeaderActions } = usePageHeader();
+    const { setHeaderActions, setHeaderLeft } = usePageHeader();
     const filterRef = useRef<HTMLDivElement>(null);
     
     const [statusFilter, setStatusFilter] = useState<'ALL' | TaskStatus>('PENDING');
@@ -88,10 +88,10 @@ const Agenda: React.FC = () => {
     const pendingCount = tasks?.filter(t => t.status === 'PENDING').length || 0;
     const overdueCount = tasks?.filter(t => t.isOverdue).length || 0;
 
-    // Header actions
+    // Header: stats badges left, action button right
     useEffect(() => {
-        setHeaderActions(
-            <div className="flex items-center gap-2">
+        setHeaderLeft(
+            <>
                 {overdueCount > 0 && (
                     <div className="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
                         <span className="text-xs text-red-600 font-medium">Overdue</span>
@@ -102,16 +102,18 @@ const Agenda: React.FC = () => {
                     <span className="text-xs text-blue-600 font-medium">Pending</span>
                     <span className="text-sm font-bold text-blue-800">{pendingCount}</span>
                 </div>
-                <button
-                    onClick={() => setShowCreateModal(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap"
-                >
-                    <Plus size={16} /> New Task
-                </button>
-            </div>
+            </>
         );
-        return () => setHeaderActions(null);
-    }, [overdueCount, pendingCount, setHeaderActions]);
+        setHeaderActions(
+            <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap"
+            >
+                <Plus size={16} /> New Task
+            </button>
+        );
+        return () => { setHeaderActions(null); setHeaderLeft(null); };
+    }, [overdueCount, pendingCount, setHeaderActions, setHeaderLeft]);
 
     // Filtered tasks with date filter
     const displayTasks = (tasks || [])

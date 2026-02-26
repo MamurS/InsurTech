@@ -776,7 +776,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ agreements, bdxGwpMap, 
 
 const MGADashboard: React.FC = () => {
   const toast = useToast();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
 
   // Page-level tab
   const [activePageTab, setActivePageTab] = useState<'agreements' | 'performance'>('agreements');
@@ -1008,8 +1008,8 @@ const MGADashboard: React.FC = () => {
         </button>
       </div>
     );
-    return () => setHeaderActions(null);
-  }, [exporting, filteredAgreements.length, setHeaderActions]);
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [exporting, filteredAgreements.length, setHeaderActions, setHeaderLeft]);
 
   // ─── Delete handler ───────────────────────────────────
   const handleDelete = async (id: string) => {

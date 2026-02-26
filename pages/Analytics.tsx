@@ -181,7 +181,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, children, loadin
 
 const Analytics: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
-  const { setHeaderActions } = usePageHeader();
+  const { setHeaderActions, setHeaderLeft } = usePageHeader();
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('total');
 
   // Get the currently selected channel's metrics
@@ -307,8 +307,8 @@ const Analytics: React.FC = () => {
         </button>
       </div>
     );
-    return () => setHeaderActions(null);
-  }, [data, loading, setHeaderActions]);
+    return () => { setHeaderActions(null); setHeaderLeft(null); };
+  }, [data, loading, setHeaderActions, setHeaderLeft]);
 
   if (error) {
     return (
