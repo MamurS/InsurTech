@@ -89,7 +89,9 @@ const AppRoutes = () => {
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/financial-statements" element={<FinancialStatements />} />
               <Route path="/risk-accumulation" element={<RiskAccumulation />} />
-              <Route path="/ibnr" element={<IBNREstimation />} />
+              <Route path="/ibnr" element={<Navigate to="/ibnr/manual" replace />} />
+              <Route path="/ibnr/manual" element={<IBNREstimation />} />
+              <Route path="/ibnr/bf-method" element={<IBNREstimation />} />
               <Route path="/regulatory" element={<RegulatoryReporting />} />
               <Route path="/new" element={<PolicyForm />} />
               <Route path="/edit/:id" element={<PolicyForm />} />

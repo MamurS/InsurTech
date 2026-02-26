@@ -9,7 +9,7 @@ import {
   LayoutDashboard, FileText, Settings,
   FileSpreadsheet, Lock, PanelLeftClose, PanelLeftOpen,
   LogOut, User as UserIcon, Building2, AlertOctagon, ClipboardList,
-  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt, Shield, Calculator, FileCheck
+  ChevronDown, ChevronRight, ChevronUp, ArrowDownRight, Globe, Home, BarChart3, Briefcase, FileSignature, Receipt, Shield, Calculator, FileCheck, TrendingUp
 } from 'lucide-react';
 import { MosaicLogo } from './MosaicLogo';
 import EnvironmentBadge from './EnvironmentBadge';
@@ -28,7 +28,7 @@ const routeGroups: Record<string, string[]> = {
   '/analytics': ['/analytics'],
   '/financial-statements': ['/financial-statements'],
   '/risk-accumulation': ['/risk-accumulation'],
-  '/ibnr': ['/ibnr'],
+  '/ibnr': ['/ibnr', '/ibnr/manual', '/ibnr/bf-method'],
   '/regulatory': ['/regulatory'],
   '/slips': ['/slips', '/slip'],
   '/claims': ['/claims', '/claim'],
@@ -48,6 +48,8 @@ const getPageTitle = (pathname: string): string => {
   if (pathname.startsWith('/analytics')) return 'Analytics';
   if (pathname.startsWith('/financial')) return 'Technical Account';
   if (pathname.startsWith('/risk-accumulation')) return 'Risk Accumulation';
+  if (pathname.includes('/ibnr/manual')) return 'IBNR — Manual Entry';
+  if (pathname.includes('/ibnr/bf-method')) return 'IBNR — BF Method';
   if (pathname.startsWith('/ibnr')) return 'IBNR Estimation';
   if (pathname.startsWith('/regulatory')) return 'Regulatory Reporting';
   if (pathname.startsWith('/slips') || pathname.startsWith('/slip')) return 'Slips';
@@ -69,6 +71,9 @@ const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isInwardReinsuranceOpen, setIsInwardReinsuranceOpen] = useState(
     location.pathname.includes('/inward-reinsurance')
+  );
+  const [isIbnrOpen, setIsIbnrOpen] = useState(
+    location.pathname.includes('/ibnr')
   );
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [sessionTimeoutMs, setSessionTimeoutMs] = useState(30 * 60 * 1000);
@@ -277,14 +282,70 @@ const LayoutInner: React.FC<LayoutProps> = ({ children }) => {
             <span>Risk Accumulation</span>
           </Link>
 
-          <Link
-            to="/ibnr"
-            className={getLinkClass('/ibnr')}
-            title="IBNR Estimation"
-          >
-            <Calculator size={20} className="flex-shrink-0" />
-            <span>IBNR Estimation</span>
-          </Link>
+          {/* IBNR Estimation Collapsible Section */}
+          <div className="pt-2">
+            <div
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors whitespace-nowrap ${
+                location.pathname.includes('/ibnr')
+                  ? 'bg-blue-600/20 text-blue-300'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              <Link
+                to="/ibnr/manual"
+                onClick={() => setIsIbnrOpen(true)}
+                className="flex items-center gap-3 flex-1"
+                title="IBNR Estimation"
+              >
+                <Calculator size={20} className="flex-shrink-0" />
+                <span className="text-left">IBNR Estimation</span>
+              </Link>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsIbnrOpen(!isIbnrOpen);
+                }}
+                className="p-1 hover:bg-slate-700 rounded transition-colors"
+                title={isIbnrOpen ? "Collapse" : "Expand"}
+              >
+                {isIbnrOpen ? (
+                  <ChevronDown size={16} className="flex-shrink-0" />
+                ) : (
+                  <ChevronRight size={16} className="flex-shrink-0" />
+                )}
+              </button>
+            </div>
+
+            {/* Nested Links */}
+            {isIbnrOpen && (
+              <div className="ml-4 mt-1 space-y-1 border-l-2 border-slate-700 pl-2">
+                <Link
+                  to="/ibnr/manual"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm whitespace-nowrap ${
+                    location.pathname.includes('/ibnr/manual') || (location.pathname === '/ibnr' && !location.pathname.includes('/bf-method'))
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                  title="Manual Entry"
+                >
+                  <FileText size={16} className="flex-shrink-0" />
+                  <span>Manual Entry</span>
+                </Link>
+                <Link
+                  to="/ibnr/bf-method"
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm whitespace-nowrap ${
+                    location.pathname.includes('/ibnr/bf-method')
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                  }`}
+                  title="BF Method"
+                >
+                  <TrendingUp size={16} className="flex-shrink-0" />
+                  <span>BF Method</span>
+                </Link>
+              </div>
+            )}
+          </div>
 
           <Link
             to="/regulatory"

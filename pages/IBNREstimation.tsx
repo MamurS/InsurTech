@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useLocation } from 'react-router-dom';
 import { RefreshCw, Download, AlertCircle, Save, Calculator } from 'lucide-react';
 import { useAnalyticsSummary, LossRatioData } from '../hooks/useAnalytics';
 import { DB } from '../services/db';
@@ -48,8 +49,9 @@ const IBNREstimation: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const toast = useToast();
   const { setHeaderActions } = usePageHeader();
+  const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState<TabKey>('manual');
+  const activeTab: TabKey = location.pathname.includes('/bf-method') ? 'bf' : 'manual';
   const [ibnrValues, setIbnrValues] = useState<Record<string, number>>({});
   const [bfParams, setBfParams] = useState<Record<string, { elr: number; devFactor: number }>>({});
   const [saving, setSaving] = useState(false);
@@ -221,25 +223,6 @@ const IBNREstimation: React.FC = () => {
     const lrValue = ultimateLossRatio > 80 ? 'text-red-800' : ultimateLossRatio > 60 ? 'text-amber-800' : 'text-emerald-800';
     setHeaderActions(
       <div className="flex items-center gap-2">
-        {/* Tab Selector */}
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden mr-2">
-          <button
-            onClick={() => setActiveTab('manual')}
-            className={`px-4 py-1.5 text-xs font-medium transition-colors border-r border-slate-300 ${
-              activeTab === 'manual' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            Manual Entry
-          </button>
-          <button
-            onClick={() => setActiveTab('bf')}
-            className={`px-4 py-1.5 text-xs font-medium transition-colors ${
-              activeTab === 'bf' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            BF Method
-          </button>
-        </div>
         <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
           <span className="text-xs text-amber-600 font-medium">IBNR</span>
           <span className="text-sm font-bold text-amber-800">{loading ? '…' : fmtCompact(totalIbnr)}</span>
@@ -266,7 +249,7 @@ const IBNREstimation: React.FC = () => {
       </div>
     );
     return () => setHeaderActions(null);
-  }, [data, loading, activeTab, totalIbnr, totalReported, totalIncAll, ultimateLossRatio, setHeaderActions]);
+  }, [data, loading, totalIbnr, totalReported, totalIncAll, ultimateLossRatio, setHeaderActions]);
 
   // ── Error state ──────────────────────────────────────────────
 
