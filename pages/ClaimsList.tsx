@@ -127,15 +127,23 @@ const ClaimsList: React.FC = () => {
     exportToExcel(exportData, `Claims_${new Date().toISOString().split('T')[0]}`, 'Claims');
   };
 
-  // Export button in page header
+  // Header actions: Export + Register Claim
   useEffect(() => {
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+        >
+          <Download size={16} /> Export
+        </button>
+        <button
+          onClick={() => setShowRegisterModal(true)}
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
+        >
+          <Plus size={16} /> Register Claim
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
   }, [claims, setHeaderActions]);
@@ -201,15 +209,6 @@ const ClaimsList: React.FC = () => {
             <RefreshCw size={14}/>
           </button>
 
-          <div className="w-px h-6 bg-gray-300" />
-
-          {/* Register Claim Button */}
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
-          >
-            <Plus size={16} /> Register Claim
-          </button>
         </div>
       </div>
       </div>{/* end sticky filter bar */}

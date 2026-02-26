@@ -3,6 +3,7 @@ import { RefreshCw, Download, AlertCircle } from 'lucide-react';
 import { useAnalyticsSummary } from '../hooks/useAnalytics';
 import { DB } from '../services/db';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -70,6 +71,7 @@ const FinancialStatements: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const [period, setPeriod] = useState('all');
   const [ibnrTotal, setIbnrTotal] = useState(0);
+  const { setHeaderActions } = usePageHeader();
 
   useEffect(() => {
     DB.getSetting('ibnr_estimates').then(raw => {
@@ -161,40 +163,38 @@ const FinancialStatements: React.FC = () => {
     exportToExcel(rows, `Technical_Account_PL_${new Date().toISOString().split('T')[0]}`, 'Technical Account');
   };
 
+  useEffect(() => {
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <button onClick={handleExport} disabled={loading || !data}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm disabled:opacity-50">
+          <Download size={14} /> Export
+        </button>
+        <button onClick={refetch} disabled={loading}
+          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50" title="Refresh">
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [loading, data, setHeaderActions]);
+
   return (
     <div className="max-w-3xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">Technical Account</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Profit & Loss Statement</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
-          >
-            <option value="current_year">Current Year</option>
-            <option value="last_12">Last 12 Months</option>
-            <option value="all">All Time</option>
-          </select>
-          <button
-            onClick={handleExport}
-            disabled={!data}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Export to Excel
-          </button>
-          <button
-            onClick={refetch}
-            disabled={loading}
-            className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
-          </button>
+      {/* Filter Bar */}
+      <div className="sticky top-0 z-30 bg-gray-50 mb-4">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+          <div className="flex items-center gap-3">
+            <select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+            >
+              <option value="current_year">Current Year</option>
+              <option value="last_12">Last 12 Months</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
         </div>
       </div>
 

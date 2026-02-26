@@ -4,6 +4,7 @@ import { useAnalyticsSummary, LossRatioData } from '../hooks/useAnalytics';
 import { DB } from '../services/db';
 import { useToast } from '../context/ToastContext';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -46,6 +47,7 @@ const formatPercent = (value: number): string => `${value.toFixed(1)}%`;
 const IBNREstimation: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   const [activeTab, setActiveTab] = useState<TabKey>('manual');
   const [ibnrValues, setIbnrValues] = useState<Record<string, number>>({});
@@ -160,7 +162,7 @@ const IBNREstimation: React.FC = () => {
 
   // ── Export ────────────────────────────────────────────────────
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
     if (activeTab === 'manual') {
       const rows = manualRows.map(r => ({
         'Class': r.class,
@@ -204,7 +206,23 @@ const IBNREstimation: React.FC = () => {
       });
       exportToExcel(rows, `IBNR_BF_${new Date().toISOString().split('T')[0]}`, 'IBNR BF Method');
     }
-  };
+  }, [activeTab, manualRows, bfRows, totalIbnrManual, totalIbnrBF, ultimateLossRatio]);
+
+  useEffect(() => {
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <button onClick={handleExport} disabled={loading || classData.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm disabled:opacity-50">
+          <Download size={14} /> Export
+        </button>
+        <button onClick={refetch} disabled={loading}
+          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50" title="Refresh">
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [loading, classData.length, setHeaderActions]);
 
   // ── Error state ──────────────────────────────────────────────
 
@@ -232,32 +250,6 @@ const IBNREstimation: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900">IBNR Estimation</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Incurred But Not Reported reserves</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handleExport}
-            disabled={loading || classData.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Download size={14} />
-            Export to Excel
-          </button>
-          <button
-            onClick={refetch}
-            disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm">
@@ -284,21 +276,17 @@ const IBNREstimation: React.FC = () => {
         </div>
       </div>
 
-      {/* Tab Selector */}
-      <div className="flex rounded-lg border border-slate-300 overflow-hidden w-fit">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-5 py-2 text-sm font-medium transition-colors border-r last:border-r-0 border-slate-300 ${
-              activeTab === tab.key
-                ? 'bg-blue-600 text-white'
-                : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Filter Bar */}
+      <div className="sticky top-0 z-30 bg-gray-50">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-3">
+          <div className="flex items-center gap-3">
+            <select value={activeTab} onChange={(e) => setActiveTab(e.target.value as TabKey)}
+              className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+              <option value="manual">Manual Entry</option>
+              <option value="bf">BF Method</option>
+            </select>
+          </div>
+        </div>
       </div>
 
       {/* Loading */}

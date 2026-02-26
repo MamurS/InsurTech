@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area,
   ComposedChart,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAnalyticsSummary, ChannelType, ChannelMetrics, MGAMetrics } from '../hooks/useAnalytics';
 import { exportToExcel } from '../services/excelExport';
+import { usePageHeader } from '../context/PageHeaderContext';
 
 // =============================================
 // HELPER FUNCTIONS
@@ -180,6 +181,7 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, subtitle, children, loadin
 
 const Analytics: React.FC = () => {
   const { data, loading, error, refetch } = useAnalyticsSummary();
+  const { setHeaderActions } = usePageHeader();
   const [selectedChannel, setSelectedChannel] = useState<ChannelType>('total');
 
   // Get the currently selected channel's metrics
@@ -283,6 +285,31 @@ const Analytics: React.FC = () => {
     exportToExcel(rows, `Analytics_Summary_${new Date().toISOString().split('T')[0]}`, 'Analytics');
   };
 
+  // Header actions
+  useEffect(() => {
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          disabled={!data}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <Download size={14} />
+          Export
+        </button>
+        <button
+          onClick={refetch}
+          disabled={loading}
+          className="p-2 text-slate-500 hover:bg-slate-100 rounded-lg disabled:opacity-50"
+          title="Refresh"
+        >
+          <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [data, loading, setHeaderActions]);
+
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -303,26 +330,6 @@ const Analytics: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Action Buttons */}
-      <div className="flex justify-end gap-3">
-        <button
-          onClick={handleExport}
-          disabled={!data}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs font-semibold rounded-lg hover:from-green-700 hover:to-emerald-700 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Download size={14} />
-          Export to Excel
-        </button>
-        <button
-          onClick={refetch}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
-
       {/* Channel Selector Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {data && (

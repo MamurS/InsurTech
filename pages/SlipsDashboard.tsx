@@ -262,15 +262,23 @@ const SlipsDashboard: React.FC = () => {
     exportToExcel(exportData, `Reinsurance_Slips_${new Date().toISOString().split('T')[0]}`, 'Slips');
   };
 
-  // Export button in page header
+  // Header actions: Export + New Slip
   useEffect(() => {
     setHeaderActions(
-      <button
-        onClick={handleExport}
-        className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
-      >
-        <Download size={16} /> Export
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm transition-all whitespace-nowrap"
+        >
+          <Download size={16} /> Export
+        </button>
+        <button
+          onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
+          className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
+        >
+          <Plus size={16} /> New Slip
+        </button>
+      </div>
     );
     return () => setHeaderActions(null);
   }, [sortedSlips, setHeaderActions]);
@@ -338,22 +346,16 @@ const SlipsDashboard: React.FC = () => {
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
       <div className="bg-white p-3 rounded-xl shadow-sm border border-gray-200">
         <div className="flex flex-wrap items-center gap-3 min-h-[48px] overflow-visible">
-          {/* Status Tabs - Compact */}
-          <div className="flex bg-gray-100 p-0.5 rounded-lg overflow-x-auto">
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+          >
             {slipStatusTabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setStatusFilter(tab.key)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all whitespace-nowrap ${
-                  statusFilter === tab.key
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                {tab.label}
-              </button>
+              <option key={tab.key} value={tab.key}>{tab.label}</option>
             ))}
-          </div>
+          </select>
 
           <div className="w-px h-6 bg-gray-300" />
 
@@ -392,16 +394,6 @@ const SlipsDashboard: React.FC = () => {
           />
           </div>
 
-          <div className="w-px h-6 bg-gray-300" />
-
-          {/* New Slip Button */}
-          <button
-            type="button"
-            onClick={() => { setEditingSlipId(null); setShowSlipModal(true); }}
-            className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg font-semibold transition-all text-sm shadow-sm whitespace-nowrap"
-          >
-            <Plus size={16} /> New Slip
-          </button>
         </div>
       </div>
       </div>{/* end sticky filter bar */}

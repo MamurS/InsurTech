@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { exportToExcel } from '../services/excelExport';
 import { parseBordereaux, ParsedBordereaux } from '../utils/bordereauParser';
+import { usePageHeader } from '../context/PageHeaderContext';
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, Cell, ReferenceLine
@@ -773,6 +774,7 @@ const PerformanceTab: React.FC<PerformanceTabProps> = ({ agreements, bdxGwpMap, 
 
 const MGADashboard: React.FC = () => {
   const toast = useToast();
+  const { setHeaderActions } = usePageHeader();
 
   // Page-level tab
   const [activePageTab, setActivePageTab] = useState<'agreements' | 'performance'>('agreements');
@@ -982,6 +984,19 @@ const MGADashboard: React.FC = () => {
     finally { setExporting(false); }
   };
 
+  useEffect(() => {
+    setHeaderActions(
+      <div className="flex items-center gap-2">
+        <button onClick={handleExport} disabled={exporting || filteredAgreements.length === 0}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
+          <Download size={14} />
+          Export
+        </button>
+      </div>
+    );
+    return () => setHeaderActions(null);
+  }, [exporting, filteredAgreements.length, setHeaderActions]);
+
   // ─── Delete handler ───────────────────────────────────
   const handleDelete = async (id: string) => {
     if (!window.confirm('Delete this agreement? This cannot be undone.')) return;
@@ -996,28 +1011,6 @@ const MGADashboard: React.FC = () => {
   // ─── Render ───────────────────────────────────────────
   return (
     <div>
-      {/* Page-level Tab Selector */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
-          <button
-            onClick={() => setActivePageTab('agreements')}
-            className={`px-5 py-2 text-sm font-medium transition-colors border-r border-slate-300 ${
-              activePageTab === 'agreements' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            Agreements
-          </button>
-          <button
-            onClick={() => setActivePageTab('performance')}
-            className={`px-5 py-2 text-sm font-medium transition-colors ${
-              activePageTab === 'performance' ? 'bg-blue-600 text-white' : 'bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            Performance
-          </button>
-        </div>
-      </div>
-
       {/* Performance Tab */}
       {activePageTab === 'performance' && (
         <PerformanceTab
@@ -1065,6 +1058,13 @@ const MGADashboard: React.FC = () => {
       {/* Sticky Filter Bar */}
       <div ref={filterRef} className="sticky top-0 z-30 bg-gray-50">
         <div className="flex items-center gap-2 p-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+          {/* Tab Selector */}
+          <select value={activePageTab} onChange={(e) => setActivePageTab(e.target.value as 'agreements' | 'performance')}
+            className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm w-40 bg-white focus:ring-2 focus:ring-blue-500 outline-none font-medium">
+            <option value="agreements">Agreements</option>
+            <option value="performance">Performance</option>
+          </select>
+
           {/* Search */}
           <div className="relative flex-1 min-w-[120px]">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -1096,13 +1096,6 @@ const MGADashboard: React.FC = () => {
           {/* Refresh */}
           <button onClick={loadData} className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg" title="Refresh">
             <RefreshCw size={16} className={loading ? 'animate-spin text-blue-600' : ''} />
-          </button>
-
-          {/* Export */}
-          <button onClick={handleExport} disabled={exporting || filteredAgreements.length === 0}
-            className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-sm font-medium rounded-lg hover:from-green-600 hover:to-emerald-700 shadow-sm whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed">
-            <Download size={14} />
-            Export
           </button>
 
           {/* New Agreement */}
