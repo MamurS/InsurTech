@@ -4,7 +4,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { DB } from '../services/db';
 import { LegalEntity } from '../types';
 import { Save, ArrowLeft, Building2, Landmark, MapPin, Users } from 'lucide-react';
-import { SIC_CODES, formatSICDisplay } from '../data/sicCodes';
+import { SICCodePicker } from '../components/SICCodePicker';
+import { formatSICDisplay } from '../data/sicCodes';
 
 const EntityForm: React.FC = () => {
   const { id } = useParams();
@@ -12,9 +13,6 @@ const EntityForm: React.FC = () => {
   const isEdit = Boolean(id);
 
   const [loading, setLoading] = useState(true);
-  const [lobSearch, setLobSearch] = useState('');
-  const [lobDropdownOpen, setLobDropdownOpen] = useState(false);
-  const lobWrapperRef = React.useRef<HTMLDivElement>(null);
   
   const [formData, setFormData] = useState<LegalEntity>({
     id: crypto.randomUUID(),
@@ -61,54 +59,6 @@ const EntityForm: React.FC = () => {
       e.preventDefault();
       await DB.saveLegalEntity(formData);
       navigate('/entities');
-  };
-
-  // Close LOB dropdown on click outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (lobWrapperRef.current && !lobWrapperRef.current.contains(event.target as Node)) {
-        setLobDropdownOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Initialize lobSearch from existing data when editing
-  useEffect(() => {
-    if (formData.sicCode) {
-      setLobSearch(formatSICDisplay(formData.sicCode));
-    }
-  }, [formData.sicCode]);
-
-  // Filter SIC codes by search term
-  const filteredLobCodes = React.useMemo(() => {
-    if (!lobSearch.trim()) return [];
-    const q = lobSearch.toLowerCase();
-    return SIC_CODES.filter(c =>
-      c.code.includes(q) || c.description.toLowerCase().includes(q)
-    ).slice(0, 15);
-  }, [lobSearch]);
-
-  const handleLobSelect = (code: string, section: string) => {
-    setFormData(prev => ({
-      ...prev,
-      sicCode: code,
-      sicSection: section,
-      lineOfBusiness: formatSICDisplay(code)
-    }));
-    setLobSearch(formatSICDisplay(code));
-    setLobDropdownOpen(false);
-  };
-
-  const handleLobClear = () => {
-    setFormData(prev => ({
-      ...prev,
-      sicCode: '',
-      sicSection: '',
-      lineOfBusiness: ''
-    }));
-    setLobSearch('');
   };
 
   if (loading) return <div>Loading...</div>;
@@ -246,66 +196,22 @@ const EntityForm: React.FC = () => {
                         <label className={labelClass}>Director Name</label>
                         <input type="text" name="directorName" value={formData.directorName} onChange={handleChange} className={inputClass}/>
                     </div>
-                    <div ref={lobWrapperRef} className="relative">
-                        <label className={labelClass}>Line of Business</label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={lobSearch}
-                            onChange={(e) => {
-                              setLobSearch(e.target.value);
-                              setLobDropdownOpen(true);
-                              // Clear selection when user edits the text
-                              if (formData.sicCode) {
-                                setFormData(prev => ({
-                                  ...prev,
-                                  sicCode: '',
-                                  sicSection: '',
-                                  lineOfBusiness: ''
-                                }));
-                              }
-                            }}
-                            onFocus={() => {
-                              if (lobSearch.trim()) setLobDropdownOpen(true);
-                            }}
-                            className={inputClass}
-                            placeholder="Type to search industry (e.g. insurance, retail, construction)..."
-                            autoComplete="off"
-                          />
-                          {formData.sicCode && (
-                            <button
-                              type="button"
-                              onClick={handleLobClear}
-                              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 hover:bg-gray-100 rounded text-gray-400 hover:text-gray-600"
-                            >
-                              <span className="text-lg leading-none">&times;</span>
-                            </button>
-                          )}
-                        </div>
-                        {!formData.sicCode && lobSearch.trim() && (
-                          <p className="text-xs text-amber-500 mt-1">Please select an industry from the dropdown</p>
-                        )}
-                        {lobDropdownOpen && lobSearch.trim() && (
-                          <div className="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-[280px] overflow-y-auto">
-                            {filteredLobCodes.length > 0 ? (
-                              filteredLobCodes.map(c => (
-                                <button
-                                  key={c.code}
-                                  type="button"
-                                  onClick={() => handleLobSelect(c.code, c.section)}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 border-b border-gray-50 last:border-0 text-gray-700"
-                                >
-                                  <span className="font-mono text-xs text-gray-400 mr-2">{c.code}</span>
-                                  {c.description}
-                                </button>
-                              ))
-                            ) : (
-                              <div className="px-3 py-4 text-sm text-gray-400 text-center">
-                                No industries matching &ldquo;{lobSearch}&rdquo;
-                              </div>
-                            )}
-                          </div>
-                        )}
+                    <div>
+                        <label className={labelClass}>Line of Business (SIC 2007)</label>
+                        <SICCodePicker
+                          sicCode={formData.sicCode || ''}
+                          sicSection={formData.sicSection || ''}
+                          onChange={(code, section) => setFormData(prev => ({
+                            ...prev,
+                            sicCode: code,
+                            sicSection: section,
+                            lineOfBusiness: code ? formatSICDisplay(code) : ''
+                          }))}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">
+                          International industry classification —
+                          <a href="https://resources.companieshouse.gov.uk/sic/" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline ml-1">SIC 2007 reference</a>
+                        </p>
                     </div>
                     <div>
                         <label className={labelClass}>Shareholders (Text Description)</label>
